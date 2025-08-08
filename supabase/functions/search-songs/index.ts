@@ -21,17 +21,17 @@ interface GoogleSearchResponse {
 const fallbackSongs = [
   {
     title: "Sikuru Liya - Traditional Sinhala Song",
-    link: "https://i.imgur.com/placeholder1.jpg",
+    link: "https://picsum.photos/400/300?random=1",
     snippet: "Classic Sinhala folk song with traditional lyrics about golden leaves"
   },
   {
     title: "Sulage Pavi - Classic Sinhala",
-    link: "https://i.imgur.com/placeholder2.jpg", 
+    link: "https://picsum.photos/400/300?random=2", 
     snippet: "Popular Sinhala song with beautiful poetic lyrics"
   },
   {
     title: "Milton Perera Songs - Sinhala Classics",
-    link: "https://i.imgur.com/placeholder3.jpg",
+    link: "https://picsum.photos/400/300?random=3",
     snippet: "Collection of Milton Perera's greatest Sinhala hits"
   }
 ];
