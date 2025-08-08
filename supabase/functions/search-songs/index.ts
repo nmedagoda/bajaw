@@ -121,7 +121,9 @@ Final musical phrases`;
     imageUrl: null,
     searchSnippet: searchResult.snippet,
     originalUrl: searchResult.link,
-    lyrics: generateSampleLyrics(songTitle || `Song ${index + 1}`, artist)
+    lyrics: generateSampleLyrics(songTitle || `Song ${index + 1}`, artist),
+    lyricsImageUrl: Math.random() > 0.5 ? '/lovable-uploads/fa7b84ce-1981-49b5-89a7-75a6464deeae.png' : null,
+    lyricsLanguage: Math.random() > 0.5 ? 'Sinhala' : 'English'
   };
 }
 

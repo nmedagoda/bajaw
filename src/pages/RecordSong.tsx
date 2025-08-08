@@ -27,6 +27,8 @@ interface Song {
   searchSnippet?: string;
   originalUrl?: string;
   lyrics?: string;
+  lyricsImageUrl?: string | null;
+  lyricsLanguage?: string;
 }
 
 const RecordSong = () => {
@@ -382,7 +384,7 @@ const RecordSong = () => {
                 </div>
 
                 {/* Lyrics Display */}
-                {selectedSong && selectedSong.lyrics && (
+                {selectedSong && (selectedSong.lyrics || selectedSong.lyricsImageUrl) && (
                   <Card className="lg:sticky lg:top-4">
                     <CardHeader>
                       <CardTitle className="flex items-center gap-2 text-base">
@@ -391,13 +393,31 @@ const RecordSong = () => {
                       </CardTitle>
                       <CardDescription className="text-sm">
                         by {selectedSong.artist}
+                        {selectedSong.lyricsLanguage && (
+                          <Badge variant="outline" className="ml-2 text-xs">
+                            {selectedSong.lyricsLanguage}
+                          </Badge>
+                        )}
                       </CardDescription>
                     </CardHeader>
                     <CardContent>
                       <div className="border border-border rounded-lg p-4 bg-muted/20 max-h-80 overflow-y-auto">
-                        <pre className="text-sm leading-relaxed whitespace-pre-wrap font-mono text-muted-foreground">
-                          {selectedSong.lyrics}
-                        </pre>
+                        {selectedSong.lyricsImageUrl ? (
+                          <div className="space-y-3">
+                            <img 
+                              src={selectedSong.lyricsImageUrl} 
+                              alt={`Lyrics for ${selectedSong.title}`}
+                              className="w-full rounded border object-contain max-h-64"
+                            />
+                            <p className="text-xs text-muted-foreground">
+                              Lyrics image in {selectedSong.lyricsLanguage || 'original language'}
+                            </p>
+                          </div>
+                        ) : (
+                          <pre className="text-sm leading-relaxed whitespace-pre-wrap font-mono text-muted-foreground">
+                            {selectedSong.lyrics}
+                          </pre>
+                        )}
                       </div>
                       <p className="text-xs text-muted-foreground mt-2">
                         Note: This is sample lyrics structure. Real implementation would require proper licensing for copyrighted content.
