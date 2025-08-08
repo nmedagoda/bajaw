@@ -408,6 +408,21 @@ const RecordSong = () => {
                               src={selectedSong.lyricsImageUrl} 
                               alt={`Lyrics for ${selectedSong.title}`}
                               className="w-full rounded border object-contain max-h-64"
+                              onError={(e) => {
+                                console.error('Failed to load lyrics image:', selectedSong.lyricsImageUrl);
+                                const target = e.target as HTMLImageElement;
+                                target.style.display = 'none';
+                                const parent = target.parentElement;
+                                if (parent) {
+                                  parent.innerHTML = `
+                                    <div class="text-center py-8 text-muted-foreground">
+                                      <p>Unable to load lyrics image</p>
+                                      <p class="text-xs mt-2">URL: ${selectedSong.lyricsImageUrl}</p>
+                                    </div>
+                                  `;
+                                }
+                              }}
+                              crossOrigin="anonymous"
                             />
                             <p className="text-xs text-muted-foreground">
                               Lyrics image in {selectedSong.lyricsLanguage || 'original language'}

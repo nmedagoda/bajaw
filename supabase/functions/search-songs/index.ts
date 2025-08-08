@@ -62,9 +62,13 @@ async function searchGoogleForSongs(query: string): Promise<SearchResult[]> {
     
     if (data.items && data.items.length > 0) {
       for (const item of data.items) {
+        // Use the direct image link from Google Images
+        const imageUrl = item.link;
+        console.log(`Found image URL: ${imageUrl} for query: ${query}`);
+        
         results.push({
           title: item.title || `${query} - Sinhala Lyrics`,
-          link: item.link || item.image?.contextLink || '',
+          link: imageUrl,
           snippet: item.snippet || `Sinhala lyrics image for ${query}. Traditional Sri Lankan song with visual lyrics...`
         });
       }
