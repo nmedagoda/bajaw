@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Music, Mic, Users, Gavel } from 'lucide-react';
+import { Music, Mic, Users, Gavel, Check, X } from 'lucide-react';
 import { toast } from 'sonner';
 
 const Auth = () => {
@@ -47,8 +47,23 @@ const Auth = () => {
     setIsLoading(false);
   };
 
+  const passwordRequirements = {
+    minLength: signUpData.password.length >= 8,
+    hasUppercase: /[A-Z]/.test(signUpData.password),
+    hasLowercase: /[a-z]/.test(signUpData.password),
+    hasNumber: /\d/.test(signUpData.password),
+    hasSpecialChar: /[!@#$%^&*(),.?":{}|<>]/.test(signUpData.password),
+  };
+
+  const isPasswordValid = Object.values(passwordRequirements).every(Boolean);
+
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!isPasswordValid) {
+      toast.error('Please meet all password requirements');
+      return;
+    }
     
     if (signUpData.password !== signUpData.confirmPassword) {
       toast.error('Passwords do not match');
@@ -250,6 +265,33 @@ const Auth = () => {
                     onChange={(e) => setSignUpData({ ...signUpData, password: e.target.value })}
                     required
                   />
+                  {signUpData.password && (
+                    <div className="space-y-2 text-sm">
+                      <div className="text-muted-foreground font-medium">Password requirements:</div>
+                      <div className="space-y-1">
+                        <div className={`flex items-center gap-2 ${passwordRequirements.minLength ? 'text-green-600' : 'text-muted-foreground'}`}>
+                          {passwordRequirements.minLength ? <Check className="w-3 h-3" /> : <X className="w-3 h-3" />}
+                          At least 8 characters
+                        </div>
+                        <div className={`flex items-center gap-2 ${passwordRequirements.hasUppercase ? 'text-green-600' : 'text-muted-foreground'}`}>
+                          {passwordRequirements.hasUppercase ? <Check className="w-3 h-3" /> : <X className="w-3 h-3" />}
+                          One uppercase letter
+                        </div>
+                        <div className={`flex items-center gap-2 ${passwordRequirements.hasLowercase ? 'text-green-600' : 'text-muted-foreground'}`}>
+                          {passwordRequirements.hasLowercase ? <Check className="w-3 h-3" /> : <X className="w-3 h-3" />}
+                          One lowercase letter
+                        </div>
+                        <div className={`flex items-center gap-2 ${passwordRequirements.hasNumber ? 'text-green-600' : 'text-muted-foreground'}`}>
+                          {passwordRequirements.hasNumber ? <Check className="w-3 h-3" /> : <X className="w-3 h-3" />}
+                          One number
+                        </div>
+                        <div className={`flex items-center gap-2 ${passwordRequirements.hasSpecialChar ? 'text-green-600' : 'text-muted-foreground'}`}>
+                          {passwordRequirements.hasSpecialChar ? <Check className="w-3 h-3" /> : <X className="w-3 h-3" />}
+                          One special character
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
                 
                 <div className="space-y-2">
