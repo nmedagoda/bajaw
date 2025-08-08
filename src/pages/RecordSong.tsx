@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Music, Mic, Play, Pause, Square, Upload, Search, Timer, Volume2, Loader2, ExternalLink } from 'lucide-react';
+import { Music, Mic, Play, Pause, Square, Upload, Search, Timer, Volume2, Loader2, ExternalLink, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 
@@ -111,6 +111,14 @@ const RecordSong = () => {
   useEffect(() => {
     searchSongs('popular songs 2024');
   }, []);
+
+  // Clear search function
+  const clearSearch = () => {
+    setSearchQuery('');
+    setSongs([]);
+    setSearchTotal(0);
+    searchSongs('popular songs 2024');
+  };
 
   const getDifficultyColor = (difficulty: string) => {
     switch (difficulty) {
@@ -289,12 +297,24 @@ const RecordSong = () => {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex gap-2">
-                <Input
-                  placeholder="Search by song title, artist, or genre..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="flex-1"
-                />
+                <div className="relative flex-1">
+                  <Input
+                    placeholder="Search by song title, artist, or genre..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pr-8"
+                  />
+                  {searchQuery && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="absolute right-1 top-1/2 -translate-y-1/2 h-6 w-6 p-0"
+                      onClick={clearSearch}
+                    >
+                      <X className="w-3 h-3" />
+                    </Button>
+                  )}
+                </div>
                 <Button variant="outline" size="icon" disabled={isSearching}>
                   {isSearching ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
                 </Button>
