@@ -51,9 +51,9 @@ async function searchGoogleForSongs(query: string): Promise<SearchResult[]> {
       return matchingSongs.length > 0 ? matchingSongs : fallbackSongs;
     }
 
-    // Search specifically for Sinhala song lyrics images
-    const searchQuery = `${query} sinhala song lyrics image sri lanka`;
-    const searchUrl = `https://www.googleapis.com/customsearch/v1?key=${googleApiKey}&cx=${searchEngineId}&q=${encodeURIComponent(searchQuery)}&searchType=image&num=10&imgType=photo&fileType=jpg,png,jpeg`;
+    // Search specifically for Sinhala song lyrics images with better targeting
+    const searchQuery = `"${query}" lyrics sinhala song text image words`;
+    const searchUrl = `https://www.googleapis.com/customsearch/v1?key=${googleApiKey}&cx=${searchEngineId}&q=${encodeURIComponent(searchQuery)}&searchType=image&num=10&imgType=photo&fileType=jpg,png,jpeg,webp&imgSize=medium`;
 
     console.log(`Searching Google Images for: "${searchQuery}"`);
 
