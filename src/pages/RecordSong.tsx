@@ -33,8 +33,8 @@ interface Song {
 
 const RecordSong = () => {
   const [selectedSong, setSelectedSong] = useState<Song | null>(null);
-  const [searchQuery, setSearchQuery] = useState('');
   const [singerName, setSingerName] = useState('');
+  const [songWords, setSongWords] = useState('');
   const [songs, setSongs] = useState<Song[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [searchTotal, setSearchTotal] = useState(0);
@@ -51,9 +51,9 @@ const RecordSong = () => {
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Search for songs using Google API
-  const searchSongs = async (query: string, artist?: string) => {
-    if (!query.trim()) {
+  // Search for songs using Google API with singer priority
+  const searchSongs = async (singer: string, words?: string) => {
+    if (!singer.trim()) {
       setSongs([]);
       setSearchTotal(0);
       return;
@@ -61,10 +61,10 @@ const RecordSong = () => {
 
     setIsSearching(true);
     try {
-      // Combine song title and artist for better search
-      const searchTerm = artist?.trim() 
-        ? `${query} ${artist}`.trim() 
-        : query;
+      // Prioritize singer name first, then add song words
+      const searchTerm = words?.trim() 
+        ? `${singer} ${words}`.trim() 
+        : singer;
       
       const { data, error } = await supabase.functions.invoke('search-songs', {
         body: { query: searchTerm, limit: 20 }
@@ -103,7 +103,7 @@ const RecordSong = () => {
     }
 
     searchTimeoutRef.current = setTimeout(() => {
-      searchSongs(searchQuery, singerName);
+      searchSongs(singerName, songWords);
     }, 500);
 
     return () => {
@@ -111,12 +111,13 @@ const RecordSong = () => {
         clearTimeout(searchTimeoutRef.current);
       }
     };
-  }, [searchQuery, singerName]);
+  }, [singerName, songWords]);
 
   // Load popular songs on component mount
   useEffect(() => {
     // Clear any existing search data
-    setSearchQuery('');
+    setSingerName('');
+    setSongWords('');
     setSongs([]);
     setSearchTotal(0);
     
@@ -135,8 +136,8 @@ const RecordSong = () => {
 
   // Clear search function
   const clearSearch = () => {
-    setSearchQuery('');
     setSingerName('');
+    setSongWords('');
     setSongs([]);
     setSearchTotal(0);
     
@@ -333,12 +334,12 @@ const RecordSong = () => {
                 <div className="flex gap-2">
                   <div className="relative flex-1">
                     <Input
-                      placeholder="Search by song title..."
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
+                      placeholder="Enter original singer's name..."
+                      value={singerName}
+                      onChange={(e) => setSingerName(e.target.value)}
                       className="pr-8"
                     />
-                    {searchQuery && (
+                    {(singerName || songWords) && (
                       <Button
                         variant="ghost"
                         size="sm"
@@ -356,9 +357,9 @@ const RecordSong = () => {
 
                 <div className="flex gap-2">
                   <Input
-                    placeholder="Singer/Artist name (optional)"
-                    value={singerName}
-                    onChange={(e) => setSingerName(e.target.value)}
+                    placeholder="Add some song words or lyrics (optional)..."
+                    value={songWords}
+                    onChange={(e) => setSongWords(e.target.value)}
                     className="flex-1"
                   />
                 </div>
@@ -366,7 +367,7 @@ const RecordSong = () => {
 
               {searchTotal > 0 && (
                 <p className="text-sm text-muted-foreground">
-                  Found {searchTotal} songs {searchQuery && `for "${searchQuery}"`}
+                  Found {searchTotal} songs {singerName && `for "${singerName}"`} {songWords && `with words "${songWords}"`}
                 </p>
               )}
 
@@ -381,7 +382,7 @@ const RecordSong = () => {
                     <div className="text-center py-8">
                       <Music className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
                       <p className="text-muted-foreground">
-                        {searchQuery ? 'No songs found. Try a different search term.' : 'Start typing to search for songs on the internet...'}
+                        {singerName || songWords ? 'No songs found. Try a different singer or song words.' : 'Enter a singer\'s name to search for songs with lyrics...'}
                       </p>
                     </div>
                   ) : (
