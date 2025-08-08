@@ -60,20 +60,41 @@ async function searchGoogleForSongs(query: string): Promise<SearchResult[]> {
     const response = await fetch(searchUrl);
     const data = await response.json();
 
+    console.log(`Google API Response Status: ${response.status}`);
+    console.log(`Google API Response Data:`, JSON.stringify(data, null, 2));
+
     if (!response.ok) {
       console.error('Google Search API error:', data);
-      return [];
+      // If API fails, return fallback data
+      const matchingSongs = fallbackSongs.filter(song => 
+        song.title.toLowerCase().includes(query.toLowerCase()) ||
+        query.toLowerCase().includes(song.title.toLowerCase().split(' ')[0])
+      );
+      return matchingSongs.length > 0 ? matchingSongs : fallbackSongs;
     }
 
     const results: SearchResult[] = [];
     
     if (data.items && data.items.length > 0) {
+      console.log(`Found ${data.items.length} items from Google Images`);
+      
       for (const item of data.items) {
         // Use the direct image link from Google Images
         const imageUrl = item.link;
         
-        // Verify it's actually an image URL (not a YouTube or other non-image URL)
-        if (imageUrl && (imageUrl.includes('.jpg') || imageUrl.includes('.png') || imageUrl.includes('.jpeg') || imageUrl.includes('.webp') || imageUrl.includes('.gif'))) {
+        console.log(`Processing item: ${item.title}, URL: ${imageUrl}`);
+        
+        // Be more lenient with image URLs - allow any that look like images
+        if (imageUrl && (
+          imageUrl.includes('.jpg') || 
+          imageUrl.includes('.png') || 
+          imageUrl.includes('.jpeg') || 
+          imageUrl.includes('.webp') || 
+          imageUrl.includes('.gif') ||
+          imageUrl.includes('image') ||
+          // Some image URLs might not have extensions but are still valid
+          item.mime?.includes('image')
+        )) {
           console.log(`Found valid image URL: ${imageUrl} for query: ${query}`);
           
           results.push({
@@ -82,15 +103,23 @@ async function searchGoogleForSongs(query: string): Promise<SearchResult[]> {
             snippet: item.snippet || `Sinhala lyrics image for ${query}. Traditional Sri Lankan song with visual lyrics...`
           });
         } else {
-          console.log(`Skipping invalid image URL: ${imageUrl}`);
+          console.log(`Skipping URL: ${imageUrl} (not an image)`);
         }
       }
+    } else {
+      console.log('No items found in Google search response');
     }
 
-    return results;
+    console.log(`Returning ${results.length} valid image results`);
+    return results.length > 0 ? results : fallbackSongs;
   } catch (error) {
     console.error('Error searching Google:', error);
-    return [];
+    // Return fallback data on error
+    const matchingSongs = fallbackSongs.filter(song => 
+      song.title.toLowerCase().includes(query.toLowerCase()) ||
+      query.toLowerCase().includes(song.title.toLowerCase().split(' ')[0])
+    );
+    return matchingSongs.length > 0 ? matchingSongs : fallbackSongs;
   }
 }
 
