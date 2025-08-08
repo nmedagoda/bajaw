@@ -34,6 +34,7 @@ interface Song {
 const RecordSong = () => {
   const [selectedSong, setSelectedSong] = useState<Song | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [singerName, setSingerName] = useState('');
   const [songs, setSongs] = useState<Song[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [searchTotal, setSearchTotal] = useState(0);
@@ -50,8 +51,8 @@ const RecordSong = () => {
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Search for songs using Spotify API
-  const searchSongs = async (query: string) => {
+  // Search for songs using Google API
+  const searchSongs = async (query: string, artist?: string) => {
     if (!query.trim()) {
       setSongs([]);
       setSearchTotal(0);
@@ -60,8 +61,13 @@ const RecordSong = () => {
 
     setIsSearching(true);
     try {
+      // Combine song title and artist for better search
+      const searchTerm = artist?.trim() 
+        ? `${query} ${artist}`.trim() 
+        : query;
+      
       const { data, error } = await supabase.functions.invoke('search-songs', {
-        body: { query, limit: 20 }
+        body: { query: searchTerm, limit: 20 }
       });
 
       if (error) {
@@ -97,7 +103,7 @@ const RecordSong = () => {
     }
 
     searchTimeoutRef.current = setTimeout(() => {
-      searchSongs(searchQuery);
+      searchSongs(searchQuery, singerName);
     }, 500);
 
     return () => {
@@ -105,7 +111,7 @@ const RecordSong = () => {
         clearTimeout(searchTimeoutRef.current);
       }
     };
-  }, [searchQuery]);
+  }, [searchQuery, singerName]);
 
   // Load popular songs on component mount
   useEffect(() => {
@@ -130,6 +136,7 @@ const RecordSong = () => {
   // Clear search function
   const clearSearch = () => {
     setSearchQuery('');
+    setSingerName('');
     setSongs([]);
     setSearchTotal(0);
     
@@ -322,28 +329,39 @@ const RecordSong = () => {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="flex gap-2">
-                <div className="relative flex-1">
-                  <Input
-                    placeholder="Search by song title, artist, or genre..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pr-8"
-                  />
-                  {searchQuery && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="absolute right-1 top-1/2 -translate-y-1/2 h-6 w-6 p-0"
-                      onClick={clearSearch}
-                    >
-                      <X className="w-3 h-3" />
-                    </Button>
-                  )}
+              <div className="space-y-4">
+                <div className="flex gap-2">
+                  <div className="relative flex-1">
+                    <Input
+                      placeholder="Search by song title..."
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      className="pr-8"
+                    />
+                    {searchQuery && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="absolute right-1 top-1/2 -translate-y-1/2 h-6 w-6 p-0"
+                        onClick={clearSearch}
+                      >
+                        <X className="w-3 h-3" />
+                      </Button>
+                    )}
+                  </div>
+                  <Button variant="outline" size="icon" disabled={isSearching}>
+                    {isSearching ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
+                  </Button>
                 </div>
-                <Button variant="outline" size="icon" disabled={isSearching}>
-                  {isSearching ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
-                </Button>
+
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="Singer/Artist name (optional)"
+                    value={singerName}
+                    onChange={(e) => setSingerName(e.target.value)}
+                    className="flex-1"
+                  />
+                </div>
               </div>
 
               {searchTotal > 0 && (
