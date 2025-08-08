@@ -83,55 +83,78 @@ async function searchLKLyrics(query: string): Promise<SearchResult[]> {
   try {
     console.log(`Searching lklyrics.com for: "${query}"`);
     
-    // First search for songs on lklyrics.com
-    const searchUrl = `https://www.lklyrics.com/search/${encodeURIComponent(query)}`;
-    console.log(`Fetching search results from: ${searchUrl}`);
+    // Try different search approaches for lklyrics.com
+    const searchUrls = [
+      `https://www.lklyrics.com/?s=${encodeURIComponent(query)}`,
+      `https://lklyrics.com/?s=${encodeURIComponent(query)}`,
+      `https://www.lklyrics.com/search?q=${encodeURIComponent(query)}`
+    ];
     
-    const response = await fetch(searchUrl, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-      }
-    });
-
-    if (!response.ok) {
-      console.log(`LKLyrics search failed with status: ${response.status}`);
-      return fallbackSongs;
-    }
-
-    const html = await response.text();
-    console.log(`Got HTML response, length: ${html.length}`);
-    
-    // Parse the HTML to extract song links
-    const results: SearchResult[] = [];
-    
-    // Simple regex to find song links in the search results
-    const linkPattern = /<a[^>]+href="([^"]*lyrics[^"]*)"[^>]*>([^<]+)<\/a>/gi;
-    let match;
-    
-    while ((match = linkPattern.exec(html)) !== null && results.length < 5) {
-      const [, url, title] = match;
-      if (url && title && !url.includes('javascript') && url.includes('lyrics')) {
-        const fullUrl = url.startsWith('http') ? url : `https://www.lklyrics.com${url}`;
-        console.log(`Found song: ${title} at ${fullUrl}`);
-        
-        results.push({
-          title: title.trim(),
-          link: fullUrl,
-          snippet: `Sinhala lyrics for ${title.trim()}`
+    for (const searchUrl of searchUrls) {
+      console.log(`Trying search URL: ${searchUrl}`);
+      
+      try {
+        const response = await fetch(searchUrl, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+            'Accept-Language': 'en-US,en;q=0.5',
+            'Accept-Encoding': 'gzip, deflate, br',
+            'Cache-Control': 'no-cache'
+          }
         });
+
+        if (response.ok) {
+          const html = await response.text();
+          console.log(`Got HTML response from ${searchUrl}, length: ${html.length}`);
+          
+          // Parse the HTML to extract song links with multiple patterns
+          const results: SearchResult[] = [];
+          
+          // Try various patterns to find lyrics links
+          const patterns = [
+            /<a[^>]+href="([^"]*lyrics[^"]*)"[^>]*>([^<]+)<\/a>/gi,
+            /<a[^>]+href="([^"]*)"[^>]*class="[^"]*post[^"]*"[^>]*>([^<]+)<\/a>/gi,
+            /<h[0-9][^>]*><a[^>]+href="([^"]*)"[^>]*>([^<]+)<\/a><\/h[0-9]>/gi
+          ];
+          
+          for (const pattern of patterns) {
+            let match;
+            while ((match = pattern.exec(html)) !== null && results.length < 10) {
+              const [, url, title] = match;
+              if (url && title && !url.includes('javascript') && 
+                  (url.includes('lyrics') || url.includes('lklyrics.com'))) {
+                const fullUrl = url.startsWith('http') ? url : `https://www.lklyrics.com${url}`;
+                
+                // Avoid duplicates
+                if (!results.find(r => r.link === fullUrl)) {
+                  console.log(`Found song: ${title.trim()} at ${fullUrl}`);
+                  results.push({
+                    title: title.trim(),
+                    link: fullUrl,
+                    snippet: `Sinhala lyrics for ${title.trim()}`
+                  });
+                }
+              }
+            }
+          }
+          
+          if (results.length > 0) {
+            console.log(`Found ${results.length} songs from ${searchUrl}`);
+            return results.slice(0, 5);
+          }
+        }
+      } catch (urlError) {
+        console.log(`Failed to fetch from ${searchUrl}:`, urlError);
+        continue;
       }
     }
 
-    if (results.length === 0) {
-      console.log('No lyrics found on lklyrics.com, using fallback');
-      return fallbackSongs.filter(song => 
-        song.title.toLowerCase().includes(query.toLowerCase()) ||
-        query.toLowerCase().includes(song.title.toLowerCase().split(' ')[0])
-      );
-    }
-
-    console.log(`Found ${results.length} songs on lklyrics.com`);
-    return results;
+    console.log('No results from any search URL, using fallback');
+    return fallbackSongs.filter(song => 
+      song.title.toLowerCase().includes(query.toLowerCase()) ||
+      query.toLowerCase().includes(song.title.toLowerCase().split(' ')[0])
+    );
     
   } catch (error) {
     console.error('Error searching lklyrics.com:', error);
@@ -145,7 +168,10 @@ async function fetchLyricsFromUrl(url: string): Promise<string> {
     
     const response = await fetch(url, {
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+        'Accept-Language': 'en-US,en;q=0.5',
+        'Cache-Control': 'no-cache'
       }
     });
 
@@ -155,40 +181,77 @@ async function fetchLyricsFromUrl(url: string): Promise<string> {
     }
 
     const html = await response.text();
+    console.log(`Got lyrics page HTML, length: ${html.length}`);
     
-    // Extract lyrics from common patterns on lklyrics.com
+    // Extract lyrics with more comprehensive patterns for lklyrics.com
     const lyricsPatterns = [
+      // Main content patterns
+      /<div[^>]*class="[^"]*entry-content[^"]*"[^>]*>(.*?)<\/div>/is,
+      /<div[^>]*class="[^"]*post-content[^"]*"[^>]*>(.*?)<\/div>/is,
+      /<div[^>]*class="[^"]*content[^"]*"[^>]*>(.*?)<\/div>/is,
+      /<article[^>]*>(.*?)<\/article>/is,
+      /<main[^>]*>(.*?)<\/main>/is,
+      // Fallback patterns
       /<div[^>]*class="[^"]*lyrics[^"]*"[^>]*>(.*?)<\/div>/is,
       /<div[^>]*id="[^"]*lyrics[^"]*"[^>]*>(.*?)<\/div>/is,
-      /<p[^>]*class="[^"]*lyrics[^"]*"[^>]*>(.*?)<\/p>/is
+      /<p[^>]*>(.*?)<\/p>/gis
     ];
     
     for (const pattern of lyricsPatterns) {
-      const match = html.match(pattern);
-      if (match) {
-        // Clean up HTML tags and return lyrics
-        const lyrics = match[1]
+      const matches = html.match(pattern);
+      if (matches) {
+        // Clean up HTML tags and extract text
+        let lyrics = matches[1]
+          .replace(/<script[^>]*>.*?<\/script>/gis, '')
+          .replace(/<style[^>]*>.*?<\/style>/gis, '')
+          .replace(/<nav[^>]*>.*?<\/nav>/gis, '')
+          .replace(/<header[^>]*>.*?<\/header>/gis, '')
+          .replace(/<footer[^>]*>.*?<\/footer>/gis, '')
+          .replace(/<aside[^>]*>.*?<\/aside>/gis, '')
           .replace(/<[^>]*>/g, '\n')
           .replace(/&nbsp;/g, ' ')
           .replace(/&amp;/g, '&')
           .replace(/&lt;/g, '<')
           .replace(/&gt;/g, '>')
+          .replace(/&quot;/g, '"')
+          .replace(/&#8217;/g, "'")
+          .replace(/&#8216;/g, "'")
           .replace(/\n\s*\n/g, '\n\n')
           .trim();
         
-        if (lyrics.length > 50) {
-          console.log(`Found lyrics, length: ${lyrics.length}`);
+        // Filter out common non-lyric content
+        const lines = lyrics.split('\n').filter(line => {
+          const clean = line.trim().toLowerCase();
+          return clean.length > 0 && 
+                 !clean.includes('share') &&
+                 !clean.includes('facebook') &&
+                 !clean.includes('twitter') &&
+                 !clean.includes('instagram') &&
+                 !clean.includes('comment') &&
+                 !clean.includes('copyright') &&
+                 !clean.includes('admin') &&
+                 !clean.includes('menu') &&
+                 !clean.startsWith('http') &&
+                 !clean.includes('click here') &&
+                 clean.length < 200; // Avoid long paragraphs that are likely not lyrics
+        });
+        
+        lyrics = lines.join('\n').trim();
+        
+        // Check if we have meaningful Sinhala lyrics content
+        if (lyrics.length > 100 && (lyrics.includes('ස') || lyrics.includes('ම') || lyrics.includes('ත'))) {
+          console.log(`Found Sinhala lyrics, length: ${lyrics.length}`);
           return lyrics;
         }
       }
     }
     
-    console.log('No lyrics found in the page');
-    return 'Lyrics not available';
+    console.log('No meaningful lyrics found in the page');
+    return 'Lyrics not available on this page';
     
   } catch (error) {
     console.error('Error fetching lyrics:', error);
-    return 'Lyrics not available';
+    return 'Error fetching lyrics';
   }
 }
 
