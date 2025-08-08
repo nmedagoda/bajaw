@@ -18,25 +18,25 @@ interface GoogleSearchResponse {
 
 async function searchGoogleForSongs(query: string): Promise<SearchResult[]> {
   try {
-    // Search specifically for Sinhala songs
-    const searchQuery = `${query} sinhala song lyrics sri lanka`;
+    // Search specifically for Sinhala songs with lyrics images
+    const searchQuery = `${query} sinhala song lyrics image sri lanka`;
     
-    // Mock search results for Sinhala songs - in production, you'd use a real search API
+    // Mock search results for Sinhala songs with potential lyrics images
     const mockResults: SearchResult[] = [
       {
-        title: `${query} - Sinhala Song Official Video`,
-        link: `https://www.youtube.com/watch?v=example`,
-        snippet: `Official Sinhala music video for ${query}. Popular Sri Lankan song...`
+        title: `${query} - Sinhala Song with Lyrics`,
+        link: `https://www.youtube.com/watch?v=example1`,
+        snippet: `Sinhala lyrics image for ${query}. Traditional Sri Lankan song with visual lyrics...`
       },
       {
-        title: `${query} Sinhala Lyrics`,
-        link: `https://sinhala-lyrics.com/example`,
-        snippet: `Sinhala lyrics for ${query}. Traditional Sri Lankan song...`
+        title: `${query} Sinhala Lyrics Image`,
+        link: `https://sinhala-lyrics.com/images/example2`,
+        snippet: `Visual lyrics in Sinhala script for ${query}. Popular Sri Lankan song...`
       },
       {
-        title: `${query} - Sri Lankan Music`,
-        link: `https://music.lk/track/example`,
-        snippet: `Listen to ${query} Sinhala song. Popular in Sri Lankan music scene...`
+        title: `${query} - Sri Lankan Music with Lyrics`,
+        link: `https://music.lk/lyrics/example3`,
+        snippet: `${query} Sinhala song with downloadable lyrics image. Traditional format...`
       }
     ];
 
@@ -106,6 +106,22 @@ Song conclusion lyrics
 Final musical phrases`;
   };
   
+  // Generate mock lyrics image URL based on search result content
+  const generateLyricsImageUrl = (searchResult: SearchResult, songTitle: string) => {
+    // In a real implementation, this would extract actual image URLs from search results
+    // For now, we'll simulate finding lyrics images based on search content
+    if (searchResult.snippet.includes('lyrics image') || searchResult.snippet.includes('visual lyrics')) {
+      // Simulate different lyrics image sources
+      const mockImageUrls = [
+        `https://example-lyrics.com/images/${encodeURIComponent(songTitle)}-sinhala.jpg`,
+        `https://sinhala-songs.lk/lyrics/${encodeURIComponent(songTitle)}.png`,
+        `https://lyrics-images.com/sinhala/${encodeURIComponent(songTitle)}-lyrics.jpg`
+      ];
+      return mockImageUrls[index % mockImageUrls.length];
+    }
+    return null;
+  };
+
   return {
     id: `google-${index}-${Date.now()}`,
     title: songTitle || `Song ${index + 1}`,
@@ -121,7 +137,7 @@ Final musical phrases`;
     searchSnippet: searchResult.snippet,
     originalUrl: searchResult.link,
     lyrics: generateSampleLyrics(songTitle || `Song ${index + 1}`, artist),
-    lyricsImageUrl: Math.random() > 0.5 ? '/lovable-uploads/fa7b84ce-1981-49b5-89a7-75a6464deeae.png' : null,
+    lyricsImageUrl: generateLyricsImageUrl(searchResult, songTitle || `Song ${index + 1}`),
     lyricsLanguage: 'Sinhala'
   };
 }
