@@ -1,3 +1,4 @@
+
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
@@ -22,31 +23,13 @@ async function searchGoogleForSongs(query: string): Promise<SearchResult[]> {
     const searchEngineId = Deno.env.get('GOOGLE_SEARCH_ENGINE_ID');
 
     if (!googleApiKey || !searchEngineId) {
-      console.log('Google API credentials not found, using mock data');
-      // Fallback to mock results
-      const mockResults: SearchResult[] = [
-        {
-          title: `${query} - Sinhala Song with Lyrics`,
-          link: `https://www.youtube.com/watch?v=example1`,
-          snippet: `Sinhala lyrics image for ${query}. Traditional Sri Lankan song with visual lyrics...`
-        },
-        {
-          title: `${query} Sinhala Lyrics Image`,
-          link: `https://sinhala-lyrics.com/images/example2`,
-          snippet: `Visual lyrics in Sinhala script for ${query}. Popular Sri Lankan song...`
-        },
-        {
-          title: `${query} - Sri Lankan Music with Lyrics`,
-          link: `https://music.lk/lyrics/example3`,
-          snippet: `${query} Sinhala song with downloadable lyrics image. Traditional format...`
-        }
-      ];
-      return mockResults;
+      console.log('Google API credentials not found, using fallback');
+      return [];
     }
 
     // Search specifically for Sinhala song lyrics images
     const searchQuery = `${query} sinhala song lyrics image sri lanka`;
-    const searchUrl = `https://www.googleapis.com/customsearch/v1?key=${googleApiKey}&cx=${searchEngineId}&q=${encodeURIComponent(searchQuery)}&searchType=image&num=10`;
+    const searchUrl = `https://www.googleapis.com/customsearch/v1?key=${googleApiKey}&cx=${searchEngineId}&q=${encodeURIComponent(searchQuery)}&searchType=image&num=10&imgType=photo&fileType=jpg,png,jpeg`;
 
     console.log(`Searching Google Images for: "${searchQuery}"`);
 
@@ -55,7 +38,7 @@ async function searchGoogleForSongs(query: string): Promise<SearchResult[]> {
 
     if (!response.ok) {
       console.error('Google Search API error:', data);
-      throw new Error(`Google Search API error: ${data.error?.message || 'Unknown error'}`);
+      return [];
     }
 
     const results: SearchResult[] = [];
@@ -64,44 +47,26 @@ async function searchGoogleForSongs(query: string): Promise<SearchResult[]> {
       for (const item of data.items) {
         // Use the direct image link from Google Images
         const imageUrl = item.link;
-        console.log(`Found image URL: ${imageUrl} for query: ${query}`);
         
-        results.push({
-          title: item.title || `${query} - Sinhala Lyrics`,
-          link: imageUrl,
-          snippet: item.snippet || `Sinhala lyrics image for ${query}. Traditional Sri Lankan song with visual lyrics...`
-        });
-      }
-    }
-
-    // If no results found, fallback to mock data
-    if (results.length === 0) {
-      console.log('No Google results found, using mock data');
-      return [
-        {
-          title: `${query} - Sinhala Song with Lyrics`,
-          link: `https://www.youtube.com/watch?v=example1`,
-          snippet: `Sinhala lyrics image for ${query}. Traditional Sri Lankan song with visual lyrics...`
-        },
-        {
-          title: `${query} Sinhala Lyrics Image`,
-          link: `https://sinhala-lyrics.com/images/example2`,
-          snippet: `Visual lyrics in Sinhala script for ${query}. Popular Sri Lankan song...`
+        // Verify it's actually an image URL (not a YouTube or other non-image URL)
+        if (imageUrl && (imageUrl.includes('.jpg') || imageUrl.includes('.png') || imageUrl.includes('.jpeg') || imageUrl.includes('.webp') || imageUrl.includes('.gif'))) {
+          console.log(`Found valid image URL: ${imageUrl} for query: ${query}`);
+          
+          results.push({
+            title: item.title || `${query} - Sinhala Lyrics`,
+            link: imageUrl,
+            snippet: item.snippet || `Sinhala lyrics image for ${query}. Traditional Sri Lankan song with visual lyrics...`
+          });
+        } else {
+          console.log(`Skipping invalid image URL: ${imageUrl}`);
         }
-      ];
+      }
     }
 
     return results;
   } catch (error) {
     console.error('Error searching Google:', error);
-    // Return mock data as fallback
-    return [
-      {
-        title: `${query} - Sinhala Song with Lyrics`,
-        link: `https://www.youtube.com/watch?v=example1`,
-        snippet: `Sinhala lyrics image for ${query}. Traditional Sri Lankan song with visual lyrics...`
-      }
-    ];
+    return [];
   }
 }
 
@@ -163,16 +128,6 @@ As commonly found in songs
 Song conclusion lyrics
 Final musical phrases`;
   };
-  
-  // Generate real lyrics image URL from Google search results
-  const generateLyricsImageUrl = (searchResult: SearchResult, songTitle: string) => {
-    // Use the actual image link from Google search results
-    if (searchResult.link && searchResult.link.includes('http')) {
-      console.log(`Found lyrics image URL: ${searchResult.link}`);
-      return searchResult.link;
-    }
-    return null;
-  };
 
   return {
     id: `google-${index}-${Date.now()}`,
@@ -189,7 +144,7 @@ Final musical phrases`;
     searchSnippet: searchResult.snippet,
     originalUrl: searchResult.link,
     lyrics: generateSampleLyrics(songTitle || `Song ${index + 1}`, artist),
-    lyricsImageUrl: generateLyricsImageUrl(searchResult, songTitle || `Song ${index + 1}`),
+    lyricsImageUrl: searchResult.link, // Use the actual image URL from Google
     lyricsLanguage: 'Sinhala'
   };
 }
@@ -216,6 +171,21 @@ serve(async (req) => {
 
     // Search Google for songs
     const searchResults = await searchGoogleForSongs(query);
+    
+    if (searchResults.length === 0) {
+      // If no results found, provide a message instead of mock data
+      return new Response(
+        JSON.stringify({ 
+          songs: [],
+          total: 0,
+          source: 'google',
+          message: 'No lyrics images found. Please try a different search term.'
+        }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
+    }
     
     // Transform search results to our song format
     const songs = searchResults.slice(0, limit).map((result, index) => 
