@@ -14,7 +14,162 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      performances: {
+        Row: {
+          analysis_data: Json | null
+          audio_url: string | null
+          created_at: string | null
+          id: string
+          similarity_score: number | null
+          singer_id: string
+          song_id: string
+          title: string
+          updated_at: string | null
+          video_url: string | null
+        }
+        Insert: {
+          analysis_data?: Json | null
+          audio_url?: string | null
+          created_at?: string | null
+          id?: string
+          similarity_score?: number | null
+          singer_id: string
+          song_id: string
+          title: string
+          updated_at?: string | null
+          video_url?: string | null
+        }
+        Update: {
+          analysis_data?: Json | null
+          audio_url?: string | null
+          created_at?: string | null
+          id?: string
+          similarity_score?: number | null
+          singer_id?: string
+          song_id?: string
+          title?: string
+          updated_at?: string | null
+          video_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "performances_singer_id_fkey"
+            columns: ["singer_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "performances_song_id_fkey"
+            columns: ["song_id"]
+            isOneToOne: false
+            referencedRelation: "songs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          created_at: string | null
+          email: string
+          full_name: string
+          id: string
+          profile_photo_url: string | null
+          role: Database["public"]["Enums"]["user_role"]
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          email: string
+          full_name: string
+          id: string
+          profile_photo_url?: string | null
+          role: Database["public"]["Enums"]["user_role"]
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          email?: string
+          full_name?: string
+          id?: string
+          profile_photo_url?: string | null
+          role?: Database["public"]["Enums"]["user_role"]
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      songs: {
+        Row: {
+          artist: string
+          created_at: string | null
+          id: string
+          karaoke_url: string | null
+          lyrics: string | null
+          professional_audio_url: string | null
+          title: string
+        }
+        Insert: {
+          artist: string
+          created_at?: string | null
+          id?: string
+          karaoke_url?: string | null
+          lyrics?: string | null
+          professional_audio_url?: string | null
+          title: string
+        }
+        Update: {
+          artist?: string
+          created_at?: string | null
+          id?: string
+          karaoke_url?: string | null
+          lyrics?: string | null
+          professional_audio_url?: string | null
+          title?: string
+        }
+        Relationships: []
+      }
+      votes: {
+        Row: {
+          comments: string | null
+          created_at: string | null
+          id: string
+          performance_id: string
+          score: number
+          voter_id: string
+        }
+        Insert: {
+          comments?: string | null
+          created_at?: string | null
+          id?: string
+          performance_id: string
+          score: number
+          voter_id: string
+        }
+        Update: {
+          comments?: string | null
+          created_at?: string | null
+          id?: string
+          performance_id?: string
+          score?: number
+          voter_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "votes_performance_id_fkey"
+            columns: ["performance_id"]
+            isOneToOne: false
+            referencedRelation: "performances"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "votes_voter_id_fkey"
+            columns: ["voter_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -23,7 +178,7 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      user_role: "singer" | "judge" | "audience"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +305,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      user_role: ["singer", "judge", "audience"],
+    },
   },
 } as const
