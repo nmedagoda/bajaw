@@ -26,6 +26,7 @@ interface Song {
   imageUrl?: string | null;
   searchSnippet?: string;
   originalUrl?: string;
+  lyrics?: string;
 }
 
 const RecordSong = () => {
@@ -303,79 +304,106 @@ const RecordSong = () => {
                 </p>
               )}
 
-              <div className="grid grid-cols-1 gap-4 max-h-96 overflow-y-auto">
-                {isSearching && songs.length === 0 ? (
-                  <div className="text-center py-8">
-                    <Loader2 className="w-8 h-8 animate-spin mx-auto mb-2" />
-                    <p className="text-muted-foreground">Searching for songs...</p>
-                  </div>
-                ) : songs.length === 0 ? (
-                  <div className="text-center py-8">
-                    <Music className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
-                    <p className="text-muted-foreground">
-                      {searchQuery ? 'No songs found. Try a different search term.' : 'Start typing to search for songs on the internet...'}
-                    </p>
-                  </div>
-                ) : (
-                  songs.map((song) => (
-                    <Card 
-                      key={song.id}
-                      className={`cursor-pointer transition-all hover:shadow-md ${
-                        selectedSong?.id === song.id ? 'ring-2 ring-primary' : ''
-                      }`}
-                      onClick={() => setSelectedSong(song)}
-                    >
-                      <CardContent className="p-4">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-start gap-3 flex-1">
-                            {song.imageUrl && (
-                              <img 
-                                src={song.imageUrl} 
-                                alt={`${song.title} cover`}
-                                className="w-12 h-12 rounded object-cover"
-                              />
-                            )}
-                            <div className="flex-1">
-                              <h3 className="font-semibold">{song.title}</h3>
-                              <p className="text-sm text-muted-foreground">{song.artist}</p>
-                              {song.album && (
-                                <p className="text-xs text-muted-foreground">{song.album}</p>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 gap-4 max-h-96 overflow-y-auto">
+                  {isSearching && songs.length === 0 ? (
+                    <div className="text-center py-8">
+                      <Loader2 className="w-8 h-8 animate-spin mx-auto mb-2" />
+                      <p className="text-muted-foreground">Searching for songs...</p>
+                    </div>
+                  ) : songs.length === 0 ? (
+                    <div className="text-center py-8">
+                      <Music className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
+                      <p className="text-muted-foreground">
+                        {searchQuery ? 'No songs found. Try a different search term.' : 'Start typing to search for songs on the internet...'}
+                      </p>
+                    </div>
+                  ) : (
+                    songs.map((song) => (
+                      <Card 
+                        key={song.id}
+                        className={`cursor-pointer transition-all hover:shadow-md ${
+                          selectedSong?.id === song.id ? 'ring-2 ring-primary' : ''
+                        }`}
+                        onClick={() => setSelectedSong(song)}
+                      >
+                        <CardContent className="p-4">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-start gap-3 flex-1">
+                              {song.imageUrl && (
+                                <img 
+                                  src={song.imageUrl} 
+                                  alt={`${song.title} cover`}
+                                  className="w-12 h-12 rounded object-cover"
+                                />
                               )}
-                              <div className="flex items-center gap-2 mt-2">
-                                <Badge variant="secondary">{song.genre}</Badge>
-                                <Badge 
-                                  className={`text-white ${getDifficultyColor(song.difficulty)}`}
-                                >
-                                  {song.difficulty}
-                                </Badge>
-                                <span className="text-sm text-muted-foreground flex items-center gap-1">
-                                  <Timer className="w-3 h-3" />
-                                  {song.duration}
-                                </span>
-                                 {song.originalUrl && (
-                                   <a 
-                                     href={song.originalUrl} 
-                                     target="_blank" 
-                                     rel="noopener noreferrer"
-                                     className="text-blue-600 hover:text-blue-700"
-                                     onClick={(e) => e.stopPropagation()}
-                                   >
-                                     <ExternalLink className="w-3 h-3" />
-                                   </a>
-                                 )}
+                              <div className="flex-1">
+                                <h3 className="font-semibold">{song.title}</h3>
+                                <p className="text-sm text-muted-foreground">{song.artist}</p>
+                                {song.album && (
+                                  <p className="text-xs text-muted-foreground">{song.album}</p>
+                                )}
+                                <div className="flex items-center gap-2 mt-2">
+                                  <Badge variant="secondary">{song.genre}</Badge>
+                                  <Badge 
+                                    className={`text-white ${getDifficultyColor(song.difficulty)}`}
+                                  >
+                                    {song.difficulty}
+                                  </Badge>
+                                  <span className="text-sm text-muted-foreground flex items-center gap-1">
+                                    <Timer className="w-3 h-3" />
+                                    {song.duration}
+                                  </span>
+                                   {song.originalUrl && (
+                                     <a 
+                                       href={song.originalUrl} 
+                                       target="_blank" 
+                                       rel="noopener noreferrer"
+                                       className="text-blue-600 hover:text-blue-700"
+                                       onClick={(e) => e.stopPropagation()}
+                                     >
+                                       <ExternalLink className="w-3 h-3" />
+                                     </a>
+                                   )}
+                                </div>
                               </div>
                             </div>
+                            <Button 
+                              variant={selectedSong?.id === song.id ? "default" : "outline"}
+                              size="sm"
+                            >
+                              {selectedSong?.id === song.id ? 'Selected' : 'Select'}
+                            </Button>
                           </div>
-                          <Button 
-                            variant={selectedSong?.id === song.id ? "default" : "outline"}
-                            size="sm"
-                          >
-                            {selectedSong?.id === song.id ? 'Selected' : 'Select'}
-                          </Button>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))
+                        </CardContent>
+                      </Card>
+                    ))
+                  )}
+                </div>
+
+                {/* Lyrics Display */}
+                {selectedSong && selectedSong.lyrics && (
+                  <Card className="lg:sticky lg:top-4">
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2 text-base">
+                        <Music className="w-4 h-4" />
+                        Lyrics - {selectedSong.title}
+                      </CardTitle>
+                      <CardDescription className="text-sm">
+                        by {selectedSong.artist}
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="border border-border rounded-lg p-4 bg-muted/20 max-h-80 overflow-y-auto">
+                        <pre className="text-sm leading-relaxed whitespace-pre-wrap font-mono text-muted-foreground">
+                          {selectedSong.lyrics}
+                        </pre>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-2">
+                        Note: This is sample lyrics structure. Real implementation would require proper licensing for copyrighted content.
+                      </p>
+                    </CardContent>
+                  </Card>
                 )}
               </div>
             </CardContent>

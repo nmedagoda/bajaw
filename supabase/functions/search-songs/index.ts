@@ -77,6 +77,36 @@ function extractSongInfo(searchResult: SearchResult, index: number) {
   const genres = ['Pop', 'Rock', 'Hip-Hop', 'R&B', 'Country', 'Alternative', 'Electronic'];
   const difficulties: ('Easy' | 'Medium' | 'Hard')[] = ['Easy', 'Medium', 'Hard'];
   
+  // Generate sample lyrics structure (placeholder only - avoid copyright content)
+  const generateSampleLyrics = (title: string, artist: string) => {
+    return `[Verse 1]
+This is where the song lyrics would appear
+For "${title}" by ${artist}
+(Actual lyrics would be retrieved from a licensed source)
+
+[Chorus]
+Sample lyrics structure shown here
+Real implementation would require proper licensing
+To display copyrighted lyrical content
+
+[Verse 2]
+Additional verses and content
+Would be structured similarly
+Following standard song format
+
+[Bridge]
+Musical bridge section here
+With appropriate lyrical content
+
+[Chorus]
+Repeating chorus section
+As commonly found in songs
+
+[Outro]
+Song conclusion lyrics
+Final musical phrases`;
+  };
+  
   return {
     id: `google-${index}-${Date.now()}`,
     title: songTitle || `Song ${index + 1}`,
@@ -90,7 +120,8 @@ function extractSongInfo(searchResult: SearchResult, index: number) {
     spotifyUrl: searchResult.link.includes('spotify') ? searchResult.link : undefined,
     imageUrl: null,
     searchSnippet: searchResult.snippet,
-    originalUrl: searchResult.link
+    originalUrl: searchResult.link,
+    lyrics: generateSampleLyrics(songTitle || `Song ${index + 1}`, artist)
   };
 }
 
