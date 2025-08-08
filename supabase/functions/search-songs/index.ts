@@ -160,18 +160,12 @@ Song conclusion lyrics
 Final musical phrases`;
   };
   
-  // Generate mock lyrics image URL based on search result content
+  // Generate real lyrics image URL from Google search results
   const generateLyricsImageUrl = (searchResult: SearchResult, songTitle: string) => {
-    // In a real implementation, this would extract actual image URLs from search results
-    // For now, we'll simulate finding lyrics images based on search content
-    if (searchResult.snippet.includes('lyrics image') || searchResult.snippet.includes('visual lyrics')) {
-      // Simulate different lyrics image sources
-      const mockImageUrls = [
-        `https://example-lyrics.com/images/${encodeURIComponent(songTitle)}-sinhala.jpg`,
-        `https://sinhala-songs.lk/lyrics/${encodeURIComponent(songTitle)}.png`,
-        `https://lyrics-images.com/sinhala/${encodeURIComponent(songTitle)}-lyrics.jpg`
-      ];
-      return mockImageUrls[index % mockImageUrls.length];
+    // Use the actual image link from Google search results
+    if (searchResult.link && searchResult.link.includes('http')) {
+      console.log(`Found lyrics image URL: ${searchResult.link}`);
+      return searchResult.link;
     }
     return null;
   };
