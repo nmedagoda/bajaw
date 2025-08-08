@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,30 +8,30 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Music, Mic, Play, Pause, Square, Upload, Search, Timer, Volume2 } from 'lucide-react';
+import { Music, Mic, Play, Pause, Square, Upload, Search, Timer, Volume2, Loader2, ExternalLink } from 'lucide-react';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
 
 interface Song {
   id: string;
   title: string;
   artist: string;
+  album?: string;
   genre: string;
   duration: string;
   difficulty: 'Easy' | 'Medium' | 'Hard';
+  popularity?: number;
+  previewUrl?: string | null;
+  spotifyUrl?: string;
+  imageUrl?: string | null;
 }
-
-// Sample songs for demonstration
-const SAMPLE_SONGS: Song[] = [
-  { id: '1', title: 'Shape of You', artist: 'Ed Sheeran', genre: 'Pop', duration: '3:53', difficulty: 'Medium' },
-  { id: '2', title: 'Bohemian Rhapsody', artist: 'Queen', genre: 'Rock', duration: '5:55', difficulty: 'Hard' },
-  { id: '3', title: 'Hello', artist: 'Adele', genre: 'Ballad', duration: '4:55', difficulty: 'Medium' },
-  { id: '4', title: 'Billie Jean', artist: 'Michael Jackson', genre: 'Pop', duration: '4:54', difficulty: 'Easy' },
-  { id: '5', title: 'Rolling in the Deep', artist: 'Adele', genre: 'Soul', duration: '3:48', difficulty: 'Medium' },
-];
 
 const RecordSong = () => {
   const [selectedSong, setSelectedSong] = useState<Song | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [songs, setSongs] = useState<Song[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchTotal, setSearchTotal] = useState(0);
   const [isRecording, setIsRecording] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [recordingTime, setRecordingTime] = useState(0);
@@ -43,12 +43,69 @@ const RecordSong = () => {
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioStreamRef = useRef<MediaStream | null>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  const filteredSongs = SAMPLE_SONGS.filter(song =>
-    song.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    song.artist.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    song.genre.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  // Search for songs using Spotify API
+  const searchSongs = async (query: string) => {
+    if (!query.trim()) {
+      setSongs([]);
+      setSearchTotal(0);
+      return;
+    }
+
+    setIsSearching(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('search-songs', {
+        body: { query, limit: 20 }
+      });
+
+      if (error) {
+        console.error('Search error:', error);
+        toast.error('Failed to search songs. Please check your internet connection.');
+        return;
+      }
+
+      if (data.error) {
+        console.error('API error:', data.error);
+        if (data.error.includes('credentials not configured')) {
+          toast.error('Spotify API not configured. Please contact support.');
+        } else {
+          toast.error('Failed to search songs.');
+        }
+        return;
+      }
+
+      setSongs(data.songs || []);
+      setSearchTotal(data.total || 0);
+    } catch (error) {
+      console.error('Search error:', error);
+      toast.error('Failed to search songs');
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  // Debounced search
+  useEffect(() => {
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+
+    searchTimeoutRef.current = setTimeout(() => {
+      searchSongs(searchQuery);
+    }, 500);
+
+    return () => {
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
+    };
+  }, [searchQuery]);
+
+  // Load popular songs on component mount
+  useEffect(() => {
+    searchSongs('top hits 2024');
+  }, []);
 
   const getDifficultyColor = (difficulty: string) => {
     switch (difficulty) {
@@ -233,48 +290,91 @@ const RecordSong = () => {
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="flex-1"
                 />
-                <Button variant="outline" size="icon">
-                  <Search className="w-4 h-4" />
+                <Button variant="outline" size="icon" disabled={isSearching}>
+                  {isSearching ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
                 </Button>
               </div>
 
+              {searchTotal > 0 && (
+                <p className="text-sm text-muted-foreground">
+                  Found {searchTotal} songs {searchQuery && `for "${searchQuery}"`}
+                </p>
+              )}
+
               <div className="grid grid-cols-1 gap-4 max-h-96 overflow-y-auto">
-                {filteredSongs.map((song) => (
-                  <Card 
-                    key={song.id}
-                    className={`cursor-pointer transition-all hover:shadow-md ${
-                      selectedSong?.id === song.id ? 'ring-2 ring-primary' : ''
-                    }`}
-                    onClick={() => setSelectedSong(song)}
-                  >
-                    <CardContent className="p-4">
-                      <div className="flex items-center justify-between">
-                        <div className="flex-1">
-                          <h3 className="font-semibold">{song.title}</h3>
-                          <p className="text-sm text-muted-foreground">{song.artist}</p>
-                          <div className="flex items-center gap-2 mt-2">
-                            <Badge variant="secondary">{song.genre}</Badge>
-                            <Badge 
-                              className={`text-white ${getDifficultyColor(song.difficulty)}`}
-                            >
-                              {song.difficulty}
-                            </Badge>
-                            <span className="text-sm text-muted-foreground flex items-center gap-1">
-                              <Timer className="w-3 h-3" />
-                              {song.duration}
-                            </span>
+                {isSearching && songs.length === 0 ? (
+                  <div className="text-center py-8">
+                    <Loader2 className="w-8 h-8 animate-spin mx-auto mb-2" />
+                    <p className="text-muted-foreground">Searching for songs...</p>
+                  </div>
+                ) : songs.length === 0 ? (
+                  <div className="text-center py-8">
+                    <Music className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
+                    <p className="text-muted-foreground">
+                      {searchQuery ? 'No songs found. Try a different search term.' : 'Start typing to search for songs...'}
+                    </p>
+                  </div>
+                ) : (
+                  songs.map((song) => (
+                    <Card 
+                      key={song.id}
+                      className={`cursor-pointer transition-all hover:shadow-md ${
+                        selectedSong?.id === song.id ? 'ring-2 ring-primary' : ''
+                      }`}
+                      onClick={() => setSelectedSong(song)}
+                    >
+                      <CardContent className="p-4">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-start gap-3 flex-1">
+                            {song.imageUrl && (
+                              <img 
+                                src={song.imageUrl} 
+                                alt={`${song.title} cover`}
+                                className="w-12 h-12 rounded object-cover"
+                              />
+                            )}
+                            <div className="flex-1">
+                              <h3 className="font-semibold">{song.title}</h3>
+                              <p className="text-sm text-muted-foreground">{song.artist}</p>
+                              {song.album && (
+                                <p className="text-xs text-muted-foreground">{song.album}</p>
+                              )}
+                              <div className="flex items-center gap-2 mt-2">
+                                <Badge variant="secondary">{song.genre}</Badge>
+                                <Badge 
+                                  className={`text-white ${getDifficultyColor(song.difficulty)}`}
+                                >
+                                  {song.difficulty}
+                                </Badge>
+                                <span className="text-sm text-muted-foreground flex items-center gap-1">
+                                  <Timer className="w-3 h-3" />
+                                  {song.duration}
+                                </span>
+                                {song.spotifyUrl && (
+                                  <a 
+                                    href={song.spotifyUrl} 
+                                    target="_blank" 
+                                    rel="noopener noreferrer"
+                                    className="text-green-600 hover:text-green-700"
+                                    onClick={(e) => e.stopPropagation()}
+                                  >
+                                    <ExternalLink className="w-3 h-3" />
+                                  </a>
+                                )}
+                              </div>
+                            </div>
                           </div>
+                          <Button 
+                            variant={selectedSong?.id === song.id ? "default" : "outline"}
+                            size="sm"
+                          >
+                            {selectedSong?.id === song.id ? 'Selected' : 'Select'}
+                          </Button>
                         </div>
-                        <Button 
-                          variant={selectedSong?.id === song.id ? "default" : "outline"}
-                          size="sm"
-                        >
-                          {selectedSong?.id === song.id ? 'Selected' : 'Select'}
-                        </Button>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
+                      </CardContent>
+                    </Card>
+                  ))
+                )}
               </div>
             </CardContent>
           </Card>
