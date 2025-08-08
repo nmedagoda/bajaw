@@ -18,26 +18,25 @@ interface GoogleSearchResponse {
 
 async function searchGoogleForSongs(query: string): Promise<SearchResult[]> {
   try {
-    // Use a simple web search API - you could replace this with Google Custom Search API
-    // For now, we'll create mock search results based on the query
-    const searchQuery = `${query} song lyrics artist album`;
+    // Search specifically for Sinhala songs
+    const searchQuery = `${query} sinhala song lyrics sri lanka`;
     
-    // Mock search results - in production, you'd use a real search API
+    // Mock search results for Sinhala songs - in production, you'd use a real search API
     const mockResults: SearchResult[] = [
       {
-        title: `${query} - Official Music Video`,
+        title: `${query} - Sinhala Song Official Video`,
         link: `https://www.youtube.com/watch?v=example`,
-        snippet: `Official music video for ${query}. Listen to the full song...`
+        snippet: `Official Sinhala music video for ${query}. Popular Sri Lankan song...`
       },
       {
-        title: `${query} Lyrics - Genius`,
-        link: `https://genius.com/example`,
-        snippet: `Lyrics for ${query}. Verse 1: ...`
+        title: `${query} Sinhala Lyrics`,
+        link: `https://sinhala-lyrics.com/example`,
+        snippet: `Sinhala lyrics for ${query}. Traditional Sri Lankan song...`
       },
       {
-        title: `${query} - Spotify`,
-        link: `https://open.spotify.com/track/example`,
-        snippet: `Listen to ${query} on Spotify. Popular song with millions of streams...`
+        title: `${query} - Sri Lankan Music`,
+        link: `https://music.lk/track/example`,
+        snippet: `Listen to ${query} Sinhala song. Popular in Sri Lankan music scene...`
       }
     ];
 
@@ -73,8 +72,8 @@ function extractSongInfo(searchResult: SearchResult, index: number) {
     songTitle = title.replace(/\(.*\)/g, '').replace(/Official.*|Music Video|Lyrics/gi, '').trim();
   }
 
-  // Generate mock data based on search results
-  const genres = ['Pop', 'Rock', 'Hip-Hop', 'R&B', 'Country', 'Alternative', 'Electronic'];
+  // Generate mock data for Sinhala songs
+  const genres = ['Sinhala Pop', 'Baila', 'Classical Sinhala', 'Folk', 'Contemporary Sinhala', 'Traditional'];
   const difficulties: ('Easy' | 'Medium' | 'Hard')[] = ['Easy', 'Medium', 'Hard'];
   
   // Generate sample lyrics structure (placeholder only - avoid copyright content)
@@ -123,7 +122,7 @@ Final musical phrases`;
     originalUrl: searchResult.link,
     lyrics: generateSampleLyrics(songTitle || `Song ${index + 1}`, artist),
     lyricsImageUrl: Math.random() > 0.5 ? '/lovable-uploads/fa7b84ce-1981-49b5-89a7-75a6464deeae.png' : null,
-    lyricsLanguage: Math.random() > 0.5 ? 'Sinhala' : 'English'
+    lyricsLanguage: 'Sinhala'
   };
 }
 
