@@ -199,7 +199,7 @@ async function fetchLyricsFromUrl(url: string): Promise<string> {
     
     for (const pattern of lyricsPatterns) {
       const matches = html.match(pattern);
-      if (matches) {
+      if (matches && matches[1]) {
         // Clean up HTML tags and extract text
         let lyrics = matches[1]
           .replace(/<script[^>]*>.*?<\/script>/gis, '')
