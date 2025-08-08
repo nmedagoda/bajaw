@@ -166,6 +166,12 @@ async function fetchLyricsFromUrl(url: string): Promise<string> {
   try {
     console.log(`Fetching lyrics from: ${url}`);
     
+    // Skip request URL which is not an actual lyrics page
+    if (url.includes('/songRequest')) {
+      console.log('Skipping request URL');
+      return 'This is a song request page, not lyrics';
+    }
+    
     const response = await fetch(url, {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
@@ -297,12 +303,17 @@ async function extractSongInfo(searchResult: SearchResult, index: number) {
     lyrics = fallbackSong.lyrics;
     console.log(`Using fallback lyrics for: ${songTitle}`);
   } else if (searchResult.link.includes('lklyrics.com')) {
+    console.log(`Attempting to fetch lyrics from URL: ${searchResult.link}`);
     try {
       lyrics = await fetchLyricsFromUrl(searchResult.link);
+      console.log(`Fetched lyrics result: ${lyrics.substring(0, 100)}...`);
     } catch (error) {
       console.error('Failed to fetch lyrics:', error);
-      lyrics = 'Lyrics not available';
+      lyrics = 'Error fetching lyrics from website';
     }
+  } else {
+    console.log(`Skipping lyrics fetch for non-lklyrics URL: ${searchResult.link}`);
+    lyrics = 'Lyrics source not supported';
   }
 
   return {
