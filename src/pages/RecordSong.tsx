@@ -109,6 +109,21 @@ const RecordSong = () => {
 
   // Load popular songs on component mount
   useEffect(() => {
+    // Clear any existing search data
+    setSearchQuery('');
+    setSongs([]);
+    setSearchTotal(0);
+    
+    // Clear any browser storage related to search
+    try {
+      localStorage.removeItem('songSearchHistory');
+      localStorage.removeItem('recentSearches');
+      sessionStorage.removeItem('songSearchHistory');
+      sessionStorage.removeItem('recentSearches');
+    } catch (error) {
+      console.log('Storage clear skipped');
+    }
+    
     searchSongs('popular songs 2024');
   }, []);
 
@@ -117,6 +132,17 @@ const RecordSong = () => {
     setSearchQuery('');
     setSongs([]);
     setSearchTotal(0);
+    
+    // Clear any browser storage
+    try {
+      localStorage.removeItem('songSearchHistory');
+      localStorage.removeItem('recentSearches');
+      sessionStorage.removeItem('songSearchHistory');
+      sessionStorage.removeItem('recentSearches');
+    } catch (error) {
+      console.log('Storage clear skipped');
+    }
+    
     searchSongs('popular songs 2024');
   };
 
