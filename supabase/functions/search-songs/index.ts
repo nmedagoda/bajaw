@@ -79,86 +79,69 @@ const fallbackSongs = [
   }
 ];
 
-async function searchLKLyrics(query: string): Promise<SearchResult[]> {
+async function searchGoogleForLyrics(query: string): Promise<SearchResult[]> {
   try {
-    console.log(`Searching lklyrics.com for: "${query}"`);
+    const googleApiKey = Deno.env.get('GOOGLE_API_KEY');
+    const searchEngineId = Deno.env.get('GOOGLE_SEARCH_ENGINE_ID');
     
-    // Try different search approaches for lklyrics.com
-    const searchUrls = [
-      `https://www.lklyrics.com/?s=${encodeURIComponent(query)}`,
-      `https://lklyrics.com/?s=${encodeURIComponent(query)}`,
-      `https://www.lklyrics.com/search?q=${encodeURIComponent(query)}`
-    ];
-    
-    for (const searchUrl of searchUrls) {
-      console.log(`Trying search URL: ${searchUrl}`);
-      
-      try {
-        const response = await fetch(searchUrl, {
-          headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-            'Accept-Language': 'en-US,en;q=0.5',
-            'Accept-Encoding': 'gzip, deflate, br',
-            'Cache-Control': 'no-cache'
-          }
-        });
-
-        if (response.ok) {
-          const html = await response.text();
-          console.log(`Got HTML response from ${searchUrl}, length: ${html.length}`);
-          
-          // Parse the HTML to extract song links with multiple patterns
-          const results: SearchResult[] = [];
-          
-          // Try various patterns to find lyrics links
-          const patterns = [
-            /<a[^>]+href="([^"]*lyrics[^"]*)"[^>]*>([^<]+)<\/a>/gi,
-            /<a[^>]+href="([^"]*)"[^>]*class="[^"]*post[^"]*"[^>]*>([^<]+)<\/a>/gi,
-            /<h[0-9][^>]*><a[^>]+href="([^"]*)"[^>]*>([^<]+)<\/a><\/h[0-9]>/gi
-          ];
-          
-          for (const pattern of patterns) {
-            let match;
-            while ((match = pattern.exec(html)) !== null && results.length < 10) {
-              const [, url, title] = match;
-              if (url && title && !url.includes('javascript') && 
-                  (url.includes('lyrics') || url.includes('lklyrics.com'))) {
-                const fullUrl = url.startsWith('http') ? url : `https://www.lklyrics.com${url}`;
-                
-                // Avoid duplicates
-                if (!results.find(r => r.link === fullUrl)) {
-                  console.log(`Found song: ${title.trim()} at ${fullUrl}`);
-                  results.push({
-                    title: title.trim(),
-                    link: fullUrl,
-                    snippet: `Sinhala lyrics for ${title.trim()}`
-                  });
-                }
-              }
-            }
-          }
-          
-          if (results.length > 0) {
-            console.log(`Found ${results.length} songs from ${searchUrl}`);
-            return results.slice(0, 5);
-          }
-        }
-      } catch (urlError) {
-        console.log(`Failed to fetch from ${searchUrl}:`, urlError);
-        continue;
-      }
+    if (!googleApiKey || !searchEngineId) {
+      console.log('Google API credentials not found, using fallback');
+      return fallbackSongs.filter(song => 
+        song.title.toLowerCase().includes(query.toLowerCase()) ||
+        query.toLowerCase().includes(song.title.toLowerCase().split(' ')[0])
+      );
     }
 
-    console.log('No results from any search URL, using fallback');
+    console.log(`Searching Google for lyrics: "${query}"`);
+    
+    // Create a lyrics-focused search query
+    const searchQuery = `${query} lyrics sinhala`;
+    const searchUrl = `https://www.googleapis.com/customsearch/v1?key=${googleApiKey}&cx=${searchEngineId}&q=${encodeURIComponent(searchQuery)}&num=10`;
+    
+    console.log(`Google search URL: ${searchUrl.replace(googleApiKey, 'HIDDEN')}`);
+    
+    const response = await fetch(searchUrl);
+    
+    if (!response.ok) {
+      console.log(`Google API error: ${response.status}`);
+      throw new Error(`Google search failed with status: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    console.log(`Google search returned ${data.items?.length || 0} results`);
+    
+    if (!data.items || data.items.length === 0) {
+      console.log('No Google search results, using fallback');
+      return fallbackSongs.filter(song => 
+        song.title.toLowerCase().includes(query.toLowerCase()) ||
+        query.toLowerCase().includes(song.title.toLowerCase().split(' ')[0])
+      );
+    }
+    
+    // Transform Google results to our format
+    const results: SearchResult[] = data.items.map((item: any) => ({
+      title: item.title || 'Unknown Song',
+      link: item.link || '',
+      snippet: item.snippet || 'No description available'
+    })).filter((result: SearchResult) => 
+      result.link && 
+      !result.link.includes('youtube.com') && // Skip video results
+      !result.link.includes('facebook.com') &&
+      !result.link.includes('instagram.com') &&
+      (result.title.toLowerCase().includes('lyrics') || 
+       result.snippet.toLowerCase().includes('lyrics') ||
+       result.link.includes('lyrics'))
+    );
+    
+    console.log(`Filtered to ${results.length} lyrics-related results`);
+    return results.slice(0, 8);
+    
+  } catch (error) {
+    console.error('Error searching Google:', error);
     return fallbackSongs.filter(song => 
       song.title.toLowerCase().includes(query.toLowerCase()) ||
       query.toLowerCase().includes(song.title.toLowerCase().split(' ')[0])
     );
-    
-  } catch (error) {
-    console.error('Error searching lklyrics.com:', error);
-    return fallbackSongs;
   }
 }
 
@@ -302,7 +285,7 @@ async function extractSongInfo(searchResult: SearchResult, index: number) {
   if (fallbackSong && fallbackSong.lyrics) {
     lyrics = fallbackSong.lyrics;
     console.log(`Using fallback lyrics for: ${songTitle}`);
-  } else if (searchResult.link.includes('lklyrics.com')) {
+  } else if (searchResult.link && searchResult.link.startsWith('http')) {
     console.log(`Attempting to fetch lyrics from URL: ${searchResult.link}`);
     try {
       lyrics = await fetchLyricsFromUrl(searchResult.link);
@@ -312,8 +295,8 @@ async function extractSongInfo(searchResult: SearchResult, index: number) {
       lyrics = 'Error fetching lyrics from website';
     }
   } else {
-    console.log(`Skipping lyrics fetch for non-lklyrics URL: ${searchResult.link}`);
-    lyrics = 'Lyrics source not supported';
+    console.log(`Skipping lyrics fetch for invalid URL: ${searchResult.link}`);
+    lyrics = 'Invalid URL provided';
   }
 
   return {
@@ -354,10 +337,10 @@ serve(async (req) => {
       );
     }
 
-    console.log(`Searching lklyrics.com for songs: "${query}"`);
+    console.log(`Searching Google for lyrics: "${query}"`);
 
-    // Search lklyrics.com for songs
-    const searchResults = await searchLKLyrics(query);
+    // Search Google for lyrics from any website
+    const searchResults = await searchGoogleForLyrics(query);
     
     if (searchResults.length === 0) {
       // If no results found, provide a message instead of mock data
@@ -381,13 +364,13 @@ serve(async (req) => {
       )
     );
 
-    console.log(`Found ${songs.length} songs from lklyrics.com`);
+    console.log(`Found ${songs.length} songs from Google search`);
 
     return new Response(
       JSON.stringify({ 
         songs,
         total: searchResults.length,
-        source: 'lklyrics'
+        source: 'google'
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
