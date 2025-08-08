@@ -36,94 +36,120 @@ const fallbackSongs = [
   }
 ];
 
-async function searchGoogleForSongs(query: string): Promise<SearchResult[]> {
+async function searchLKLyrics(query: string): Promise<SearchResult[]> {
   try {
-    const googleApiKey = Deno.env.get('GOOGLE_API_KEY');
-    const searchEngineId = Deno.env.get('GOOGLE_SEARCH_ENGINE_ID');
-
-    if (!googleApiKey || !searchEngineId) {
-      console.log('Google API credentials not found, using fallback data');
-      // Return fallback data that matches the search query
-      const matchingSongs = fallbackSongs.filter(song => 
-        song.title.toLowerCase().includes(query.toLowerCase()) ||
-        query.toLowerCase().includes(song.title.toLowerCase().split(' ')[0])
-      );
-      return matchingSongs.length > 0 ? matchingSongs : fallbackSongs;
-    }
-
-    // Search specifically for Sinhala song lyrics images with better targeting
-    const searchQuery = `"${query}" lyrics sinhala song text image words`;
-    const searchUrl = `https://www.googleapis.com/customsearch/v1?key=${googleApiKey}&cx=${searchEngineId}&q=${encodeURIComponent(searchQuery)}&searchType=image&num=10&imgType=photo&fileType=jpg,png,jpeg,webp&imgSize=medium`;
-
-    console.log(`Searching Google Images for: "${searchQuery}"`);
-
-    const response = await fetch(searchUrl);
-    const data = await response.json();
-
-    console.log(`Google API Response Status: ${response.status}`);
-    console.log(`Google API Response Data:`, JSON.stringify(data, null, 2));
+    console.log(`Searching lklyrics.com for: "${query}"`);
+    
+    // First search for songs on lklyrics.com
+    const searchUrl = `https://www.lklyrics.com/search/${encodeURIComponent(query)}`;
+    console.log(`Fetching search results from: ${searchUrl}`);
+    
+    const response = await fetch(searchUrl, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+      }
+    });
 
     if (!response.ok) {
-      console.error('Google Search API error:', data);
-      // If API fails, return fallback data
-      const matchingSongs = fallbackSongs.filter(song => 
+      console.log(`LKLyrics search failed with status: ${response.status}`);
+      return fallbackSongs;
+    }
+
+    const html = await response.text();
+    console.log(`Got HTML response, length: ${html.length}`);
+    
+    // Parse the HTML to extract song links
+    const results: SearchResult[] = [];
+    
+    // Simple regex to find song links in the search results
+    const linkPattern = /<a[^>]+href="([^"]*lyrics[^"]*)"[^>]*>([^<]+)<\/a>/gi;
+    let match;
+    
+    while ((match = linkPattern.exec(html)) !== null && results.length < 5) {
+      const [, url, title] = match;
+      if (url && title && !url.includes('javascript') && url.includes('lyrics')) {
+        const fullUrl = url.startsWith('http') ? url : `https://www.lklyrics.com${url}`;
+        console.log(`Found song: ${title} at ${fullUrl}`);
+        
+        results.push({
+          title: title.trim(),
+          link: fullUrl,
+          snippet: `Sinhala lyrics for ${title.trim()}`
+        });
+      }
+    }
+
+    if (results.length === 0) {
+      console.log('No lyrics found on lklyrics.com, using fallback');
+      return fallbackSongs.filter(song => 
         song.title.toLowerCase().includes(query.toLowerCase()) ||
         query.toLowerCase().includes(song.title.toLowerCase().split(' ')[0])
       );
-      return matchingSongs.length > 0 ? matchingSongs : fallbackSongs;
     }
 
-    const results: SearchResult[] = [];
+    console.log(`Found ${results.length} songs on lklyrics.com`);
+    return results;
     
-    if (data.items && data.items.length > 0) {
-      console.log(`Found ${data.items.length} items from Google Images`);
-      
-      for (const item of data.items) {
-        // Use the direct image link from Google Images
-        const imageUrl = item.link;
-        
-        console.log(`Processing item: ${item.title}, URL: ${imageUrl}`);
-        
-        // Be more lenient with image URLs - allow any that look like images
-        if (imageUrl && (
-          imageUrl.includes('.jpg') || 
-          imageUrl.includes('.png') || 
-          imageUrl.includes('.jpeg') || 
-          imageUrl.includes('.webp') || 
-          imageUrl.includes('.gif') ||
-          imageUrl.includes('image') ||
-          // Some image URLs might not have extensions but are still valid
-          item.mime?.includes('image')
-        )) {
-          console.log(`Found valid image URL: ${imageUrl} for query: ${query}`);
-          
-          results.push({
-            title: item.title || `${query} - Sinhala Lyrics`,
-            link: imageUrl,
-            snippet: item.snippet || `Sinhala lyrics image for ${query}. Traditional Sri Lankan song with visual lyrics...`
-          });
-        } else {
-          console.log(`Skipping URL: ${imageUrl} (not an image)`);
-        }
-      }
-    } else {
-      console.log('No items found in Google search response');
-    }
-
-    console.log(`Returning ${results.length} valid image results`);
-    return results.length > 0 ? results : fallbackSongs;
   } catch (error) {
-    console.error('Error searching Google:', error);
-    // Return fallback data on error
-    const matchingSongs = fallbackSongs.filter(song => 
-      song.title.toLowerCase().includes(query.toLowerCase()) ||
-      query.toLowerCase().includes(song.title.toLowerCase().split(' ')[0])
-    );
-    return matchingSongs.length > 0 ? matchingSongs : fallbackSongs;
+    console.error('Error searching lklyrics.com:', error);
+    return fallbackSongs;
   }
 }
 
-function extractSongInfo(searchResult: SearchResult, index: number) {
+async function fetchLyricsFromUrl(url: string): Promise<string> {
+  try {
+    console.log(`Fetching lyrics from: ${url}`);
+    
+    const response = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+      }
+    });
+
+    if (!response.ok) {
+      console.log(`Failed to fetch lyrics, status: ${response.status}`);
+      return 'Lyrics not available';
+    }
+
+    const html = await response.text();
+    
+    // Extract lyrics from common patterns on lklyrics.com
+    const lyricsPatterns = [
+      /<div[^>]*class="[^"]*lyrics[^"]*"[^>]*>(.*?)<\/div>/is,
+      /<div[^>]*id="[^"]*lyrics[^"]*"[^>]*>(.*?)<\/div>/is,
+      /<p[^>]*class="[^"]*lyrics[^"]*"[^>]*>(.*?)<\/p>/is
+    ];
+    
+    for (const pattern of lyricsPatterns) {
+      const match = html.match(pattern);
+      if (match) {
+        // Clean up HTML tags and return lyrics
+        const lyrics = match[1]
+          .replace(/<[^>]*>/g, '\n')
+          .replace(/&nbsp;/g, ' ')
+          .replace(/&amp;/g, '&')
+          .replace(/&lt;/g, '<')
+          .replace(/&gt;/g, '>')
+          .replace(/\n\s*\n/g, '\n\n')
+          .trim();
+        
+        if (lyrics.length > 50) {
+          console.log(`Found lyrics, length: ${lyrics.length}`);
+          return lyrics;
+        }
+      }
+    }
+    
+    console.log('No lyrics found in the page');
+    return 'Lyrics not available';
+    
+  } catch (error) {
+    console.error('Error fetching lyrics:', error);
+    return 'Lyrics not available';
+  }
+}
+
+async function extractSongInfo(searchResult: SearchResult, index: number) {
   const title = searchResult.title;
   
   // Extract artist and song from title
@@ -152,38 +178,19 @@ function extractSongInfo(searchResult: SearchResult, index: number) {
   const genres = ['Sinhala Pop', 'Baila', 'Classical Sinhala', 'Folk', 'Contemporary Sinhala', 'Traditional'];
   const difficulties: ('Easy' | 'Medium' | 'Hard')[] = ['Easy', 'Medium', 'Hard'];
   
-  // Generate sample lyrics structure (placeholder only - avoid copyright content)
-  const generateSampleLyrics = (title: string, artist: string) => {
-    return `[Verse 1]
-This is where the song lyrics would appear
-For "${title}" by ${artist}
-(Actual lyrics would be retrieved from a licensed source)
-
-[Chorus]
-Sample lyrics structure shown here
-Real implementation would require proper licensing
-To display copyrighted lyrical content
-
-[Verse 2]
-Additional verses and content
-Would be structured similarly
-Following standard song format
-
-[Bridge]
-Musical bridge section here
-With appropriate lyrical content
-
-[Chorus]
-Repeating chorus section
-As commonly found in songs
-
-[Outro]
-Song conclusion lyrics
-Final musical phrases`;
-  };
+  // Fetch actual lyrics from the URL if it's from lklyrics.com
+  let lyrics = 'Lyrics not available';
+  if (searchResult.link.includes('lklyrics.com')) {
+    try {
+      lyrics = await fetchLyricsFromUrl(searchResult.link);
+    } catch (error) {
+      console.error('Failed to fetch lyrics:', error);
+      lyrics = 'Lyrics not available';
+    }
+  }
 
   return {
-    id: `google-${index}-${Date.now()}`,
+    id: `lklyrics-${index}-${Date.now()}`,
     title: songTitle || `Song ${index + 1}`,
     artist: artist,
     album: 'Unknown Album',
@@ -192,12 +199,12 @@ Final musical phrases`;
     difficulty: difficulties[index % difficulties.length],
     popularity: Math.floor(Math.random() * 100),
     previewUrl: null,
-    spotifyUrl: searchResult.link.includes('spotify') ? searchResult.link : undefined,
+    spotifyUrl: undefined,
     imageUrl: null,
     searchSnippet: searchResult.snippet,
     originalUrl: searchResult.link,
-    lyrics: generateSampleLyrics(songTitle || `Song ${index + 1}`, artist),
-    lyricsImageUrl: searchResult.link, // Use the actual image URL from Google
+    lyrics: lyrics,
+    lyricsImageUrl: null, // No image needed since we have actual lyrics
     lyricsLanguage: 'Sinhala'
   };
 }
@@ -220,10 +227,10 @@ serve(async (req) => {
       );
     }
 
-    console.log(`Searching Google for songs: "${query}"`);
+    console.log(`Searching lklyrics.com for songs: "${query}"`);
 
-    // Search Google for songs
-    const searchResults = await searchGoogleForSongs(query);
+    // Search lklyrics.com for songs
+    const searchResults = await searchLKLyrics(query);
     
     if (searchResults.length === 0) {
       // If no results found, provide a message instead of mock data
@@ -240,18 +247,20 @@ serve(async (req) => {
       );
     }
     
-    // Transform search results to our song format
-    const songs = searchResults.slice(0, limit).map((result, index) => 
-      extractSongInfo(result, index)
+    // Transform search results to our song format with async processing
+    const songs = await Promise.all(
+      searchResults.slice(0, limit).map((result, index) => 
+        extractSongInfo(result, index)
+      )
     );
 
-    console.log(`Found ${songs.length} songs from Google search`);
+    console.log(`Found ${songs.length} songs from lklyrics.com`);
 
     return new Response(
       JSON.stringify({ 
         songs,
         total: searchResults.length,
-        source: 'google'
+        source: 'lklyrics'
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
