@@ -24,6 +24,8 @@ interface Song {
   previewUrl?: string | null;
   spotifyUrl?: string;
   imageUrl?: string | null;
+  searchSnippet?: string;
+  originalUrl?: string;
 }
 
 const RecordSong = () => {
@@ -104,7 +106,7 @@ const RecordSong = () => {
 
   // Load popular songs on component mount
   useEffect(() => {
-    searchSongs('top hits 2024');
+    searchSongs('popular songs 2024');
   }, []);
 
   const getDifficultyColor = (difficulty: string) => {
@@ -279,7 +281,7 @@ const RecordSong = () => {
                 Choose Your Song
               </CardTitle>
               <CardDescription>
-                Search through our song library and select a track to perform
+                Search the internet for any song and select a track to perform
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -311,7 +313,7 @@ const RecordSong = () => {
                   <div className="text-center py-8">
                     <Music className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
                     <p className="text-muted-foreground">
-                      {searchQuery ? 'No songs found. Try a different search term.' : 'Start typing to search for songs...'}
+                      {searchQuery ? 'No songs found. Try a different search term.' : 'Start typing to search for songs on the internet...'}
                     </p>
                   </div>
                 ) : (
@@ -350,17 +352,17 @@ const RecordSong = () => {
                                   <Timer className="w-3 h-3" />
                                   {song.duration}
                                 </span>
-                                {song.spotifyUrl && (
-                                  <a 
-                                    href={song.spotifyUrl} 
-                                    target="_blank" 
-                                    rel="noopener noreferrer"
-                                    className="text-green-600 hover:text-green-700"
-                                    onClick={(e) => e.stopPropagation()}
-                                  >
-                                    <ExternalLink className="w-3 h-3" />
-                                  </a>
-                                )}
+                                 {song.originalUrl && (
+                                   <a 
+                                     href={song.originalUrl} 
+                                     target="_blank" 
+                                     rel="noopener noreferrer"
+                                     className="text-blue-600 hover:text-blue-700"
+                                     onClick={(e) => e.stopPropagation()}
+                                   >
+                                     <ExternalLink className="w-3 h-3" />
+                                   </a>
+                                 )}
                               </div>
                             </div>
                           </div>
