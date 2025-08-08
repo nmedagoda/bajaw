@@ -17,14 +17,38 @@ interface GoogleSearchResponse {
   results: SearchResult[];
 }
 
+// Fallback data for when Google API is not configured
+const fallbackSongs = [
+  {
+    title: "Sikuru Liya - Traditional Sinhala Song",
+    link: "https://i.imgur.com/placeholder1.jpg",
+    snippet: "Classic Sinhala folk song with traditional lyrics about golden leaves"
+  },
+  {
+    title: "Sulage Pavi - Classic Sinhala",
+    link: "https://i.imgur.com/placeholder2.jpg", 
+    snippet: "Popular Sinhala song with beautiful poetic lyrics"
+  },
+  {
+    title: "Milton Perera Songs - Sinhala Classics",
+    link: "https://i.imgur.com/placeholder3.jpg",
+    snippet: "Collection of Milton Perera's greatest Sinhala hits"
+  }
+];
+
 async function searchGoogleForSongs(query: string): Promise<SearchResult[]> {
   try {
     const googleApiKey = Deno.env.get('GOOGLE_API_KEY');
     const searchEngineId = Deno.env.get('GOOGLE_SEARCH_ENGINE_ID');
 
     if (!googleApiKey || !searchEngineId) {
-      console.log('Google API credentials not found, using fallback');
-      return [];
+      console.log('Google API credentials not found, using fallback data');
+      // Return fallback data that matches the search query
+      const matchingSongs = fallbackSongs.filter(song => 
+        song.title.toLowerCase().includes(query.toLowerCase()) ||
+        query.toLowerCase().includes(song.title.toLowerCase().split(' ')[0])
+      );
+      return matchingSongs.length > 0 ? matchingSongs : fallbackSongs;
     }
 
     // Search specifically for Sinhala song lyrics images
