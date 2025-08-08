@@ -20,6 +20,33 @@ interface GoogleSearchResponse {
 // Fallback data with actual Sinhala song lyrics
 const fallbackSongs = [
   {
+    title: "Pembara Madu Mage - Victor Rathnayake",
+    link: "https://www.lklyrics.com/pembara-madu-mage-lyrics",
+    snippet: "Song by Victor Rathnayake from 1985",
+    lyrics: `පෙම්බර මධු මගේ
+මා නැගෙන් මියගෙන්
+සුරධුණි දලදා ඉරිගෙන්
+මාළතී මාළතී ඇගෙන්
+පෙම්බර මධු මගේ
+පෙම්බර මධු මගේ
+ලොවදී ඇස් අනතරෙන්
+පගුරක ධනේ හොඳවලා
+ආතර හෙනයෙරන්
+මගේ ජන්කෙන් සෙන්සට්‍ය
+අරුණ එම් බක් කිඩුවණ
+සුරධුණි දලදා ඉරිගෙන්
+මාළතී මාළතී ඇගෙන්
+පෙම්බර මධු මගේ
+පෙම්බර මධු මගේ
+වහදලලා සළගරලා
+ගරන් ධම්මම්ර කසගරලා
+සුරධුණි දලදා ඉරිගෙන්
+මාළතී මාළතී ඇගෙන්
+පෙම්බර මධු මගේ
+පෙම්බර මධු මගේ
+අගේම් පරත් ක්ම්සරනේ`
+  },
+  {
     title: "Sikuru Liya - Traditional Sinhala Song",
     link: "https://www.lklyrics.com/sikuru-liya-lyrics",
     snippet: "Classic Sinhala folk song with traditional lyrics about golden leaves",
