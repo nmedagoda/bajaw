@@ -414,8 +414,12 @@ const RecordSong = () => {
         </p>
       </div>
 
-      <Tabs defaultValue="search" className="space-y-6">
+      <Tabs defaultValue="upload" className="space-y-6">
         <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="upload" className="flex items-center gap-2">
+            <FileAudio className="w-4 h-4" />
+            Upload Songs
+          </TabsTrigger>
           <TabsTrigger value="search" className="flex items-center gap-2">
             <Search className="w-4 h-4" />
             Song Library
@@ -424,11 +428,147 @@ const RecordSong = () => {
             <Mic className="w-4 h-4" />
             Recording Studio
           </TabsTrigger>
-          <TabsTrigger value="upload" className="flex items-center gap-2">
-            <FileAudio className="w-4 h-4" />
-            Upload Songs
-          </TabsTrigger>
         </TabsList>
+
+        <TabsContent value="upload" className="space-y-6">
+          {/* Upload Songs */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <FileAudio className="w-5 h-5" />
+                Upload Songs
+              </CardTitle>
+              <CardDescription>
+                Upload both your recorded version and the original song for comparison
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Song Information */}
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold">Song Information</h3>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="songTitle">Song Title *</Label>
+                    <Input
+                      id="songTitle"
+                      placeholder="Enter song title..."
+                      value={songTitle}
+                      onChange={(e) => setSongTitle(e.target.value)}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="originalSinger">Original Singer's Name *</Label>
+                    <Input
+                      id="originalSinger"
+                      placeholder="Enter original singer's name..."
+                      value={originalSingerName}
+                      onChange={(e) => setOriginalSingerName(e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                {/* File Uploads */}
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold">Audio Files</h3>
+                  
+                  {/* Recorded Song Upload */}
+                  <div className="space-y-2">
+                    <Label htmlFor="recordedFile">Your Recorded Version *</Label>
+                    <div className="space-y-2">
+                      <Input
+                        id="recordedFile"
+                        type="file"
+                        accept=".wav,.mp3,audio/wav,audio/mpeg,audio/mp3"
+                        onChange={handleRecordedFileChange}
+                      />
+                      <div className="flex items-center gap-2">
+                        <Label htmlFor="recordedType" className="text-sm">File Type:</Label>
+                        <Select value={recordedFileType} onValueChange={(value: 'wav' | 'mp3') => setRecordedFileType(value)}>
+                          <SelectTrigger className="w-20">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="mp3">MP3</SelectItem>
+                            <SelectItem value="wav">WAV</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      {recordedFile && (
+                        <p className="text-sm text-muted-foreground">
+                          Selected: {recordedFile.name} ({(recordedFile.size / 1024 / 1024).toFixed(2)} MB)
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Original Song Upload */}
+                  <div className="space-y-2">
+                    <Label htmlFor="originalFile">Original Song *</Label>
+                    <div className="space-y-2">
+                      <Input
+                        id="originalFile"
+                        type="file"
+                        accept=".wav,.mp3,audio/wav,audio/mpeg,audio/mp3"
+                        onChange={handleOriginalFileChange}
+                      />
+                      <div className="flex items-center gap-2">
+                        <Label htmlFor="originalType" className="text-sm">File Type:</Label>
+                        <Select value={originalFileType} onValueChange={(value: 'wav' | 'mp3') => setOriginalFileType(value)}>
+                          <SelectTrigger className="w-20">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="mp3">MP3</SelectItem>
+                            <SelectItem value="wav">WAV</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      {originalFile && (
+                        <p className="text-sm text-muted-foreground">
+                          Selected: {originalFile.name} ({(originalFile.size / 1024 / 1024).toFixed(2)} MB)
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Upload Button */}
+              <div className="flex justify-center pt-4 border-t">
+                <Button 
+                  onClick={handleFileUpload}
+                  disabled={isUploading || !songTitle.trim() || !originalSingerName.trim() || !recordedFile || !originalFile}
+                  className="px-8"
+                >
+                  {isUploading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Uploading...
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="w-4 h-4 mr-2" />
+                      Upload Songs
+                    </>
+                  )}
+                </Button>
+              </div>
+
+              {/* Help Text */}
+              <div className="bg-muted/50 rounded-lg p-4 text-sm text-muted-foreground">
+                <h4 className="font-medium mb-2">Upload Guidelines:</h4>
+                <ul className="space-y-1 text-xs">
+                  <li>• Supported formats: .wav and .mp3</li>
+                  <li>• Maximum file size: 50MB per file</li>
+                  <li>• Both your recorded version and the original song are required</li>
+                  <li>• Files will be stored securely and linked to your account</li>
+                </ul>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
 
         <TabsContent value="search" className="space-y-6">
           {/* Song Search */}
@@ -631,84 +771,97 @@ const RecordSong = () => {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Mic className="w-5 h-5" />
-                  Recording Studio
+                  Recording Controls
                 </CardTitle>
                 <CardDescription>
-                  Record your performance with professional quality
+                  Record your performance with professional-quality audio
                 </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-6">
+              <CardContent className="space-y-4">
                 {selectedSong && (
-                  <div className="p-4 bg-secondary/50 rounded-lg">
-                    <h3 className="font-semibold">{selectedSong.title}</h3>
-                    <p className="text-sm text-muted-foreground">{selectedSong.artist}</p>
+                  <div className="bg-muted/50 rounded-lg p-4">
+                    <h3 className="font-semibold text-sm mb-1">Selected Song</h3>
+                    <p className="text-sm">{selectedSong.title}</p>
+                    <p className="text-xs text-muted-foreground">by {selectedSong.artist}</p>
                   </div>
                 )}
 
-                <div className="text-center space-y-4">
-                  <div className="text-3xl font-mono">
+                {/* Recording Timer */}
+                <div className="text-center py-6">
+                  <div className="text-4xl font-mono font-bold mb-2">
                     {formatTime(recordingTime)}
                   </div>
+                  <div className="flex items-center justify-center gap-1 mb-4">
+                    <Timer className="w-4 h-4" />
+                    <span className="text-sm text-muted-foreground">Recording Time</span>
+                  </div>
                   
-                  {isRecording && (
-                    <div className="flex items-center justify-center gap-2 text-red-500">
-                      <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
-                      <span className="text-sm font-medium">
-                        {isPaused ? 'PAUSED' : 'RECORDING'}
-                      </span>
-                    </div>
-                  )}
+                  {/* Recording Status */}
+                  <div className="flex items-center justify-center gap-2 mb-4">
+                    {isRecording && (
+                      <>
+                        <div className={`w-3 h-3 rounded-full ${isPaused ? 'bg-yellow-500' : 'bg-red-500 animate-pulse'}`} />
+                        <span className="text-sm font-medium">
+                          {isPaused ? 'Paused' : 'Recording'}
+                        </span>
+                      </>
+                    )}
+                  </div>
 
-                  <div className="flex justify-center gap-2">
+                  {/* Control Buttons */}
+                  <div className="flex items-center justify-center gap-3">
                     {!isRecording ? (
-                      <Button 
-                        onClick={startRecording}
-                        className="flex items-center gap-2"
-                        disabled={!selectedSong}
-                      >
-                        <Mic className="w-4 h-4" />
+                      <Button onClick={startRecording} size="lg" className="px-8">
+                        <Mic className="w-4 h-4 mr-2" />
                         Start Recording
                       </Button>
                     ) : (
                       <>
                         <Button 
-                          onClick={pauseRecording}
-                          variant="outline"
-                          className="flex items-center gap-2"
+                          onClick={pauseRecording} 
+                          variant="outline" 
+                          size="lg"
                         >
                           {isPaused ? <Play className="w-4 h-4" /> : <Pause className="w-4 h-4" />}
-                          {isPaused ? 'Resume' : 'Pause'}
                         </Button>
                         <Button 
-                          onClick={stopRecording}
-                          variant="destructive"
-                          className="flex items-center gap-2"
+                          onClick={stopRecording} 
+                          variant="destructive" 
+                          size="lg"
                         >
                           <Square className="w-4 h-4" />
-                          Stop
                         </Button>
                       </>
                     )}
                   </div>
-
-                  {!selectedSong && (
-                    <p className="text-sm text-muted-foreground">
-                      Please select a song from the library first
-                    </p>
-                  )}
                 </div>
+
+                {/* Audio Preview */}
+                {audioBlob && (
+                  <div className="border border-dashed border-border rounded-lg p-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Volume2 className="w-4 h-4" />
+                      <span className="font-medium">Recording Preview</span>
+                    </div>
+                    <audio 
+                      controls 
+                      src={URL.createObjectURL(audioBlob)}
+                      className="w-full"
+                    />
+                  </div>
+                )}
               </CardContent>
             </Card>
 
-            {/* Performance Details */}
+            {/* Upload Form */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Upload className="w-5 h-5" />
-                  Performance Details
+                  Upload Performance
                 </CardTitle>
                 <CardDescription>
-                  Add details about your performance
+                  Add details about your performance and upload to get analysis
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -716,7 +869,7 @@ const RecordSong = () => {
                   <Label htmlFor="title">Performance Title *</Label>
                   <Input
                     id="title"
-                    placeholder="My cover of..."
+                    placeholder="Give your performance a title..."
                     value={performanceTitle}
                     onChange={(e) => setPerformanceTitle(e.target.value)}
                   />
@@ -726,163 +879,29 @@ const RecordSong = () => {
                   <Label htmlFor="description">Description (Optional)</Label>
                   <Textarea
                     id="description"
-                    placeholder="Tell us about your performance..."
+                    placeholder="Add any notes about your performance..."
                     value={performanceDescription}
                     onChange={(e) => setPerformanceDescription(e.target.value)}
                     rows={3}
                   />
                 </div>
 
-                {audioBlob && (
-                  <div className="space-y-4">
-                    <div className="p-4 bg-green-50 dark:bg-green-950/30 rounded-lg border border-green-200 dark:border-green-800">
-                      <div className="flex items-center gap-2 text-green-700 dark:text-green-300">
-                        <Volume2 className="w-4 h-4" />
-                        <span className="text-sm font-medium">Recording Ready</span>
-                      </div>
-                      <p className="text-xs text-green-600 dark:text-green-400 mt-1">
-                        Duration: {formatTime(recordingTime)}
-                      </p>
+                {uploadProgress > 0 && (
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span>Uploading...</span>
+                      <span>{uploadProgress}%</span>
                     </div>
-
-                    {uploadProgress > 0 && (
-                      <div className="space-y-2">
-                        <div className="flex justify-between text-sm">
-                          <span>Uploading...</span>
-                          <span>{uploadProgress}%</span>
-                        </div>
-                        <Progress value={uploadProgress} />
-                      </div>
-                    )}
-
-                    <Button 
-                      onClick={uploadPerformance}
-                      className="w-full"
-                      disabled={uploadProgress > 0 && uploadProgress < 100}
-                    >
-                      <Upload className="w-4 h-4 mr-2" />
-                      Upload Performance
-                    </Button>
+                    <Progress value={uploadProgress} />
                   </div>
                 )}
-              </CardContent>
-            </Card>
-          </div>
-        </TabsContent>
 
-        <TabsContent value="upload" className="space-y-6">
-          {/* Upload Songs */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <FileAudio className="w-5 h-5" />
-                Upload Songs
-              </CardTitle>
-              <CardDescription>
-                Upload both your recorded version and the original song for comparison
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Song Information */}
-                <div className="space-y-4">
-                  <h3 className="text-lg font-semibold">Song Information</h3>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="songTitle">Song Title *</Label>
-                    <Input
-                      id="songTitle"
-                      placeholder="Enter song title..."
-                      value={songTitle}
-                      onChange={(e) => setSongTitle(e.target.value)}
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="originalSinger">Original Singer's Name *</Label>
-                    <Input
-                      id="originalSinger"
-                      placeholder="Enter original singer's name..."
-                      value={originalSingerName}
-                      onChange={(e) => setOriginalSingerName(e.target.value)}
-                    />
-                  </div>
-                </div>
-
-                {/* File Uploads */}
-                <div className="space-y-4">
-                  <h3 className="text-lg font-semibold">Audio Files</h3>
-                  
-                  {/* Recorded Song Upload */}
-                  <div className="space-y-2">
-                    <Label htmlFor="recordedFile">Your Recorded Version *</Label>
-                    <div className="space-y-2">
-                      <Input
-                        id="recordedFile"
-                        type="file"
-                        accept=".wav,.mp3,audio/wav,audio/mpeg,audio/mp3"
-                        onChange={handleRecordedFileChange}
-                      />
-                      <div className="flex items-center gap-2">
-                        <Label htmlFor="recordedType" className="text-sm">File Type:</Label>
-                        <Select value={recordedFileType} onValueChange={(value: 'wav' | 'mp3') => setRecordedFileType(value)}>
-                          <SelectTrigger className="w-20">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="mp3">MP3</SelectItem>
-                            <SelectItem value="wav">WAV</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      {recordedFile && (
-                        <p className="text-sm text-muted-foreground">
-                          Selected: {recordedFile.name} ({(recordedFile.size / 1024 / 1024).toFixed(2)} MB)
-                        </p>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Original Song Upload */}
-                  <div className="space-y-2">
-                    <Label htmlFor="originalFile">Original Song *</Label>
-                    <div className="space-y-2">
-                      <Input
-                        id="originalFile"
-                        type="file"
-                        accept=".wav,.mp3,audio/wav,audio/mpeg,audio/mp3"
-                        onChange={handleOriginalFileChange}
-                      />
-                      <div className="flex items-center gap-2">
-                        <Label htmlFor="originalType" className="text-sm">File Type:</Label>
-                        <Select value={originalFileType} onValueChange={(value: 'wav' | 'mp3') => setOriginalFileType(value)}>
-                          <SelectTrigger className="w-20">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="mp3">MP3</SelectItem>
-                            <SelectItem value="wav">WAV</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      {originalFile && (
-                        <p className="text-sm text-muted-foreground">
-                          Selected: {originalFile.name} ({(originalFile.size / 1024 / 1024).toFixed(2)} MB)
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Upload Button */}
-              <div className="flex justify-center pt-4 border-t">
                 <Button 
-                  onClick={handleFileUpload}
-                  disabled={isUploading || !songTitle.trim() || !originalSingerName.trim() || !recordedFile || !originalFile}
-                  className="px-8"
+                  onClick={uploadPerformance}
+                  className="w-full"
+                  disabled={uploadProgress > 0 && uploadProgress < 100}
                 >
-                  {isUploading ? (
+                  {uploadProgress > 0 && uploadProgress < 100 ? (
                     <>
                       <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                       Uploading...
@@ -890,24 +909,13 @@ const RecordSong = () => {
                   ) : (
                     <>
                       <Upload className="w-4 h-4 mr-2" />
-                      Upload Songs
+                      Upload & Analyze
                     </>
                   )}
                 </Button>
-              </div>
-
-              {/* Help Text */}
-              <div className="bg-muted/50 rounded-lg p-4 text-sm text-muted-foreground">
-                <h4 className="font-medium mb-2">Upload Guidelines:</h4>
-                <ul className="space-y-1 text-xs">
-                  <li>• Supported formats: .wav and .mp3</li>
-                  <li>• Maximum file size: 50MB per file</li>
-                  <li>• Both your recorded version and the original song are required</li>
-                  <li>• Files will be stored securely and linked to your account</li>
-                </ul>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          </div>
         </TabsContent>
       </Tabs>
     </div>
