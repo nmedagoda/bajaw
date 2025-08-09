@@ -128,6 +128,45 @@ export type Database = {
         }
         Relationships: []
       }
+      uploaded_songs: {
+        Row: {
+          created_at: string
+          id: string
+          original_file_type: string | null
+          original_singer_name: string
+          original_song_url: string | null
+          recorded_file_type: string | null
+          recorded_song_url: string | null
+          singer_id: string
+          song_title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          original_file_type?: string | null
+          original_singer_name: string
+          original_song_url?: string | null
+          recorded_file_type?: string | null
+          recorded_song_url?: string | null
+          singer_id: string
+          song_title: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          original_file_type?: string | null
+          original_singer_name?: string
+          original_song_url?: string | null
+          recorded_file_type?: string | null
+          recorded_song_url?: string | null
+          singer_id?: string
+          song_title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       votes: {
         Row: {
           comments: string | null

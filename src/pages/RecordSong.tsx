@@ -8,9 +8,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Music, Mic, Play, Pause, Square, Upload, Search, Timer, Volume2, Loader2, ExternalLink, X } from 'lucide-react';
+import { Music, Mic, Play, Pause, Square, Upload, Search, Timer, Volume2, Loader2, ExternalLink, X, FileAudio } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
 
 interface Song {
   id: string;
@@ -32,6 +33,7 @@ interface Song {
 }
 
 const RecordSong = () => {
+  const { user } = useAuth();
   const [selectedSong, setSelectedSong] = useState<Song | null>(null);
   const [singerName, setSingerName] = useState('');
   const [songWords, setSongWords] = useState('');
@@ -45,6 +47,15 @@ const RecordSong = () => {
   const [performanceTitle, setPerformanceTitle] = useState('');
   const [performanceDescription, setPerformanceDescription] = useState('');
   const [uploadProgress, setUploadProgress] = useState(0);
+
+  // Upload Songs tab state
+  const [songTitle, setSongTitle] = useState('');
+  const [originalSingerName, setOriginalSingerName] = useState('');
+  const [recordedFile, setRecordedFile] = useState<File | null>(null);
+  const [originalFile, setOriginalFile] = useState<File | null>(null);
+  const [recordedFileType, setRecordedFileType] = useState<'wav' | 'mp3'>('mp3');
+  const [originalFileType, setOriginalFileType] = useState<'wav' | 'mp3'>('mp3');
+  const [isUploading, setIsUploading] = useState(false);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioStreamRef = useRef<MediaStream | null>(null);
@@ -294,6 +305,104 @@ const RecordSong = () => {
     }
   };
 
+  // Upload songs functionality
+  const handleFileUpload = async () => {
+    if (!user) {
+      toast.error('Please log in to upload songs');
+      return;
+    }
+
+    if (!songTitle.trim() || !originalSingerName.trim() || !recordedFile || !originalFile) {
+      toast.error('Please fill in all fields and select both audio files');
+      return;
+    }
+
+    setIsUploading(true);
+    try {
+      // Upload recorded song file
+      const recordedFileName = `${user.id}/recorded/${Date.now()}_${recordedFile.name}`;
+      const { data: recordedData, error: recordedError } = await supabase.storage
+        .from('audio-uploads')
+        .upload(recordedFileName, recordedFile);
+
+      if (recordedError) throw recordedError;
+
+      // Upload original song file
+      const originalFileName = `${user.id}/original/${Date.now()}_${originalFile.name}`;
+      const { data: originalData, error: originalError } = await supabase.storage
+        .from('audio-uploads')
+        .upload(originalFileName, originalFile);
+
+      if (originalError) throw originalError;
+
+      // Get public URLs
+      const { data: recordedUrl } = supabase.storage
+        .from('audio-uploads')
+        .getPublicUrl(recordedData.path);
+
+      const { data: originalUrl } = supabase.storage
+        .from('audio-uploads')
+        .getPublicUrl(originalData.path);
+
+      // Save to database
+      const { error: dbError } = await supabase
+        .from('uploaded_songs')
+        .insert({
+          singer_id: user.id,
+          song_title: songTitle,
+          original_singer_name: originalSingerName,
+          recorded_song_url: recordedUrl.publicUrl,
+          original_song_url: originalUrl.publicUrl,
+          recorded_file_type: recordedFileType,
+          original_file_type: originalFileType
+        });
+
+      if (dbError) throw dbError;
+
+      toast.success('Songs uploaded successfully!');
+      
+      // Reset form
+      setSongTitle('');
+      setOriginalSingerName('');
+      setRecordedFile(null);
+      setOriginalFile(null);
+      setRecordedFileType('mp3');
+      setOriginalFileType('mp3');
+
+    } catch (error) {
+      console.error('Upload error:', error);
+      toast.error('Failed to upload songs');
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const handleRecordedFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const fileType = file.type;
+      if (fileType === 'audio/wav' || fileType === 'audio/mpeg' || fileType === 'audio/mp3') {
+        setRecordedFile(file);
+        setRecordedFileType(fileType === 'audio/wav' ? 'wav' : 'mp3');
+      } else {
+        toast.error('Please select a valid .wav or .mp3 file');
+      }
+    }
+  };
+
+  const handleOriginalFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const fileType = file.type;
+      if (fileType === 'audio/wav' || fileType === 'audio/mpeg' || fileType === 'audio/mp3') {
+        setOriginalFile(file);
+        setOriginalFileType(fileType === 'audio/wav' ? 'wav' : 'mp3');
+      } else {
+        toast.error('Please select a valid .wav or .mp3 file');
+      }
+    }
+  };
+
   return (
     <div className="container mx-auto px-4 py-8 max-w-6xl">
       <div className="mb-8">
@@ -306,7 +415,7 @@ const RecordSong = () => {
       </div>
 
       <Tabs defaultValue="search" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-2">
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="search" className="flex items-center gap-2">
             <Search className="w-4 h-4" />
             Song Library
@@ -314,6 +423,10 @@ const RecordSong = () => {
           <TabsTrigger value="record" className="flex items-center gap-2">
             <Mic className="w-4 h-4" />
             Recording Studio
+          </TabsTrigger>
+          <TabsTrigger value="upload" className="flex items-center gap-2">
+            <FileAudio className="w-4 h-4" />
+            Upload Songs
           </TabsTrigger>
         </TabsList>
 
@@ -655,6 +768,146 @@ const RecordSong = () => {
               </CardContent>
             </Card>
           </div>
+        </TabsContent>
+
+        <TabsContent value="upload" className="space-y-6">
+          {/* Upload Songs */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <FileAudio className="w-5 h-5" />
+                Upload Songs
+              </CardTitle>
+              <CardDescription>
+                Upload both your recorded version and the original song for comparison
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Song Information */}
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold">Song Information</h3>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="songTitle">Song Title *</Label>
+                    <Input
+                      id="songTitle"
+                      placeholder="Enter song title..."
+                      value={songTitle}
+                      onChange={(e) => setSongTitle(e.target.value)}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="originalSinger">Original Singer's Name *</Label>
+                    <Input
+                      id="originalSinger"
+                      placeholder="Enter original singer's name..."
+                      value={originalSingerName}
+                      onChange={(e) => setOriginalSingerName(e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                {/* File Uploads */}
+                <div className="space-y-4">
+                  <h3 className="text-lg font-semibold">Audio Files</h3>
+                  
+                  {/* Recorded Song Upload */}
+                  <div className="space-y-2">
+                    <Label htmlFor="recordedFile">Your Recorded Version *</Label>
+                    <div className="space-y-2">
+                      <Input
+                        id="recordedFile"
+                        type="file"
+                        accept=".wav,.mp3,audio/wav,audio/mpeg,audio/mp3"
+                        onChange={handleRecordedFileChange}
+                      />
+                      <div className="flex items-center gap-2">
+                        <Label htmlFor="recordedType" className="text-sm">File Type:</Label>
+                        <Select value={recordedFileType} onValueChange={(value: 'wav' | 'mp3') => setRecordedFileType(value)}>
+                          <SelectTrigger className="w-20">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="mp3">MP3</SelectItem>
+                            <SelectItem value="wav">WAV</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      {recordedFile && (
+                        <p className="text-sm text-muted-foreground">
+                          Selected: {recordedFile.name} ({(recordedFile.size / 1024 / 1024).toFixed(2)} MB)
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Original Song Upload */}
+                  <div className="space-y-2">
+                    <Label htmlFor="originalFile">Original Song *</Label>
+                    <div className="space-y-2">
+                      <Input
+                        id="originalFile"
+                        type="file"
+                        accept=".wav,.mp3,audio/wav,audio/mpeg,audio/mp3"
+                        onChange={handleOriginalFileChange}
+                      />
+                      <div className="flex items-center gap-2">
+                        <Label htmlFor="originalType" className="text-sm">File Type:</Label>
+                        <Select value={originalFileType} onValueChange={(value: 'wav' | 'mp3') => setOriginalFileType(value)}>
+                          <SelectTrigger className="w-20">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="mp3">MP3</SelectItem>
+                            <SelectItem value="wav">WAV</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      {originalFile && (
+                        <p className="text-sm text-muted-foreground">
+                          Selected: {originalFile.name} ({(originalFile.size / 1024 / 1024).toFixed(2)} MB)
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Upload Button */}
+              <div className="flex justify-center pt-4 border-t">
+                <Button 
+                  onClick={handleFileUpload}
+                  disabled={isUploading || !songTitle.trim() || !originalSingerName.trim() || !recordedFile || !originalFile}
+                  className="px-8"
+                >
+                  {isUploading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Uploading...
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="w-4 h-4 mr-2" />
+                      Upload Songs
+                    </>
+                  )}
+                </Button>
+              </div>
+
+              {/* Help Text */}
+              <div className="bg-muted/50 rounded-lg p-4 text-sm text-muted-foreground">
+                <h4 className="font-medium mb-2">Upload Guidelines:</h4>
+                <ul className="space-y-1 text-xs">
+                  <li>• Supported formats: .wav and .mp3</li>
+                  <li>• Maximum file size: 50MB per file</li>
+                  <li>• Both your recorded version and the original song are required</li>
+                  <li>• Files will be stored securely and linked to your account</li>
+                </ul>
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
     </div>
