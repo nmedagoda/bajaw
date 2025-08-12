@@ -7,6 +7,9 @@ interface AuthContextType {
   session: Session | null;
   profile: any | null;
   loading: boolean;
+  roles: string[];
+  activeRole: string | null;
+  setActiveRole: (role: string) => void;
   signUp: (email: string, password: string, userData: any) => Promise<{ error: any }>;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
@@ -29,6 +32,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
+  const [roles, setRoles] = useState<string[]>([]);
+  const [activeRole, setActiveRoleState] = useState<string | null>(null);
 
   useEffect(() => {
     // Set up auth state listener
@@ -46,9 +51,31 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
               .eq('id', session.user.id)
               .maybeSingle();
             setProfile(profileData);
+
+            // Fetch user roles and determine active role
+            const { data: rolesData } = await supabase
+              .from('user_roles')
+              .select('role')
+              .eq('user_id', session.user.id);
+            const roleList = rolesData?.map((r: any) => r.role) ?? [];
+            setRoles(roleList);
+
+            const stored = localStorage.getItem('activeRole');
+            if (stored && roleList.includes(stored)) {
+              setActiveRoleState(stored);
+            } else if (roleList.length === 1) {
+              setActiveRoleState(roleList[0]);
+              localStorage.setItem('activeRole', roleList[0]);
+            } else {
+              setActiveRoleState(null);
+              localStorage.removeItem('activeRole');
+            }
           }, 0);
         } else {
           setProfile(null);
+          setRoles([]);
+          setActiveRoleState(null);
+          localStorage.removeItem('activeRole');
         }
         setLoading(false);
       }
@@ -92,6 +119,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const signOut = async () => {
     await supabase.auth.signOut();
+    localStorage.removeItem('activeRole');
+    setActiveRoleState(null);
+    setRoles([]);
+    setProfile(null);
+    setUser(null);
+    setSession(null);
   };
 
   const updateProfile = async (updates: any) => {
@@ -118,12 +151,19 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     
     return { error };
   };
+  const setActiveRole = (role: string) => {
+    setActiveRoleState(role);
+    localStorage.setItem('activeRole', role);
+  };
 
   const value = {
     user,
     session,
     profile,
     loading,
+    roles,
+    activeRole,
+    setActiveRole,
     signUp,
     signIn,
     signOut,

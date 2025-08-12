@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
@@ -17,8 +17,9 @@ const Auth = () => {
   const [resetEmail, setResetEmail] = useState('');
   const [resetDialogOpen, setResetDialogOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('signin');
-  const { signIn, signUp, resetPassword } = useAuth();
+  const { signIn, signUp, resetPassword, user, roles, activeRole, setActiveRole } = useAuth();
   const navigate = useNavigate();
+  const [roleDialogOpen, setRoleDialogOpen] = useState(false);
 
   const [signInData, setSignInData] = useState({
     email: '',

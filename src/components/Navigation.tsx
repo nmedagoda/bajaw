@@ -13,7 +13,7 @@ import {
 import { Music, Mic, Users, Gavel, Search, Trophy, User, LogOut } from 'lucide-react';
 
 const Navigation = () => {
-  const { user, profile, signOut } = useAuth();
+  const { user, profile, signOut, activeRole, setActiveRole, roles } = useAuth();
   const location = useLocation();
 
   if (!user) return null;
@@ -46,7 +46,8 @@ const Navigation = () => {
     }
   };
 
-  const config = roleConfig[profile?.role as keyof typeof roleConfig];
+  const currentRole = (activeRole || profile?.role) as keyof typeof roleConfig | undefined;
+  const config = currentRole ? roleConfig[currentRole] : undefined;
   if (!config) return null;
 
   return (
@@ -86,9 +87,24 @@ const Navigation = () => {
           <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-2">
               <config.icon className={`w-5 h-5 ${config.color}`} />
-              <span className="text-sm font-medium capitalize">{profile?.role}</span>
+              <span className="text-sm font-medium capitalize">{currentRole}</span>
             </div>
-            
+            {roles && roles.length > 1 && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" className="capitalize">
+                    Acting as: {currentRole}
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  {roles.map((r) => (
+                    <DropdownMenuItem key={r} className="capitalize" onClick={() => setActiveRole(r)}>
+                      {r}
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="relative h-8 w-8 rounded-full">

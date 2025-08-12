@@ -6,13 +6,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Music, Mic, Users, Gavel, Sparkles, Trophy, Globe } from 'lucide-react';
 
 const Index = () => {
-  const { user, profile } = useAuth();
+  const { user, profile, activeRole } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Redirect authenticated users to their dashboard
-    if (user && profile) {
-      switch (profile.role) {
+    // Redirect authenticated users to their dashboard based on active role selection
+    if (user && (activeRole || profile)) {
+      const role = (activeRole || profile?.role) as string;
+      switch (role) {
         case 'singer':
           navigate('/singer/dashboard');
           break;
@@ -26,7 +27,7 @@ const Index = () => {
           break;
       }
     }
-  }, [user, profile, navigate]);
+  }, [user, profile, activeRole, navigate]);
 
   if (user) {
     return null; // Will redirect above
