@@ -312,55 +312,96 @@ const RecordSong = () => {
       return;
     }
 
-    if (!songTitle.trim() || !originalSingerName.trim() || !recordedFile || !originalFile) {
-      toast.error('Please fill in all fields and select both audio files');
+    if (!songTitle.trim() || !originalSingerName.trim() || !recordedFile) {
+      toast.error('Please fill in song title, original singer, and your recorded file');
       return;
     }
 
     setIsUploading(true);
     try {
-      // Upload recorded song file
+      const normalizedTitle = songTitle.trim();
+      const normalizedArtist = originalSingerName.trim();
+
+      // 1) Upload recorded song file (always unique per singer)
       const recordedFileName = `${user.id}/recorded/${Date.now()}_${recordedFile.name}`;
       const { data: recordedData, error: recordedError } = await supabase.storage
         .from('audio-uploads')
         .upload(recordedFileName, recordedFile);
-
       if (recordedError) throw recordedError;
 
-      // Upload original song file
-      const originalFileName = `${user.id}/original/${Date.now()}_${originalFile.name}`;
-      const { data: originalData, error: originalError } = await supabase.storage
-        .from('audio-uploads')
-        .upload(originalFileName, originalFile);
-
-      if (originalError) throw originalError;
-
-      // Get public URLs
+      // Get recorded public URL
       const { data: recordedUrl } = supabase.storage
         .from('audio-uploads')
         .getPublicUrl(recordedData.path);
 
-      const { data: originalUrl } = supabase.storage
-        .from('audio-uploads')
-        .getPublicUrl(originalData.path);
+      // 2) Check if an Original Song already exists in canonical songs table
+      let originalPublicUrl: string | null = null;
+      let usedExistingOriginal = false;
 
-      // Save to database
+      const { data: existingSong, error: findSongError } = await supabase
+        .from('songs')
+        .select('id, professional_audio_url')
+        .ilike('title', normalizedTitle)
+        .ilike('artist', normalizedArtist)
+        .not('professional_audio_url', 'is', null)
+        .maybeSingle();
+
+      if (findSongError) {
+        console.warn('Song lookup warning:', findSongError.message);
+      }
+
+      if (existingSong?.professional_audio_url) {
+        // Reuse existing original without re-uploading
+        originalPublicUrl = existingSong.professional_audio_url as string;
+        usedExistingOriginal = true;
+      } else {
+        // No existing original found. Require a file to be provided once.
+        if (!originalFile) {
+          throw new Error('Original song not found in library. Please upload the original song file once.');
+        }
+
+        // Upload original song file only when not already present
+        const originalFileName = `${user.id}/original/${Date.now()}_${originalFile.name}`;
+        const { data: originalData, error: originalError } = await supabase.storage
+          .from('audio-uploads')
+          .upload(originalFileName, originalFile);
+        if (originalError) throw originalError;
+
+        const { data: originalUrl } = supabase.storage
+          .from('audio-uploads')
+          .getPublicUrl(originalData.path);
+        originalPublicUrl = originalUrl.publicUrl;
+
+        // Try to seed the canonical songs table so future uploads can reuse it
+        // (INSERT only; we avoid UPDATE due to current RLS restrictions)
+        const { error: seedError } = await supabase
+          .from('songs')
+          .insert({ title: normalizedTitle, artist: normalizedArtist, professional_audio_url: originalPublicUrl });
+        if (seedError) {
+          console.warn('Seeding songs table failed (non-blocking):', seedError.message);
+        }
+      }
+
+      // 3) Save to uploaded_songs (per-singer metadata)
       const { error: dbError } = await supabase
         .from('uploaded_songs')
         .insert({
           singer_id: user.id,
-          song_title: songTitle,
-          original_singer_name: originalSingerName,
+          song_title: normalizedTitle,
+          original_singer_name: normalizedArtist,
           recorded_song_url: recordedUrl.publicUrl,
-          original_song_url: originalUrl.publicUrl,
+          original_song_url: originalPublicUrl,
           recorded_file_type: recordedFileType,
           original_file_type: originalFileType
         });
-
       if (dbError) throw dbError;
 
-      toast.success('Songs uploaded successfully!');
-      
+      if (usedExistingOriginal) {
+        toast.success('Uploaded recording. Reused existing original song.');
+      } else {
+        toast.success('Songs uploaded successfully!');
+      }
+
       // Reset form
       setSongTitle('');
       setOriginalSingerName('');
@@ -505,7 +546,7 @@ const RecordSong = () => {
 
                   {/* Original Song Upload */}
                   <div className="space-y-2">
-                    <Label htmlFor="originalFile">Original Song *</Label>
+                    <Label htmlFor="originalFile">Original Song (auto-skipped if already exists)</Label>
                     <div className="space-y-2">
                       <Input
                         id="originalFile"
@@ -539,7 +580,7 @@ const RecordSong = () => {
               <div className="flex justify-center pt-4 border-t">
                 <Button 
                   onClick={handleFileUpload}
-                  disabled={isUploading || !songTitle.trim() || !originalSingerName.trim() || !recordedFile || !originalFile}
+                  disabled={isUploading || !songTitle.trim() || !originalSingerName.trim() || !recordedFile}
                   className="px-8"
                 >
                   {isUploading ? (
@@ -562,7 +603,7 @@ const RecordSong = () => {
                 <ul className="space-y-1 text-xs">
                   <li>• Supported formats: .wav and .mp3</li>
                   <li>• Maximum file size: 50MB per file</li>
-                  <li>• Both your recorded version and the original song are required</li>
+                  <li>• Your recorded version is required; the original will be reused automatically if it already exists</li>
                   <li>• Files will be stored securely and linked to your account</li>
                 </ul>
               </div>
