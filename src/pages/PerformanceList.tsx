@@ -7,6 +7,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Play, Star, Clock, Music } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
+import VoteControls from '@/components/performances/VoteControls';
 
 interface Performance {
   id: string;
@@ -184,6 +185,10 @@ const PerformanceList = () => {
                       <p className="text-sm text-muted-foreground">Click to watch</p>
                     </div>
                   </div>
+
+                  {(profile?.role === 'judge' || profile?.role === 'audience') && (
+                    <VoteControls performanceId={performance.id} onVoted={fetchPerformances} />
+                  )}
                   
                   <Button 
                     className="w-full group-hover:shadow-md transition-shadow" 
