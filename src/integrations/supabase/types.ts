@@ -172,24 +172,30 @@ export type Database = {
           comments: string | null
           created_at: string | null
           id: string
+          overall_score: number | null
           performance_id: string
           score: number
+          voice_score: number | null
           voter_id: string
         }
         Insert: {
           comments?: string | null
           created_at?: string | null
           id?: string
+          overall_score?: number | null
           performance_id: string
           score: number
+          voice_score?: number | null
           voter_id: string
         }
         Update: {
           comments?: string | null
           created_at?: string | null
           id?: string
+          overall_score?: number | null
           performance_id?: string
           score?: number
+          voice_score?: number | null
           voter_id?: string
         }
         Relationships: [
