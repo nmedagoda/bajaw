@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Music, Mic, Users, Gavel, Check, X } from 'lucide-react';
 import { toast } from 'sonner';
@@ -20,6 +21,7 @@ const Auth = () => {
   const { signIn, signUp, resetPassword, user, roles, activeRole, setActiveRole } = useAuth();
   const navigate = useNavigate();
   const [roleDialogOpen, setRoleDialogOpen] = useState(false);
+  const [selectedRole, setSelectedRole] = useState<string>('');
 
   const [signInData, setSignInData] = useState({
     email: '',
@@ -44,7 +46,7 @@ const Auth = () => {
       toast.error(error.message);
     } else {
       toast.success('Welcome back!');
-      navigate('/');
+      // Navigation and role selection are handled by the effect below
     }
     setIsLoading(false);
   };
@@ -114,6 +116,21 @@ const Auth = () => {
     }
     setIsResetting(false);
   };
+
+  useEffect(() => {
+    if (user) {
+      if (roles && roles.length > 1 && !activeRole) {
+        if (!roleDialogOpen) {
+          setSelectedRole(roles[0]);
+          setRoleDialogOpen(true);
+        }
+        return;
+      }
+      if (activeRole || (roles && roles.length === 1)) {
+        navigate('/');
+      }
+    }
+  }, [user, roles, activeRole, roleDialogOpen, navigate]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-secondary/20 to-primary/10 flex items-center justify-center p-4">
@@ -316,6 +333,44 @@ const Auth = () => {
             </TabsContent>
           </Tabs>
         </CardContent>
+
+        <Dialog open={roleDialogOpen} onOpenChange={setRoleDialogOpen}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Choose a role</DialogTitle>
+              <DialogDescription>Select how you want to sign in for this session.</DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <RadioGroup value={selectedRole} onValueChange={setSelectedRole}>
+                {roles.map((r) => (
+                  <div key={r} className="flex items-center gap-3 p-3 rounded-md border">
+                    <RadioGroupItem value={r} id={`role-${r}`} />
+                    <Label htmlFor={`role-${r}`} className="flex items-center gap-2 cursor-pointer">
+                      {r === 'singer' && <Mic className="w-4 h-4" />}
+                      {r === 'judge' && <Gavel className="w-4 h-4" />}
+                      {r === 'audience' && <Users className="w-4 h-4" />}
+                      <span className="capitalize">{r}</span>
+                    </Label>
+                  </div>
+                ))}
+              </RadioGroup>
+              <Button
+                className="w-full"
+                onClick={() => {
+                  if (selectedRole) {
+                    setActiveRole(selectedRole);
+                    toast.success(`Signed in as ${selectedRole}`);
+                    setRoleDialogOpen(false);
+                    navigate('/');
+                  }
+                }}
+                disabled={!selectedRole}
+              >
+                Continue
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
       </Card>
     </div>
   );
