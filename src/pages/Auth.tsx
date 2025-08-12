@@ -118,19 +118,25 @@ const Auth = () => {
   };
 
   useEffect(() => {
-    if (user) {
-      if (roles && roles.length > 1 && !activeRole) {
-        if (!roleDialogOpen) {
-          setSelectedRole(roles[0]);
-          setRoleDialogOpen(true);
-        }
-        return;
+    if (!user) return;
+
+    // Always prompt for role if user has multiple roles
+    if (roles && roles.length > 1) {
+      if (!roleDialogOpen) {
+        setSelectedRole(activeRole ?? roles[0]);
+        setRoleDialogOpen(true);
       }
-      if (activeRole || (roles && roles.length === 1)) {
-        navigate('/');
-      }
+      return;
     }
-  }, [user, roles, activeRole, roleDialogOpen, navigate]);
+
+    // Single role: set it and continue
+    if (roles && roles.length === 1) {
+      if (activeRole !== roles[0]) {
+        setActiveRole(roles[0]);
+      }
+      navigate('/');
+    }
+  }, [user, roles, activeRole, roleDialogOpen, navigate, setActiveRole]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-secondary/20 to-primary/10 flex items-center justify-center p-4">
