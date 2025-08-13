@@ -169,7 +169,7 @@ const SingerDashboard: React.FC = () => {
             </CardHeader>
             <CardContent>
               <Button asChild>
-                <a href="/record" className="inline-flex items-center gap-2">
+                <a href="/record?tab=record" className="inline-flex items-center gap-2">
                   <ExternalLink className="w-4 h-4" /> Open Recording Studio
                 </a>
               </Button>
