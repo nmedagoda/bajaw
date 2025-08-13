@@ -52,7 +52,15 @@ const App = () => (
                 } 
               />
               <Route 
-                path="/judge/dashboard" 
+                path="/record" 
+                element={
+                  <ProtectedRoute allowedRoles={['singer']}>
+                    <RecordSong />
+                  </ProtectedRoute>
+                } 
+              />
+              <Route 
+                path="/judge/dashboard"
                 element={
                   <ProtectedRoute allowedRoles={['judge']}>
                     <div className="p-8 text-center">
