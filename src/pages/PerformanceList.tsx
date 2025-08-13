@@ -51,7 +51,7 @@ const PerformanceList = () => {
 
   const fetchPerformances = async () => {
     try {
-      // Load from uploaded_songs and join singer profile
+      // Load from uploaded_songs and join singer profile (preferred path)
       const { data, error } = await supabase
         .from('uploaded_songs')
         .select(`
@@ -65,6 +65,70 @@ const PerformanceList = () => {
           )
         `)
         .order('created_at', { ascending: false });
+
+      // Fallback: if PostgREST doesn't know the relationship yet, fetch separately
+      if (error && (error as any)?.code === 'PGRST200') {
+        const { data: items, error: e1 } = await supabase
+          .from('uploaded_songs')
+          .select('id, song_title, original_singer_name, created_at, singer_id')
+          .order('created_at', { ascending: false });
+        if (e1) throw e1;
+
+        const singerIds = Array.from(
+          new Set((items as any[]).map((i) => i.singer_id).filter(Boolean))
+        ) as string[];
+
+        let profilesMap = new Map<string, { full_name: string | null; profile_photo_url: string | null }>();
+        if (singerIds.length > 0) {
+          const { data: profs, error: e2 } = await supabase
+            .from('profiles')
+            .select('id, full_name, profile_photo_url')
+            .in('id', singerIds);
+          if (e2) throw e2;
+          (profs as any[])?.forEach((p) => {
+            profilesMap.set(p.id, { full_name: p.full_name, profile_photo_url: p.profile_photo_url });
+          });
+        }
+
+        // Fetch votes for all uploaded songs in a single query
+        const ids = (items as any[]).map((i) => i.id);
+        let votesMap = new Map<string, Array<{ score: number }>>();
+        if (ids.length > 0) {
+          const { data: votesData, error: votesError } = await supabase
+            .from('votes')
+            .select('performance_id, score')
+            .in('performance_id', ids);
+          if (votesError) throw votesError;
+          votesMap = new Map();
+          (votesData as any[])?.forEach((v) => {
+            const arr = votesMap.get(v.performance_id) || [];
+            arr.push({ score: v.score });
+            votesMap.set(v.performance_id, arr);
+          });
+        }
+
+        const normalized: Performance[] = (items as any[]).map((row) => {
+          const prof = profilesMap.get(row.singer_id) || { full_name: null, profile_photo_url: null };
+          return {
+            id: row.id,
+            title: row.song_title,
+            similarity_score: null,
+            created_at: row.created_at,
+            singer: {
+              full_name: prof.full_name,
+              profile_photo_url: prof.profile_photo_url,
+            },
+            song: {
+              title: row.song_title,
+              artist: row.original_singer_name,
+            },
+            votes: votesMap.get(row.id) ?? [],
+          };
+        });
+
+        setPerformances(normalized);
+        return;
+      }
 
       if (error) throw error;
       const items = (data as any[]) || [];
