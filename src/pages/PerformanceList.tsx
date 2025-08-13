@@ -9,6 +9,8 @@ import { Play, Star, Clock, Music, Search } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 import VoteControls from '@/components/performances/VoteControls';
+import { AspectRatio } from '@/components/ui/aspect-ratio';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 
 interface Performance {
   id: string;
@@ -23,6 +25,7 @@ interface Performance {
     title: string | null;
     artist: string | null;
   };
+  mediaUrl: string | null;
   votes: Array<{
     score: number;
   }>;
@@ -32,6 +35,8 @@ const PerformanceList = () => {
   const [performances, setPerformances] = useState<Performance[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState('');
+  const [mediaOpen, setMediaOpen] = useState(false);
+  const [activeMedia, setActiveMedia] = useState<{ url: string | null; title: string } | null>(null);
   const { user, profile } = useAuth();
   const filteredPerformances = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -58,6 +63,8 @@ const PerformanceList = () => {
           id,
           song_title,
           original_singer_name,
+          recorded_song_url,
+          original_song_url,
           created_at,
           singer:profiles!singer_id (
             full_name,
@@ -70,7 +77,7 @@ const PerformanceList = () => {
       if (error && (error as any)?.code === 'PGRST200') {
         const { data: items, error: e1 } = await supabase
           .from('uploaded_songs')
-          .select('id, song_title, original_singer_name, created_at, singer_id')
+          .select('id, song_title, original_singer_name, created_at, singer_id, recorded_song_url, original_song_url')
           .order('created_at', { ascending: false });
         if (e1) throw e1;
 
@@ -122,6 +129,7 @@ const PerformanceList = () => {
               title: row.song_title,
               artist: row.original_singer_name,
             },
+            mediaUrl: row.recorded_song_url || row.original_song_url || null,
             votes: votesMap.get(row.id) ?? [],
           };
         });
@@ -163,6 +171,7 @@ const PerformanceList = () => {
           title: row.song_title,
           artist: row.original_singer_name,
         },
+        mediaUrl: row.recorded_song_url || row.original_song_url || null,
         votes: votesMap.get(row.id) ?? [],
       }));
 
@@ -296,7 +305,19 @@ const PerformanceList = () => {
               
               <CardContent className="pt-0">
                 <div className="space-y-3">
-                  <div className="aspect-video bg-gradient-to-br from-primary/10 to-accent/10 rounded-lg flex items-center justify-center group-hover:from-primary/20 group-hover:to-accent/20 transition-colors">
+                  <div
+                    className="aspect-video bg-gradient-to-br from-primary/10 to-accent/10 rounded-lg flex items-center justify-center group-hover:from-primary/20 group-hover:to-accent/20 transition-colors cursor-pointer"
+                    onClick={() => {
+                      if (performance.mediaUrl) {
+                        setActiveMedia({ url: performance.mediaUrl, title: performance.title });
+                        setMediaOpen(true);
+                      } else {
+                        toast.error('No media URL found');
+                      }
+                    }}
+                    role="button"
+                    aria-label="Play performance"
+                  >
                     <div className="text-center">
                       <Play className="w-12 h-12 text-primary mx-auto mb-2 group-hover:scale-110 transition-transform" />
                       <p className="text-sm text-muted-foreground">Click to watch</p>
@@ -309,7 +330,14 @@ const PerformanceList = () => {
                   
                   <Button 
                     className="w-full group-hover:shadow-md transition-shadow" 
-                    onClick={() => toast.success('Video player will be implemented soon!')}
+                    onClick={() => {
+                      if (performance.mediaUrl) {
+                        setActiveMedia({ url: performance.mediaUrl, title: performance.title });
+                        setMediaOpen(true);
+                      } else {
+                        toast.error('No media URL found');
+                      }
+                    }}
                   >
                     <Play className="w-4 h-4 mr-2" />
                     {profile?.role === 'judge' ? 'Watch & Rate' : 'Watch & Vote'}
@@ -320,6 +348,34 @@ const PerformanceList = () => {
           ))}
         </div>
       )}
+
+      <Dialog
+        open={mediaOpen}
+        onOpenChange={(open) => {
+          setMediaOpen(open);
+          if (!open) setActiveMedia(null);
+        }}
+      >
+        <DialogContent className="sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>{activeMedia?.title ?? 'Playback'}</DialogTitle>
+          </DialogHeader>
+          {activeMedia?.url ? (
+            activeMedia.url.match(/\.(mp4|webm|ogg)(\?|$)/i) ? (
+              <AspectRatio ratio={16 / 9}>
+                <video
+                  src={activeMedia.url}
+                  controls
+                  className="w-full h-full rounded-md"
+                />
+              </AspectRatio>
+            ) : (
+              <audio src={activeMedia.url} controls className="w-full" />)
+          ) : (
+            <p className="text-muted-foreground text-sm">No media available</p>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
