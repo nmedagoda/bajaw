@@ -19,11 +19,11 @@ type VoteRow = {
 };
 
 const VoteControls: React.FC<VoteControlsProps> = ({ performanceId, onVoted }) => {
-  const { user, profile } = useAuth();
-  const canVote = useMemo(
-    () => profile?.role === 'judge' || profile?.role === 'audience',
-    [profile?.role]
-  );
+  const { user, profile, roles, activeRole } = useAuth();
+  const canVote = useMemo(() => {
+    if (activeRole) return activeRole === 'judge' || activeRole === 'audience';
+    return roles?.includes('judge') || roles?.includes('audience') || profile?.role === 'judge' || profile?.role === 'audience';
+  }, [activeRole, roles, profile?.role]);
 
   const [voice, setVoice] = useState<number>(5);
   const [overall, setOverall] = useState<number>(5);

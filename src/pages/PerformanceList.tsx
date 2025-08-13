@@ -38,7 +38,7 @@ const PerformanceList = () => {
   const [query, setQuery] = useState('');
   const [mediaOpen, setMediaOpen] = useState(false);
   const [activeMedia, setActiveMedia] = useState<{ id: string; url: string | null; title: string } | null>(null);
-  const { user, profile } = useAuth();
+  const { user, profile, roles, activeRole } = useAuth();
   const filteredPerformances = useMemo(() => {
     const q = query.trim().toLowerCase();
     if (!q) return performances;
@@ -49,6 +49,11 @@ const PerformanceList = () => {
       return singer.includes(q) || song.includes(q) || artist.includes(q);
     });
   }, [performances, query]);
+
+  const canVote = useMemo(() => {
+    if (activeRole) return activeRole === 'judge' || activeRole === 'audience';
+    return roles?.includes('judge') || roles?.includes('audience') || profile?.role === 'judge' || profile?.role === 'audience';
+  }, [activeRole, roles, profile?.role]);
 
   useEffect(() => {
     document.title = 'Watch & Vote - Vocal Performances';
@@ -331,7 +336,7 @@ const PerformanceList = () => {
                     </div>
                   </div>
 
-                  {(profile?.role === 'judge' || profile?.role === 'audience') && (
+                  {canVote && (
                     <VoteControls performanceId={performance.id} onVoted={fetchPerformances} />
                   )}
                   
@@ -376,7 +381,7 @@ const PerformanceList = () => {
                 )}
               </div>
               <aside>
-                {(profile?.role === 'judge' || profile?.role === 'audience') ? (
+                {canVote ? (
                   <VoteControls performanceId={activeMedia.id} onVoted={fetchPerformances} />
                 ) : (
                   <p className="text-sm text-muted-foreground">Sign in as audience or judge to vote.</p>
