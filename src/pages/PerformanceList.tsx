@@ -11,6 +11,7 @@ import { toast } from 'sonner';
 import VoteControls from '@/components/performances/VoteControls';
 import { AspectRatio } from '@/components/ui/aspect-ratio';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { resolvePlayableUrl } from '@/lib/media';
 
 interface Performance {
   id: string;
@@ -184,12 +185,25 @@ const PerformanceList = () => {
     }
   };
 
+  const handleOpenMedia = async (url: string | null, title: string) => {
+    if (!url) {
+      toast.error('No media URL found');
+      return;
+    }
+    const playable = await resolvePlayableUrl(url);
+    if (!playable) {
+      toast.error('Unable to resolve media URL');
+      return;
+    }
+    setActiveMedia({ url: playable, title });
+    setMediaOpen(true);
+  };
+
   const calculateAverageRating = (votes: Array<{ score: number }>) => {
     if (!votes || votes.length === 0) return 0;
     const sum = votes.reduce((acc, vote) => acc + vote.score, 0);
     return (sum / votes.length).toFixed(1);
   };
-
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('en-US', {
       year: 'numeric',
@@ -307,14 +321,7 @@ const PerformanceList = () => {
                 <div className="space-y-3">
                   <div
                     className="aspect-video bg-gradient-to-br from-primary/10 to-accent/10 rounded-lg flex items-center justify-center group-hover:from-primary/20 group-hover:to-accent/20 transition-colors cursor-pointer"
-                    onClick={() => {
-                      if (performance.mediaUrl) {
-                        setActiveMedia({ url: performance.mediaUrl, title: performance.title });
-                        setMediaOpen(true);
-                      } else {
-                        toast.error('No media URL found');
-                      }
-                    }}
+                    onClick={() => handleOpenMedia(performance.mediaUrl, performance.title)}
                     role="button"
                     aria-label="Play performance"
                   >
@@ -330,14 +337,7 @@ const PerformanceList = () => {
                   
                   <Button 
                     className="w-full group-hover:shadow-md transition-shadow" 
-                    onClick={() => {
-                      if (performance.mediaUrl) {
-                        setActiveMedia({ url: performance.mediaUrl, title: performance.title });
-                        setMediaOpen(true);
-                      } else {
-                        toast.error('No media URL found');
-                      }
-                    }}
+                    onClick={() => handleOpenMedia(performance.mediaUrl, performance.title)}
                   >
                     <Play className="w-4 h-4 mr-2" />
                     {profile?.role === 'judge' ? 'Watch & Rate' : 'Watch & Vote'}
