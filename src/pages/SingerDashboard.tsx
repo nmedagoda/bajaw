@@ -22,7 +22,8 @@ const SingerDashboard: React.FC = () => {
   const { user } = useAuth();
   const [songs, setSongs] = useState<UploadedSongRow[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [playUrl, setPlayUrl] = useState<string | null>(null);
+  const [noviceUrl, setNoviceUrl] = useState<string | null>(null);
+  const [professionalUrl, setProfessionalUrl] = useState<string | null>(null);
 
   useEffect(() => {
     document.title = "My Performances - Bajaw";
@@ -64,13 +65,29 @@ const SingerDashboard: React.FC = () => {
   useEffect(() => {
     const resolve = async () => {
       const sel = songs.find((s) => s.id === selectedId);
-      const src = sel?.recorded_song_url || sel?.original_song_url || null;
-      if (!src) {
-        setPlayUrl(null);
+      if (!sel) {
+        setNoviceUrl(null);
+        setProfessionalUrl(null);
         return;
       }
-      const playable = await resolvePlayableUrl(src);
-      setPlayUrl(playable);
+      
+      // Resolve novice performance URL
+      const noviceSrc = sel.recorded_song_url;
+      if (noviceSrc) {
+        const playableNovice = await resolvePlayableUrl(noviceSrc);
+        setNoviceUrl(playableNovice);
+      } else {
+        setNoviceUrl(null);
+      }
+      
+      // Resolve professional performance URL
+      const professionalSrc = sel.original_song_url;
+      if (professionalSrc) {
+        const playableProfessional = await resolvePlayableUrl(professionalSrc);
+        setProfessionalUrl(playableProfessional);
+      } else {
+        setProfessionalUrl(null);
+      }
     };
     if (selectedId) resolve();
   }, [selectedId, songs]);
@@ -115,17 +132,30 @@ const SingerDashboard: React.FC = () => {
                 </Select>
               </div>
 
-              {selectedSong && playUrl && (
-                <div className="space-y-4">
+              {selectedSong && (noviceUrl || professionalUrl) && (
+                <div className="space-y-6">
                   <div className="text-sm text-muted-foreground">
                     Selected: <span className="font-medium text-foreground">{selectedSong.song_title}</span>
                   </div>
-                  <WaveformPlayer url={playUrl} />
+                  
+                  {noviceUrl && (
+                    <div className="space-y-2">
+                      <h3 className="text-sm font-medium text-foreground">Your Performance (Novice Singer)</h3>
+                      <WaveformPlayer url={noviceUrl} />
+                    </div>
+                  )}
+                  
+                  {professionalUrl && (
+                    <div className="space-y-2">
+                      <h3 className="text-sm font-medium text-foreground">Professional Singer</h3>
+                      <WaveformPlayer url={professionalUrl} />
+                    </div>
+                  )}
                 </div>
               )}
 
-              {selectedSong && !playUrl && (
-                <p className="text-sm text-muted-foreground">No audio URL available for this song.</p>
+              {selectedSong && !noviceUrl && !professionalUrl && (
+                <p className="text-sm text-muted-foreground">No audio URLs available for this song.</p>
               )}
             </CardContent>
           </Card>
