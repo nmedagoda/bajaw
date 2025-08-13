@@ -9,6 +9,7 @@ import Navigation from "@/components/Navigation";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import RecordSong from "./pages/RecordSong";
+import SingerDashboard from "./pages/SingerDashboard";
 import PerformanceList from "./pages/PerformanceList";
 import NotFound from "./pages/NotFound";
 
@@ -38,10 +39,7 @@ const App = () => (
                 path="/singer/dashboard" 
                 element={
                   <ProtectedRoute allowedRoles={['singer']}>
-                    <div className="p-8 text-center">
-                      <h1 className="text-3xl font-bold mb-4">Singer Dashboard</h1>
-                      <p className="text-muted-foreground">Coming soon: Your performance analytics and recording studio</p>
-                    </div>
+                    <SingerDashboard />
                   </ProtectedRoute>
                 } 
               />
