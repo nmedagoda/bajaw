@@ -37,7 +37,7 @@ const PerformanceList = () => {
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState('');
   const [mediaOpen, setMediaOpen] = useState(false);
-  const [activeMedia, setActiveMedia] = useState<{ url: string | null; title: string } | null>(null);
+  const [activeMedia, setActiveMedia] = useState<{ id: string; url: string | null; title: string } | null>(null);
   const { user, profile } = useAuth();
   const filteredPerformances = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -185,7 +185,7 @@ const PerformanceList = () => {
     }
   };
 
-  const handleOpenMedia = async (url: string | null, title: string) => {
+  const handleOpenMedia = async (id: string, url: string | null, title: string) => {
     if (!url) {
       toast.error('No media URL found');
       return;
@@ -195,7 +195,7 @@ const PerformanceList = () => {
       toast.error('Unable to resolve media URL');
       return;
     }
-    setActiveMedia({ url: playable, title });
+    setActiveMedia({ id, url: playable, title });
     setMediaOpen(true);
   };
 
@@ -321,7 +321,7 @@ const PerformanceList = () => {
                 <div className="space-y-3">
                   <div
                     className="aspect-video bg-gradient-to-br from-primary/10 to-accent/10 rounded-lg flex items-center justify-center group-hover:from-primary/20 group-hover:to-accent/20 transition-colors cursor-pointer"
-                    onClick={() => handleOpenMedia(performance.mediaUrl, performance.title)}
+                    onClick={() => handleOpenMedia(performance.id, performance.mediaUrl, performance.title)}
                     role="button"
                     aria-label="Play performance"
                   >
@@ -337,7 +337,7 @@ const PerformanceList = () => {
                   
                   <Button 
                     className="w-full group-hover:shadow-md transition-shadow" 
-                    onClick={() => handleOpenMedia(performance.mediaUrl, performance.title)}
+                    onClick={() => handleOpenMedia(performance.id, performance.mediaUrl, performance.title)}
                   >
                     <Play className="w-4 h-4 mr-2" />
                     {profile?.role === 'judge' ? 'Watch & Rate' : 'Watch & Vote'}
@@ -356,21 +356,33 @@ const PerformanceList = () => {
           if (!open) setActiveMedia(null);
         }}
       >
-        <DialogContent className="sm:max-w-2xl">
+        <DialogContent className="sm:max-w-4xl">
           <DialogHeader>
             <DialogTitle>{activeMedia?.title ?? 'Playback'}</DialogTitle>
           </DialogHeader>
           {activeMedia?.url ? (
-            activeMedia.url.match(/\.(mp4|webm|ogg)(\?|$)/i) ? (
-              <AspectRatio ratio={16 / 9}>
-                <video
-                  src={activeMedia.url}
-                  controls
-                  className="w-full h-full rounded-md"
-                />
-              </AspectRatio>
-            ) : (
-              <audio src={activeMedia.url} controls className="w-full" />)
+            <div className="grid gap-4 md:grid-cols-[1.6fr_1fr]">
+              <div>
+                {activeMedia.url.match(/\.(mp4|webm|ogg)(\?|$)/i) ? (
+                  <AspectRatio ratio={16 / 9}>
+                    <video
+                      src={activeMedia.url}
+                      controls
+                      className="w-full h-full rounded-md"
+                    />
+                  </AspectRatio>
+                ) : (
+                  <audio src={activeMedia.url} controls className="w-full" />
+                )}
+              </div>
+              <aside>
+                {(profile?.role === 'judge' || profile?.role === 'audience') ? (
+                  <VoteControls performanceId={activeMedia.id} onVoted={fetchPerformances} />
+                ) : (
+                  <p className="text-sm text-muted-foreground">Sign in as audience or judge to vote.</p>
+                )}
+              </aside>
+            </div>
           ) : (
             <p className="text-muted-foreground text-sm">No media available</p>
           )}
