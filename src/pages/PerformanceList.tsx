@@ -13,15 +13,15 @@ import VoteControls from '@/components/performances/VoteControls';
 interface Performance {
   id: string;
   title: string;
-  similarity_score: number;
+  similarity_score?: number | null;
   created_at: string;
   singer: {
-    full_name: string;
-    profile_photo_url: string;
+    full_name: string | null;
+    profile_photo_url: string | null;
   };
   song: {
-    title: string;
-    artist: string;
+    title: string | null;
+    artist: string | null;
   };
   votes: Array<{
     score: number;
@@ -51,29 +51,58 @@ const PerformanceList = () => {
 
   const fetchPerformances = async () => {
     try {
+      // Load from uploaded_songs and join singer profile
       const { data, error } = await supabase
-        .from('performances')
+        .from('uploaded_songs')
         .select(`
           id,
-          title,
-          similarity_score,
+          song_title,
+          original_singer_name,
           created_at,
           singer:profiles!singer_id (
             full_name,
             profile_photo_url
-          ),
-          song:songs (
-            title,
-            artist
-          ),
-          votes (
-            score
           )
         `)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setPerformances(data || []);
+      const items = (data as any[]) || [];
+
+      // Fetch votes for all uploaded songs in a single query
+      const ids = items.map((i) => i.id);
+      let votesMap = new Map<string, Array<{ score: number }>>();
+      if (ids.length > 0) {
+        const { data: votesData, error: votesError } = await supabase
+          .from('votes')
+          .select('performance_id, score')
+          .in('performance_id', ids);
+        if (votesError) throw votesError;
+        votesMap = new Map();
+        (votesData as any[])?.forEach((v) => {
+          const arr = votesMap.get(v.performance_id) || [];
+          arr.push({ score: v.score });
+          votesMap.set(v.performance_id, arr);
+        });
+      }
+
+      const normalized: Performance[] = items.map((row) => ({
+        id: row.id,
+        title: row.song_title,
+        similarity_score: null,
+        created_at: row.created_at,
+        singer: {
+          full_name: row.singer?.full_name ?? null,
+          profile_photo_url: row.singer?.profile_photo_url ?? null,
+        },
+        song: {
+          title: row.song_title,
+          artist: row.original_singer_name,
+        },
+        votes: votesMap.get(row.id) ?? [],
+      }));
+
+      setPerformances(normalized);
     } catch (error) {
       console.error('Error fetching performances:', error);
       toast.error('Failed to load performances');
