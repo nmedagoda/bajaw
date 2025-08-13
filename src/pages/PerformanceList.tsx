@@ -1,10 +1,11 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Play, Star, Clock, Music } from 'lucide-react';
+import { Play, Star, Clock, Music, Search } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { toast } from 'sonner';
 import VoteControls from '@/components/performances/VoteControls';
@@ -30,9 +31,21 @@ interface Performance {
 const PerformanceList = () => {
   const [performances, setPerformances] = useState<Performance[]>([]);
   const [loading, setLoading] = useState(true);
+  const [query, setQuery] = useState('');
   const { user, profile } = useAuth();
+  const filteredPerformances = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return performances;
+    return performances.filter((p) => {
+      const singer = p.singer?.full_name?.toLowerCase() || '';
+      const song = p.song?.title?.toLowerCase() || '';
+      const artist = p.song?.artist?.toLowerCase() || '';
+      return singer.includes(q) || song.includes(q) || artist.includes(q);
+    });
+  }, [performances, query]);
 
   useEffect(() => {
+    document.title = 'Watch & Vote - Vocal Performances';
     fetchPerformances();
   }, []);
 
@@ -107,7 +120,7 @@ const PerformanceList = () => {
   return (
     <div className="max-w-7xl mx-auto p-6">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-foreground mb-2">Vocal Performances</h1>
+        <h1 className="text-3xl font-bold text-foreground mb-2">Watch & Vote: Vocal Performances</h1>
         <p className="text-muted-foreground">
           {profile?.role === 'singer' 
             ? 'Discover amazing performances and get inspired'
@@ -116,6 +129,17 @@ const PerformanceList = () => {
             : 'Vote for your favorite performances'
           }
         </p>
+        <div className="mt-4 relative">
+          <label htmlFor="search" className="sr-only">Search by singer, original artist, or song</label>
+          <Input
+            id="search"
+            placeholder="Search by singer, original artist, or song..."
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            className="pl-9"
+          />
+          <Search className="w-4 h-4 text-muted-foreground absolute left-2.5 top-1/2 -translate-y-1/2" />
+        </div>
       </div>
 
       {performances.length === 0 ? (
@@ -128,7 +152,7 @@ const PerformanceList = () => {
         </Card>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {performances.map((performance) => (
+          {filteredPerformances.map((performance) => (
             <Card key={performance.id} className="group hover:shadow-lg transition-all duration-300 border-border/50">
               <CardHeader className="space-y-3">
                 <div className="flex items-start justify-between">
@@ -141,7 +165,7 @@ const PerformanceList = () => {
                     </Avatar>
                     <div>
                       <CardTitle className="text-lg leading-tight">{performance.title}</CardTitle>
-                      <p className="text-sm text-muted-foreground">{performance.singer?.full_name}</p>
+                      <p className="text-sm text-muted-foreground">Novice Singer: {performance.singer?.full_name}</p>
                     </div>
                   </div>
                   {performance.similarity_score && (
@@ -154,9 +178,9 @@ const PerformanceList = () => {
                 <div className="space-y-2">
                   <div className="flex items-center text-sm text-muted-foreground">
                     <Music className="w-4 h-4 mr-2" />
-                    <span className="font-medium">{performance.song?.title}</span>
+                    <span className="font-medium">Song: {performance.song?.title}</span>
                     <span className="mx-1">•</span>
-                    <span>{performance.song?.artist}</span>
+                    <span>Original Artist: {performance.song?.artist}</span>
                   </div>
                   
                   <div className="flex items-center justify-between text-sm">
