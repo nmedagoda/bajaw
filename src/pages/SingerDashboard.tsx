@@ -330,6 +330,56 @@ const SingerDashboard: React.FC = () => {
                           </TableBody>
                         </Table>
                       </div>
+
+                      {/* Metric Explanations */}
+                      <div className="mt-6 space-y-4">
+                        <h3 className="text-lg font-semibold">Metric Definitions</h3>
+                        
+                        <div className="space-y-3">
+                          <div className="border-l-4 border-primary pl-4">
+                            <h4 className="font-medium text-foreground">Pitch Accuracy (DTW)</h4>
+                            <p className="text-sm text-muted-foreground">
+                              Measures how closely your pitch follows the professional recording. Uses Dynamic Time Warping (DTW) 
+                              to align pitch contours of different lengths and calculate similarity. Higher scores (closer to 1.0) 
+                              indicate better pitch matching.
+                            </p>
+                          </div>
+                          
+                          <div className="border-l-4 border-secondary pl-4">
+                            <h4 className="font-medium text-foreground">Rhythm Timing</h4>
+                            <p className="text-sm text-muted-foreground">
+                              Evaluates how well your timing matches the professional's rhythm. Uses onset detection to identify 
+                              when notes begin and compares the timing patterns. Higher scores indicate better rhythmic accuracy 
+                              and consistent tempo.
+                            </p>
+                          </div>
+                          
+                          <div className="border-l-4 border-accent pl-4">
+                            <h4 className="font-medium text-foreground">MFCC Similarity</h4>
+                            <p className="text-sm text-muted-foreground">
+                              Mel-Frequency Cepstral Coefficients capture the spectral characteristics of your voice. This metric 
+                              compares the timbral qualities (vocal tone, texture) between recordings. Higher similarity scores 
+                              suggest similar vocal qualities and articulation.
+                            </p>
+                          </div>
+                          
+                          <div className="border-l-4 border-muted pl-4">
+                            <h4 className="font-medium text-foreground">Emotion Match (Sadness)</h4>
+                            <p className="text-sm text-muted-foreground">
+                              Analyzes emotional expression through acoustic features like energy, spectral characteristics, 
+                              and vocal dynamics. Specifically detects sadness levels in both recordings. Higher match scores 
+                              indicate similar emotional delivery and expression.
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="mt-4 p-3 bg-muted/50 rounded-lg">
+                          <p className="text-xs text-muted-foreground">
+                            <strong>Note:</strong> All scores range from 0.0 to 1.0, where 1.0 represents perfect similarity. 
+                            The "Difference" column shows how far your performance deviates from the professional standard.
+                          </p>
+                        </div>
+                      </div>
                     </div>
                   )}
                 </div>
