@@ -6,74 +6,94 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-// Simple DTW implementation
-function dtw(seq1: number[], seq2: number[]): number {
-  const m = seq1.length;
-  const n = seq2.length;
-  const dtw = Array(m + 1).fill(null).map(() => Array(n + 1).fill(Infinity));
+// Simplified DTW implementation with reduced complexity
+function simpleDTW(seq1: number[], seq2: number[]): number {
+  // Limit sequence length to prevent timeout
+  const maxLength = 100;
+  const s1 = seq1.slice(0, maxLength);
+  const s2 = seq2.slice(0, maxLength);
   
-  dtw[0][0] = 0;
+  const m = s1.length;
+  const n = s2.length;
+  
+  if (m === 0 || n === 0) return 1.0;
+  
+  // Use only current and previous row to save memory
+  let prevRow = new Array(n + 1).fill(Infinity);
+  let currRow = new Array(n + 1).fill(Infinity);
+  
+  prevRow[0] = 0;
   
   for (let i = 1; i <= m; i++) {
+    currRow[0] = Infinity;
     for (let j = 1; j <= n; j++) {
-      const cost = Math.abs(seq1[i - 1] - seq2[j - 1]);
-      dtw[i][j] = cost + Math.min(
-        dtw[i - 1][j],     // insertion
-        dtw[i][j - 1],     // deletion
-        dtw[i - 1][j - 1]  // match
+      const cost = Math.abs(s1[i - 1] - s2[j - 1]);
+      currRow[j] = cost + Math.min(
+        prevRow[j],        // insertion
+        currRow[j - 1],    // deletion
+        prevRow[j - 1]     // match
       );
     }
+    [prevRow, currRow] = [currRow, prevRow];
   }
   
-  return dtw[m][n] / Math.max(m, n); // normalized
+  return prevRow[n] / Math.max(m, n);
 }
 
-// Simulate pitch extraction (in reality would use FFT)
+// Fast pitch extraction using simplified autocorrelation
 function extractPitch(audioBuffer: Float32Array, sampleRate: number): number[] {
-  const windowSize = Math.floor(sampleRate * 0.025); // 25ms windows
+  // Downsample for faster processing
+  const downsampleFactor = 4;
+  const windowSize = Math.floor(sampleRate * 0.050 / downsampleFactor); // 50ms windows
   const hopSize = Math.floor(windowSize / 2);
   const pitches: number[] = [];
+  const maxPitches = 50; // Limit number of pitch estimates
   
-  for (let i = 0; i < audioBuffer.length - windowSize; i += hopSize) {
+  for (let i = 0; i < audioBuffer.length - windowSize && pitches.length < maxPitches; i += hopSize * downsampleFactor) {
     const window = audioBuffer.slice(i, i + windowSize);
     
-    // Simple autocorrelation-based pitch detection
-    let maxCorrelation = 0;
-    let bestPeriod = 0;
+    // Simple energy-based pitch estimation
+    let maxEnergy = 0;
+    let bestFreq = 0;
     
-    for (let period = Math.floor(sampleRate / 800); period < Math.floor(sampleRate / 80); period++) {
-      let correlation = 0;
-      for (let j = 0; j < windowSize - period; j++) {
-        correlation += window[j] * window[j + period];
-      }
-      
-      if (correlation > maxCorrelation) {
-        maxCorrelation = correlation;
-        bestPeriod = period;
+    // Check common frequency ranges
+    const freqSteps = [80, 120, 160, 200, 250, 300, 400, 500]; // Hz
+    
+    for (const freq of freqSteps) {
+      const period = Math.floor(sampleRate / freq / downsampleFactor);
+      if (period < window.length / 2) {
+        let energy = 0;
+        for (let j = 0; j < window.length - period; j++) {
+          energy += window[j] * window[j + period];
+        }
+        if (energy > maxEnergy) {
+          maxEnergy = energy;
+          bestFreq = freq;
+        }
       }
     }
     
-    const pitch = bestPeriod > 0 ? sampleRate / bestPeriod : 0;
-    pitches.push(pitch);
+    pitches.push(bestFreq);
   }
   
   return pitches;
 }
 
-// Simulate onset detection
+// Fast onset detection
 function detectOnsets(audioBuffer: Float32Array, sampleRate: number): number[] {
-  const windowSize = Math.floor(sampleRate * 0.046); // ~46ms
-  const hopSize = Math.floor(windowSize / 4);
+  const windowSize = Math.floor(sampleRate * 0.100); // 100ms windows  
+  const hopSize = Math.floor(windowSize / 2);
   const onsets: number[] = [];
+  const maxOnsets = 20; // Limit number of onsets
   
   let prevEnergy = 0;
   
-  for (let i = 0; i < audioBuffer.length - windowSize; i += hopSize) {
+  for (let i = 0; i < audioBuffer.length - windowSize && onsets.length < maxOnsets; i += hopSize) {
     const window = audioBuffer.slice(i, i + windowSize);
-    const energy = window.reduce((sum, sample) => sum + sample * sample, 0);
+    const energy = window.reduce((sum, sample, idx) => 
+      idx % 4 === 0 ? sum + sample * sample : sum, 0) / (windowSize / 4); // Subsample
     
-    // Simple onset detection based on energy increase
-    if (energy > prevEnergy * 1.5 && energy > 0.01) {
+    if (energy > prevEnergy * 2.0 && energy > 0.02) {
       onsets.push(i / sampleRate);
     }
     
@@ -83,67 +103,90 @@ function detectOnsets(audioBuffer: Float32Array, sampleRate: number): number[] {
   return onsets;
 }
 
-// Simulate MFCC extraction
-function extractMFCC(audioBuffer: Float32Array, sampleRate: number): number[][] {
-  const windowSize = Math.floor(sampleRate * 0.025);
+// Fast MFCC-like features
+function extractSimpleFeatures(audioBuffer: Float32Array, sampleRate: number): number[][] {
+  const windowSize = Math.floor(sampleRate * 0.100); // 100ms windows
   const hopSize = Math.floor(windowSize / 2);
-  const mfccs: number[][] = [];
+  const features: number[][] = [];
+  const maxFrames = 30; // Limit number of frames
   
-  for (let i = 0; i < audioBuffer.length - windowSize; i += hopSize) {
+  for (let i = 0; i < audioBuffer.length - windowSize && features.length < maxFrames; i += hopSize) {
     const window = audioBuffer.slice(i, i + windowSize);
     
-    // Simplified MFCC: just use spectral features
-    const mfcc = [];
-    for (let j = 0; j < 13; j++) {
-      let coeff = 0;
-      for (let k = 0; k < window.length; k++) {
-        coeff += window[k] * Math.cos((Math.PI * j * k) / window.length);
-      }
-      mfcc.push(coeff / window.length);
-    }
+    // Simple spectral features instead of full MFCC
+    const feature = [];
     
-    mfccs.push(mfcc);
+    // Energy
+    feature.push(window.reduce((sum, s) => sum + s * s, 0) / window.length);
+    
+    // Zero crossing rate
+    let zcr = 0;
+    for (let j = 1; j < window.length; j++) {
+      if ((window[j] >= 0) !== (window[j-1] >= 0)) zcr++;
+    }
+    feature.push(zcr / window.length);
+    
+    // Simple spectral centroid approximation
+    let centroid = 0;
+    let totalEnergy = 0;
+    for (let j = 0; j < window.length; j++) {
+      const energy = window[j] * window[j];
+      centroid += j * energy;
+      totalEnergy += energy;
+    }
+    feature.push(totalEnergy > 0 ? centroid / totalEnergy / window.length : 0);
+    
+    features.push(feature);
   }
   
-  return mfccs;
+  return features;
 }
 
-// Simulate emotion detection (sadness)
-function detectSadness(mfccs: number[][]): number {
-  // Simplified emotion detection based on spectral features
+// Simple emotion detection
+function detectSadness(features: number[][]): number {
+  if (features.length === 0) return 0;
+  
   let sadnessScore = 0;
   
-  for (const mfcc of mfccs) {
-    // Lower spectral centroid and energy often indicate sadness
-    const spectralCentroid = mfcc[1];
-    const energy = mfcc[0];
+  for (const feature of features) {
+    const energy = feature[0] || 0;
+    const zcr = feature[1] || 0;
+    const centroid = feature[2] || 0;
     
-    // Simple heuristic: lower values suggest sadness
-    const frameScore = Math.max(0, 1 - (Math.abs(spectralCentroid) + Math.abs(energy)) / 2);
+    // Simple heuristic: low energy, low zcr suggest sadness
+    const frameScore = Math.max(0, (1 - energy) * (1 - zcr) * (1 - centroid));
     sadnessScore += frameScore;
   }
   
-  return Math.min(1, sadnessScore / mfccs.length);
+  return Math.min(1, sadnessScore / features.length);
 }
 
-// Convert audio buffer from base64
+// Fast audio buffer decoding
 function decodeAudioBuffer(base64: string): Float32Array {
-  const binaryString = atob(base64);
-  const bytes = new Uint8Array(binaryString.length);
-  
-  for (let i = 0; i < binaryString.length; i++) {
-    bytes[i] = binaryString.charCodeAt(i);
+  try {
+    const binaryString = atob(base64);
+    const maxSamples = 44100 * 10; // Limit to 10 seconds of audio
+    const sampleCount = Math.min(binaryString.length / 2, maxSamples); // Assume 16-bit samples
+    
+    const float32Array = new Float32Array(sampleCount);
+    
+    for (let i = 0; i < sampleCount; i++) {
+      const byteIndex = i * 2;
+      if (byteIndex + 1 < binaryString.length) {
+        // Simple 16-bit conversion
+        const sample = (binaryString.charCodeAt(byteIndex) & 0xFF) | 
+                      ((binaryString.charCodeAt(byteIndex + 1) & 0xFF) << 8);
+        // Convert to signed and normalize
+        const signed = sample > 32767 ? sample - 65536 : sample;
+        float32Array[i] = signed / 32768.0;
+      }
+    }
+    
+    return float32Array;
+  } catch (error) {
+    console.error('Audio decode error:', error);
+    return new Float32Array(0);
   }
-  
-  // Convert to Float32Array (simplified - in reality would decode MP3)
-  const float32Array = new Float32Array(bytes.length / 4);
-  const dataView = new DataView(bytes.buffer);
-  
-  for (let i = 0; i < float32Array.length; i++) {
-    float32Array[i] = dataView.getFloat32(i * 4, true) / 32768; // normalize to [-1, 1]
-  }
-  
-  return float32Array;
 }
 
 serve(async (req) => {
@@ -160,47 +203,59 @@ serve(async (req) => {
 
     console.log('Starting audio analysis...')
     
-    const sampleRate = 44100; // Assume standard sample rate
+    const sampleRate = 22050; // Lower sample rate for faster processing
     
-    // Decode audio buffers
+    // Decode audio buffers with error handling
+    console.log('Decoding audio buffers...')
     const noviceBuffer = decodeAudioBuffer(noviceAudio);
     const professionalBuffer = decodeAudioBuffer(professionalAudio);
     
-    console.log('Audio buffers decoded')
+    if (noviceBuffer.length === 0 || professionalBuffer.length === 0) {
+      throw new Error('Failed to decode audio buffers');
+    }
+    
+    console.log(`Audio decoded: Novice ${noviceBuffer.length} samples, Professional ${professionalBuffer.length} samples`)
 
-    // Extract features
+    // Extract features with time limits
+    console.log('Extracting features...')
     const novicePitch = extractPitch(noviceBuffer, sampleRate);
     const professionalPitch = extractPitch(professionalBuffer, sampleRate);
     
     const noviceOnsets = detectOnsets(noviceBuffer, sampleRate);
     const professionalOnsets = detectOnsets(professionalBuffer, sampleRate);
     
-    const noviceMFCC = extractMFCC(noviceBuffer, sampleRate);
-    const professionalMFCC = extractMFCC(professionalBuffer, sampleRate);
+    const noviceFeatures = extractSimpleFeatures(noviceBuffer, sampleRate);
+    const professionalFeatures = extractSimpleFeatures(professionalBuffer, sampleRate);
     
-    console.log('Features extracted')
+    console.log('Features extracted successfully')
 
-    // Calculate metrics
+    // Calculate metrics quickly
+    console.log('Calculating metrics...')
     
-    // 1. Pitch Accuracy using DTW
-    const pitchAccuracy = 1 - (dtw(novicePitch, professionalPitch) / 100); // normalized
+    // 1. Pitch Accuracy using simplified DTW
+    const pitchAccuracy = Math.max(0, 1 - (simpleDTW(novicePitch, professionalPitch) / 50));
     
     // 2. Rhythm Timing Error
-    const rhythmError = Math.abs(noviceOnsets.length - professionalOnsets.length) / 
-                       Math.max(noviceOnsets.length, professionalOnsets.length);
+    const rhythmError = noviceOnsets.length > 0 && professionalOnsets.length > 0 
+      ? Math.abs(noviceOnsets.length - professionalOnsets.length) / Math.max(noviceOnsets.length, professionalOnsets.length)
+      : 0;
     
-    // 3. MFCC Distance with DTW
-    let mfccDistance = 0;
-    for (let i = 0; i < 13; i++) {
-      const noviceCoeffs = noviceMFCC.map(frame => frame[i]);
-      const professionalCoeffs = professionalMFCC.map(frame => frame[i]);
-      mfccDistance += dtw(noviceCoeffs, professionalCoeffs);
+    // 3. Feature similarity (simplified MFCC replacement)
+    let featureSimilarity = 0;
+    if (noviceFeatures.length > 0 && professionalFeatures.length > 0) {
+      const minLength = Math.min(noviceFeatures.length, professionalFeatures.length);
+      let totalDiff = 0;
+      for (let i = 0; i < minLength; i++) {
+        for (let j = 0; j < 3; j++) { // 3 features per frame
+          totalDiff += Math.abs((noviceFeatures[i][j] || 0) - (professionalFeatures[i][j] || 0));
+        }
+      }
+      featureSimilarity = Math.max(0, 1 - (totalDiff / (minLength * 3)));
     }
-    mfccDistance /= 13; // average across coefficients
     
-    // 4. Emotion Match (Sadness)
-    const noviceSadness = detectSadness(noviceMFCC);
-    const professionalSadness = detectSadness(professionalMFCC);
+    // 4. Emotion Match
+    const noviceSadness = detectSadness(noviceFeatures);
+    const professionalSadness = detectSadness(professionalFeatures);
     const emotionMatch = 1 - Math.abs(noviceSadness - professionalSadness);
     
     console.log('Analysis complete')
@@ -208,18 +263,18 @@ serve(async (req) => {
     const results = {
       pitchAccuracy: {
         novice: Math.max(0, Math.min(1, pitchAccuracy)),
-        professional: 1.0, // reference
+        professional: 1.0,
         difference: Math.abs(1.0 - Math.max(0, Math.min(1, pitchAccuracy)))
       },
       rhythmTiming: {
         novice: Math.max(0, Math.min(1, 1 - rhythmError)),
-        professional: 1.0, // reference
+        professional: 1.0,
         difference: Math.abs(1.0 - Math.max(0, Math.min(1, 1 - rhythmError)))
       },
       mfccDistance: {
-        novice: Math.max(0, Math.min(1, 1 - (mfccDistance / 10))),
-        professional: 1.0, // reference
-        difference: Math.abs(1.0 - Math.max(0, Math.min(1, 1 - (mfccDistance / 10))))
+        novice: Math.max(0, Math.min(1, featureSimilarity)),
+        professional: 1.0,
+        difference: Math.abs(1.0 - Math.max(0, Math.min(1, featureSimilarity)))
       },
       emotionMatch: {
         novice: Math.max(0, Math.min(1, emotionMatch)),
