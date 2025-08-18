@@ -132,10 +132,13 @@ Keep the tone encouraging but honest. Focus on practical, actionable advice that
 });
 
 function generateFallbackReview(analysisResults: any, songTitle: string): string {
-  const pitchScore = analysisResults?.pitchAccuracy?.novice || 0;
-  const rhythmScore = analysisResults?.rhythmTiming?.novice || 0;
-  const mfccScore = analysisResults?.mfccDistance?.novice || 0;
-  const emotionScore = analysisResults?.emotionMatch?.novice || 0;
+  // Extract scores and ensure they are in decimal format (0.0-1.0)
+  const pitchScore = (analysisResults?.pitchAccuracy?.novice || 0);
+  const rhythmScore = (analysisResults?.rhythmTiming?.novice || 0);
+  const mfccScore = (analysisResults?.mfccDistance?.novice || 0);
+  const emotionScore = (analysisResults?.emotionMatch?.novice || 0);
+  
+  console.log('Raw scores from analysis:', { pitchScore, rhythmScore, mfccScore, emotionScore });
   
   const avgScore = (pitchScore + rhythmScore + mfccScore + emotionScore) / 4;
   
