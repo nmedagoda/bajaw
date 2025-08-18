@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/components/ui/use-toast";
-import { Mic, FileAudio, ExternalLink, BarChart3, Loader2 } from "lucide-react";
+import { Mic, FileAudio, ExternalLink, BarChart3, Loader2, FileText } from "lucide-react";
 
 interface UploadedSongRow {
   id: string;
@@ -27,6 +27,14 @@ interface AnalysisResults {
   emotionMatch: { novice: number; professional: number; difference: number };
 }
 
+interface ReviewReport {
+  review: string;
+  analysisData: AnalysisResults;
+  songTitle: string;
+  fallback?: boolean;
+  error?: string;
+}
+
 const SingerDashboard: React.FC = () => {
   const { user } = useAuth();
   const { toast } = useToast();
@@ -36,6 +44,8 @@ const SingerDashboard: React.FC = () => {
   const [professionalUrl, setProfessionalUrl] = useState<string | null>(null);
   const [analysisResults, setAnalysisResults] = useState<AnalysisResults | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [reviewReport, setReviewReport] = useState<ReviewReport | null>(null);
+  const [isGeneratingReview, setIsGeneratingReview] = useState(false);
 
   useEffect(() => {
     document.title = "My Performances - Bajaw";
@@ -168,6 +178,61 @@ const SingerDashboard: React.FC = () => {
     }
   };
 
+  const generateReview = async () => {
+    if (!analysisResults || !selectedSong) {
+      toast({
+        title: "No Analysis Data",
+        description: "Please run an audio analysis first to generate a review.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsGeneratingReview(true);
+    setReviewReport(null);
+
+    try {
+      toast({
+        title: "Generating Review",
+        description: "AI is analyzing your performance and creating a personalized review...",
+      });
+
+      const { data, error } = await supabase.functions.invoke('generate-review', {
+        body: {
+          songTitle: selectedSong.song_title,
+          analysisResults: analysisResults,
+          novicePerformanceData: { url: noviceUrl },
+          professionalPerformanceData: { url: professionalUrl }
+        }
+      });
+
+      if (error) throw error;
+
+      setReviewReport(data);
+      
+      if (data.fallback) {
+        toast({
+          title: "Review Generated (Fallback)",
+          description: "Generated review using fallback analysis due to API limitations.",
+        });
+      } else {
+        toast({
+          title: "Review Generated",
+          description: "Your personalized performance review is ready!",
+        });
+      }
+    } catch (error) {
+      console.error('Review generation error:', error);
+      toast({
+        title: "Review Generation Failed",
+        description: error instanceof Error ? error.message : "Failed to generate review",
+        variant: "destructive",
+      });
+    } finally {
+      setIsGeneratingReview(false);
+    }
+  };
+
   const formatScore = (score: number): string => {
     return `${(score * 100).toFixed(1)}%`;
   };
@@ -186,6 +251,9 @@ const SingerDashboard: React.FC = () => {
           </TabsTrigger>
           <TabsTrigger value="analyze" className="flex items-center gap-2">
             <BarChart3 className="w-4 h-4" /> Audio Analysis
+          </TabsTrigger>
+          <TabsTrigger value="review" className="flex items-center gap-2">
+            <FileText className="w-4 h-4" /> Review Report
           </TabsTrigger>
           <TabsTrigger value="record" className="flex items-center gap-2">
             <FileAudio className="w-4 h-4" /> Record New
@@ -389,6 +457,109 @@ const SingerDashboard: React.FC = () => {
                 <p className="text-sm text-muted-foreground">
                   Both novice and professional audio files are required for analysis.
                 </p>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="review" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>AI Performance Review</CardTitle>
+              <CardDescription>
+                Get a detailed, personalized review of your performance with actionable recommendations
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="space-y-2">
+                <Label htmlFor="review-song-select">Song Title</Label>
+                <Select value={selectedId ?? undefined} onValueChange={(v) => setSelectedId(v)}>
+                  <SelectTrigger id="review-song-select">
+                    <SelectValue placeholder={songs.length ? "Select a song" : "No uploads yet"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {songs.map((s) => (
+                      <SelectItem key={s.id} value={s.id}>{s.song_title}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {selectedSong && analysisResults && (
+                <div className="space-y-4">
+                  <div className="text-sm text-muted-foreground">
+                    Selected: <span className="font-medium text-foreground">{selectedSong.song_title}</span>
+                  </div>
+                  
+                  <Button 
+                    onClick={generateReview} 
+                    disabled={isGeneratingReview}
+                    className="w-full"
+                  >
+                    {isGeneratingReview ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Generating Review...
+                      </>
+                    ) : (
+                      <>
+                        <FileText className="w-4 h-4 mr-2" />
+                        Generate AI Review
+                      </>
+                    )}
+                  </Button>
+
+                  {reviewReport && (
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <h3 className="text-lg font-semibold">Performance Review</h3>
+                        {reviewReport.fallback && (
+                          <span className="text-xs bg-amber-100 text-amber-800 px-2 py-1 rounded">
+                            Fallback Analysis
+                          </span>
+                        )}
+                      </div>
+                      
+                      <div className="prose prose-sm max-w-none">
+                        <div className="bg-muted/30 p-6 rounded-lg border">
+                          <div className="whitespace-pre-line text-sm leading-relaxed">
+                            {reviewReport.review}
+                          </div>
+                        </div>
+                      </div>
+
+                      {reviewReport.error && (
+                        <div className="text-xs text-muted-foreground p-3 bg-amber-50 border border-amber-200 rounded">
+                          <strong>Note:</strong> Generated using fallback analysis due to: {reviewReport.error}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {selectedSong && !analysisResults && (
+                <div className="text-center py-8">
+                  <div className="text-muted-foreground mb-4">
+                    <BarChart3 className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                    <p>No analysis data available for this song.</p>
+                    <p className="text-sm">Please run an audio analysis first to generate a review.</p>
+                  </div>
+                  <Button variant="outline" onClick={() => {
+                    // Switch to analyze tab
+                    const analyzeTab = document.querySelector('[value="analyze"]') as HTMLButtonElement;
+                    analyzeTab?.click();
+                  }}>
+                    Go to Audio Analysis
+                  </Button>
+                </div>
+              )}
+
+              {!selectedSong && (
+                <div className="text-center py-8 text-muted-foreground">
+                  <FileText className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                  <p>Please select a song to generate a review.</p>
+                </div>
               )}
             </CardContent>
           </Card>
