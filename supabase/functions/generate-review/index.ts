@@ -140,45 +140,139 @@ function generateFallbackReview(analysisResults: any, songTitle: string): string
   const avgScore = (pitchScore + rhythmScore + mfccScore + emotionScore) / 4;
   
   let performance = '';
-  if (avgScore > 0.8) performance = 'excellent';
-  else if (avgScore > 0.6) performance = 'good';
-  else if (avgScore > 0.4) performance = 'fair';
-  else performance = 'needs improvement';
+  let performanceGrade = '';
+  if (avgScore > 0.8) {
+    performance = 'excellent';
+    performanceGrade = 'A';
+  } else if (avgScore > 0.6) {
+    performance = 'good';
+    performanceGrade = 'B';
+  } else if (avgScore > 0.4) {
+    performance = 'fair';
+    performanceGrade = 'C';
+  } else {
+    performance = 'developing';
+    performanceGrade = 'D';
+  }
+  
+  // Helper function to determine strength areas
+  const getStrengths = () => {
+    const strengths = [];
+    if (pitchScore > 0.6) strengths.push('Pitch control and intonation accuracy');
+    if (rhythmScore > 0.6) strengths.push('Timing and rhythmic precision');
+    if (mfccScore > 0.6) strengths.push('Vocal tone quality and timbre consistency');
+    if (emotionScore > 0.6) strengths.push('Emotional expression and delivery');
+    
+    if (strengths.length === 0) {
+      return ['Musical potential and willingness to improve', 'Basic vocal foundation'];
+    }
+    return strengths;
+  };
+  
+  // Helper function to determine improvement areas
+  const getImprovementAreas = () => {
+    const areas = [];
+    if (pitchScore < 0.6) areas.push('Pitch Accuracy');
+    if (rhythmScore < 0.6) areas.push('Rhythm and Timing');
+    if (mfccScore < 0.6) areas.push('Vocal Tone Quality');
+    if (emotionScore < 0.6) areas.push('Emotional Expression');
+    return areas;
+  };
+  
+  const strengths = getStrengths();
+  const improvementAreas = getImprovementAreas();
   
   return `
-## Performance Review for "${songTitle}"
+# 🎵 Performance Review for "${songTitle}"
 
-### Overall Performance Summary
-Your performance shows ${performance} potential with an average similarity score of ${(avgScore * 100).toFixed(1)}%. You demonstrate musical ability and with focused practice, you can achieve significant improvement.
+**Overall Grade: ${performanceGrade}** | **Average Score: ${(avgScore * 100).toFixed(1)}%**
 
-### Strengths
-${pitchScore > 0.6 ? '• Good pitch control and intonation accuracy' : ''}
-${rhythmScore > 0.6 ? '• Solid timing and rhythm sense' : ''}
-${mfccScore > 0.6 ? '• Nice vocal tone quality and timbre' : ''}
-${emotionScore > 0.6 ? '• Good emotional expression and delivery' : ''}
+---
 
-### Areas for Improvement
-${pitchScore < 0.6 ? '• **Pitch Accuracy**: Focus on hitting notes more precisely' : ''}
-${rhythmScore < 0.6 ? '• **Rhythm Timing**: Work on staying in time with the beat' : ''}
-${mfccScore < 0.6 ? '• **Vocal Tone**: Develop more consistent timbre and voice quality' : ''}
-${emotionScore < 0.6 ? '• **Emotional Expression**: Enhance the emotional delivery of the song' : ''}
+## 📊 Overall Performance Summary
 
-### Detailed Recommendations
-1. **Warm-up Routine**: Always start with vocal warm-ups before practice
-2. **Pitch Training**: Use a piano or tuning app to practice matching pitches
-3. **Metronome Practice**: Practice with a metronome to improve timing
-4. **Breath Control**: Focus on proper breathing techniques for sustained notes
-5. **Regular Practice**: Aim for 15-30 minutes of focused practice daily
+Your performance demonstrates **${performance}** potential with clear areas for growth. You show musical ability and with dedicated practice, significant improvement is achievable. Your current performance reflects a solid foundation that can be built upon with targeted exercises and consistent practice.
 
-### Practice Exercises
-• Scales and arpeggios for pitch accuracy
-• Clapping rhythms while listening to songs
-• Humming melodies to internalize pitch patterns
-• Recording yourself and comparing to the original
+---
 
-### Next Steps
-Start with the area that needs the most improvement based on your scores. Focus on one aspect at a time, and don't try to fix everything at once. Consider working with a vocal coach for personalized guidance.
+## ✨ Key Strengths
 
-Keep practicing and stay motivated! Every great singer started where you are now.
-  `;
-}
+${strengths.map(strength => `• **${strength}** - Keep developing this area as it shows natural talent`).join('\n')}
+
+---
+
+## 🎯 Areas for Improvement
+
+${improvementAreas.length > 0 ? improvementAreas.map(area => {
+  switch(area) {
+    case 'Pitch Accuracy':
+      return `• **${area}** (${(pitchScore * 100).toFixed(1)}%) - Focus on hitting notes more precisely and maintaining consistent intonation`;
+    case 'Rhythm and Timing':
+      return `• **${area}** (${(rhythmScore * 100).toFixed(1)}%) - Work on staying in sync with the beat and developing better timing consistency`;
+    case 'Vocal Tone Quality':
+      return `• **${area}** (${(mfccScore * 100).toFixed(1)}%) - Develop more consistent vocal timbre and improve breath support`;
+    case 'Emotional Expression':
+      return `• **${area}** (${(emotionScore * 100).toFixed(1)}%) - Enhance emotional connection and expressive delivery of the lyrics`;
+    default:
+      return `• **${area}** - Requires focused attention and practice`;
+  }
+}).join('\n') : '• Continue developing all aspects of your vocal performance'}
+
+---
+
+## 🎼 Detailed Recommendations
+
+### 🔥 Priority Focus Areas
+${improvementAreas.length > 0 ? `
+1. **${improvementAreas[0]}** - Start here for maximum impact
+2. **Breath Support** - Foundation for all vocal improvement
+3. **Regular Practice Routine** - Consistency is key to progress` : `
+1. **Vocal Consistency** - Maintain your current level across all performances
+2. **Advanced Techniques** - Explore vibrato, runs, and stylistic elements
+3. **Performance Confidence** - Work on stage presence and connection`}
+
+### 🎯 Technical Development
+• **Warm-up Routine**: Always begin with 5-10 minutes of vocal warm-ups
+• **Scale Practice**: Daily major and minor scales for pitch accuracy
+• **Breathing Exercises**: Diaphragmatic breathing for sustained vocal power
+• **Recording Analysis**: Record yourself weekly and compare to originals
+
+---
+
+## 💪 Practice Exercises
+
+### Daily (15-20 minutes)
+• **Lip trills and humming** for vocal warm-up
+• **Scale exercises** (major, minor, chromatic)
+• **Breathing exercises** with sustained "ah" sounds
+
+### Weekly Focus
+• **Metronome practice** with clapping and singing
+• **Pitch matching** using piano or tuning apps
+• **Song analysis** listening to professional recordings
+• **Performance practice** in front of mirror or camera
+
+---
+
+## 🚀 Next Steps
+
+### Immediate Actions (This Week)
+1. Set up a daily 15-minute practice routine
+2. Focus on your weakest scoring area: **${improvementAreas[0] || 'Overall consistency'}**
+3. Record yourself singing the same song to track progress
+
+### Short-term Goals (1-2 Months)
+1. Improve your lowest score by 20%
+2. Learn proper breathing techniques
+3. Master basic vocal warm-up routine
+
+### Long-term Vision (3-6 Months)
+1. Achieve consistent scores above 70% in all areas
+2. Develop your unique vocal style
+3. Consider working with a vocal coach for personalized guidance
+
+---
+
+**Remember**: Every professional singer started exactly where you are now. Your dedication to improvement and willingness to analyze your performance shows real commitment to growth. Keep practicing, stay patient with yourself, and celebrate small victories along the way! 🌟
+
+*Generated by AI Vocal Coach Assistant*`;
