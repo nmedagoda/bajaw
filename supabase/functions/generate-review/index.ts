@@ -55,7 +55,8 @@ Keep the tone encouraging but honest. Focus on practical, actionable advice that
 
     console.log('Calling Hugging Face API with prompt:', prompt.substring(0, 200) + '...');
 
-    const response = await fetch('https://api-inference.huggingface.co/models/microsoft/DialoGPT-large', {
+    // Try using a better text generation model
+    const response = await fetch('https://api-inference.huggingface.co/models/gpt2', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${huggingFaceApiKey}`,
@@ -64,10 +65,15 @@ Keep the tone encouraging but honest. Focus on practical, actionable advice that
       body: JSON.stringify({
         inputs: prompt,
         parameters: {
-          max_length: 1000,
+          max_new_tokens: 400,
           temperature: 0.7,
           do_sample: true,
           top_p: 0.9,
+          return_full_text: false,
+        },
+        options: {
+          wait_for_model: true,
+          use_cache: false
         }
       }),
     });
@@ -99,11 +105,21 @@ Keep the tone encouraging but honest. Focus on practical, actionable advice that
   } catch (error) {
     console.error('Error in generate-review function:', error);
     
+    // Try to get request data for fallback, but handle parsing errors
+    let fallbackAnalysisResults = {};
+    let fallbackSongTitle = 'Unknown Song';
+    
+    try {
+      const requestText = await req.text();
+      const requestData = JSON.parse(requestText);
+      fallbackAnalysisResults = requestData.analysisResults || {};
+      fallbackSongTitle = requestData.songTitle || 'Unknown Song';
+    } catch (parseError) {
+      console.error('Failed to parse request body for fallback:', parseError);
+    }
+    
     // Return a fallback review if the API fails
-    const fallbackReview = generateFallbackReview(
-      JSON.parse(req.body || '{}').analysisResults || {},
-      JSON.parse(req.body || '{}').songTitle || 'Unknown Song'
-    );
+    const fallbackReview = generateFallbackReview(fallbackAnalysisResults, fallbackSongTitle);
     
     return new Response(JSON.stringify({ 
       review: fallbackReview,
