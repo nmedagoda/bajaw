@@ -66,21 +66,36 @@ const PitchWaveformPlayer: React.FC<PitchWaveformPlayerProps> = ({
         return;
       }
 
-      // For now, simulate pitch data extraction since the current function doesn't return pitch arrays
-      // We'll enhance this later to return actual pitch data
-      const sampleRate = 22050;
-      const windowSize = Math.floor(sampleRate * 0.050); // 50ms windows
-      const hopSize = Math.floor(windowSize / 2);
-      const mockPitchData: PitchData[] = [];
+      console.log('Analysis response:', data);
+
+      // Extract pitch data from analysis response
+      const pitchArray = data?.pitchData?.novice || [];
+      const sampleRate = data?.pitchData?.sampleRate || 22050;
       
-      // Simulate pitch extraction with some zero values to demonstrate
-      for (let i = 0; i < 100; i++) {
-        const timePos = (i * hopSize) / sampleRate;
-        const frequency = Math.random() > 0.3 ? 100 + Math.random() * 400 : 0; // 30% chance of zero pitch
-        mockPitchData.push({ time: timePos, frequency });
+      if (pitchArray.length > 0) {
+        const windowSize = Math.floor(sampleRate * 0.050); // 50ms windows
+        const hopSize = Math.floor(windowSize / 2);
+        const realPitchData: PitchData[] = [];
+        
+        pitchArray.forEach((frequency: number, index: number) => {
+          const timePos = (index * hopSize) / sampleRate;
+          realPitchData.push({ time: timePos, frequency });
+        });
+        
+        setPitchData(realPitchData);
+        console.log('Extracted pitch data:', realPitchData.length, 'points');
+        console.log('Zero pitch areas:', realPitchData.filter(p => p.frequency === 0).length);
+      } else {
+        // Fallback to simulated data if no pitch data is returned
+        console.log('No pitch data returned, using simulated data');
+        const mockPitchData: PitchData[] = [];
+        for (let i = 0; i < 50; i++) {
+          const timePos = i * 0.1; // 100ms intervals
+          const frequency = Math.random() > 0.4 ? 100 + Math.random() * 400 : 0; // 40% chance of zero pitch
+          mockPitchData.push({ time: timePos, frequency });
+        }
+        setPitchData(mockPitchData);
       }
-      
-      setPitchData(mockPitchData);
     } catch (error) {
       console.error('Error extracting pitch:', error);
     } finally {

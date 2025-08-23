@@ -4,7 +4,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
-import WaveformPlayer from "@/components/media/WaveformPlayer";
+import PitchWaveformPlayer from "@/components/media/PitchWaveformPlayer";
 import { resolvePlayableUrl } from "@/lib/media";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -291,14 +291,14 @@ const SingerDashboard: React.FC = () => {
                   {noviceUrl && (
                     <div className="space-y-2">
                       <h3 className="text-sm font-medium text-foreground">Your Performance (Novice Singer)</h3>
-                      <WaveformPlayer url={noviceUrl} />
+                      <PitchWaveformPlayer url={noviceUrl} showPitchOverlay={true} />
                     </div>
                   )}
                   
                   {professionalUrl && (
                     <div className="space-y-2">
                       <h3 className="text-sm font-medium text-foreground">Professional Singer</h3>
-                      <WaveformPlayer url={professionalUrl} />
+                      <PitchWaveformPlayer url={professionalUrl} showPitchOverlay={false} />
                     </div>
                   )}
                 </div>
