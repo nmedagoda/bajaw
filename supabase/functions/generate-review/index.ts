@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -16,7 +17,8 @@ serve(async (req) => {
       songTitle, 
       analysisResults,
       novicePerformanceData,
-      professionalPerformanceData 
+      professionalPerformanceData,
+      performanceId
     } = await req.json();
 
     // Prepare the analysis data for the LLM
@@ -101,10 +103,41 @@ Keep the tone encouraging but honest. Focus on practical, actionable advice that
       }
     }
 
+    // Fetch voting scores if performanceId is provided
+    let votingData = null;
+    if (performanceId) {
+      try {
+        const supabase = createClient(
+          Deno.env.get('SUPABASE_URL') ?? '',
+          Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+        );
+        
+        const { data: votes, error } = await supabase
+          .from('votes')
+          .select('voice_score, overall_score')
+          .eq('performance_id', performanceId);
+        
+        if (!error && votes && votes.length > 0) {
+          const validVotes = votes.filter(v => v.voice_score !== null && v.overall_score !== null);
+          if (validVotes.length > 0) {
+            const avgVoiceScore = validVotes.reduce((sum, v) => sum + v.voice_score!, 0) / validVotes.length;
+            const avgOverallScore = validVotes.reduce((sum, v) => sum + v.overall_score!, 0) / validVotes.length;
+            votingData = {
+              avgVoiceScore,
+              avgOverallScore,
+              totalVotes: validVotes.length
+            };
+          }
+        }
+      } catch (e) {
+        console.error('Failed to fetch voting data:', e);
+      }
+    }
+
     // If no model worked, use fallback
     if (!generatedReview) {
       console.log('All free models failed, using fallback review');
-      generatedReview = generateFallbackReview(analysisResults, songTitle);
+      generatedReview = generateFallbackReview(analysisResults, songTitle, votingData);
     }
 
     return new Response(JSON.stringify({
@@ -144,7 +177,7 @@ Keep the tone encouraging but honest. Focus on practical, actionable advice that
   }
 });
 
-function generateFallbackReview(analysisResults: any, songTitle: string): string {
+function generateFallbackReview(analysisResults: any, songTitle: string, votingData?: any): string {
   // Extract scores and ensure they are in decimal format (0.0-1.0)
   const pitchScore = (analysisResults?.pitchAccuracy?.novice || 0);
   const rhythmScore = (analysisResults?.rhythmTiming?.novice || 0);
@@ -288,6 +321,17 @@ ${improvementAreas.length > 0 ? `
 3. Consider working with a vocal coach for personalized guidance
 
 ---
+
+${votingData ? `## 🎭 Community Feedback
+
+Based on **${votingData.totalVotes}** vote${votingData.totalVotes === 1 ? '' : 's'} from our community:
+
+• **Voice Quality**: ${votingData.avgVoiceScore.toFixed(1)}/10 ⭐
+• **Overall Song Quality**: ${votingData.avgOverallScore.toFixed(1)}/10 ⭐
+
+*This feedback from judges and audience members provides valuable insight into how your performance resonates with listeners.*
+
+---` : ''}
 
 **Remember**: Every professional singer started exactly where you are now. Your dedication to improvement and willingness to analyze your performance shows real commitment to growth. Keep practicing, stay patient with yourself, and celebrate small victories along the way! 🌟
 

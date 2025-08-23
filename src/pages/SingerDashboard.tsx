@@ -202,7 +202,8 @@ const SingerDashboard: React.FC = () => {
           songTitle: selectedSong.song_title,
           analysisResults: analysisResults,
           novicePerformanceData: { url: noviceUrl },
-          professionalPerformanceData: { url: professionalUrl }
+          professionalPerformanceData: { url: professionalUrl },
+          performanceId: selectedId
         }
       });
 
