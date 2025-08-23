@@ -259,6 +259,8 @@ serve(async (req) => {
     const emotionMatch = 1 - Math.abs(noviceSadness - professionalSadness);
     
     console.log('Analysis complete')
+    console.log('Novice pitch data:', novicePitch)
+    console.log('Professional pitch data:', professionalPitch)
 
     const results = {
       pitchAccuracy: {
@@ -280,6 +282,12 @@ serve(async (req) => {
         novice: Math.max(0, Math.min(1, emotionMatch)),
         professional: Math.max(0, Math.min(1, professionalSadness)),
         difference: Math.abs(Math.max(0, Math.min(1, professionalSadness)) - Math.max(0, Math.min(1, emotionMatch)))
+      },
+      // Add raw pitch data for visualization
+      pitchData: {
+        novice: novicePitch,
+        professional: professionalPitch,
+        sampleRate: sampleRate
       }
     };
 
