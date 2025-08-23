@@ -232,132 +232,132 @@ function generateFallbackReview(analysisResults: any, songTitle: string, votingD
   const improvementAreas = getImprovementAreas();
   
   return `
-■ 🎵 Performance Review for "${songTitle}"
+<strong>■ 🎵 Performance Review for "${songTitle}"</strong>
 
-**Overall Grade: ${performanceGrade}** | **Average Score: ${(avgScore * 100).toFixed(1)}%**
+Overall Grade: ${performanceGrade} | Average Score: ${(avgScore * 100).toFixed(1)}%
 
----
+_________________________________________________________________________
 
-■ 📊 Overall Performance Summary
+<strong>■ 📊 Overall Performance Summary</strong>
 
-Your performance demonstrates **${performance}** potential with clear areas for growth. You show musical ability and with dedicated practice, significant improvement is achievable. Your current performance reflects a solid foundation that can be built upon with targeted exercises and consistent practice.
+Your performance demonstrates ${performance} potential with clear areas for growth. You show musical ability and with dedicated practice, significant improvement is achievable. Your current performance reflects a solid foundation that can be built upon with targeted exercises and consistent practice.
 
----
+_________________________________________________________________________
 
-■ ✨ Key Strengths
+<strong>■ ✨ Key Strengths</strong>
 
-${strengths.map((strength, index) => `**${index + 1}.** ${strength} - Keep developing this area as it shows natural talent`).join('\n\n')}
+${strengths.map((strength, index) => `${index + 1}. ${strength} - Keep developing this area as it shows natural talent`).join('\n\n')}
 
----
+_________________________________________________________________________
 
-■ 🎯 Areas for Improvement
+<strong>■ 🎯 Areas for Improvement</strong>
 
 ${improvementAreas.length > 0 ? improvementAreas.map((area, index) => {
   let description = '';
   switch(area) {
     case 'Pitch Accuracy':
-      description = `**${area}** (${(pitchScore * 100).toFixed(1)}%) - Focus on hitting notes more precisely and maintaining consistent intonation`;
+      description = `${area} (${(pitchScore * 100).toFixed(1)}%) - Focus on hitting notes more precisely and maintaining consistent intonation`;
       break;
     case 'Rhythm and Timing':
-      description = `**${area}** (${(rhythmScore * 100).toFixed(1)}%) - Work on staying in sync with the beat and developing better timing consistency`;
+      description = `${area} (${(rhythmScore * 100).toFixed(1)}%) - Work on staying in sync with the beat and developing better timing consistency`;
       break;
     case 'Vocal Tone Quality':
-      description = `**${area}** (${(mfccScore * 100).toFixed(1)}%) - Develop more consistent vocal timbre and improve breath support`;
+      description = `${area} (${(mfccScore * 100).toFixed(1)}%) - Develop more consistent vocal timbre and improve breath support`;
       break;
     case 'Emotional Expression':
-      description = `**${area}** (${(emotionScore * 100).toFixed(1)}%) - Enhance emotional connection and expressive delivery of the lyrics`;
+      description = `${area} (${(emotionScore * 100).toFixed(1)}%) - Enhance emotional connection and expressive delivery of the lyrics`;
       break;
     default:
-      description = `**${area}** - Requires focused attention and practice`;
+      description = `${area} - Requires focused attention and practice`;
   }
-  return `**${index + 1}.** ${description}`;
-}).join('\n\n') : '**1.** Continue developing all aspects of your vocal performance'}
+  return `${index + 1}. ${description}`;
+}).join('\n\n') : '1. Continue developing all aspects of your vocal performance'}
 
----
+_________________________________________________________________________
 
-■ 🎼 Detailed Recommendations
+<strong>■ 🎼 Detailed Recommendations</strong>
 
-■ 🔥 Priority Focus Areas
+<strong>■ 🔥 Priority Focus Areas</strong>
 ${improvementAreas.length > 0 ? `
-**1.** ${improvementAreas[0]} - Start here for maximum impact
+1. ${improvementAreas[0]} - Start here for maximum impact
 
-**2.** Breath Support - Foundation for all vocal improvement
+2. Breath Support - Foundation for all vocal improvement
 
-**3.** Regular Practice Routine - Consistency is key to progress` : `
-**1.** Vocal Consistency - Maintain your current level across all performances
+3. Regular Practice Routine - Consistency is key to progress` : `
+1. Vocal Consistency - Maintain your current level across all performances
 
-**2.** Advanced Techniques - Explore vibrato, runs, and stylistic elements
+2. Advanced Techniques - Explore vibrato, runs, and stylistic elements
 
-**3.** Performance Confidence - Work on stage presence and connection`}
+3. Performance Confidence - Work on stage presence and connection`}
 
-■ 🎯 Technical Development
-**1.** **Warm-up Routine**: Always begin with 5-10 minutes of vocal warm-ups
+<strong>■ 🎯 Technical Development</strong>
+1. Warm-up Routine: Always begin with 5-10 minutes of vocal warm-ups
 
-**2.** **Scale Practice**: Daily major and minor scales for pitch accuracy
+2. Scale Practice: Daily major and minor scales for pitch accuracy
 
-**3.** **Breathing Exercises**: Diaphragmatic breathing for sustained vocal power
+3. Breathing Exercises: Diaphragmatic breathing for sustained vocal power
 
-**4.** **Recording Analysis**: Record yourself weekly and compare to originals
+4. Recording Analysis: Record yourself weekly and compare to originals
 
----
+_________________________________________________________________________
 
-■ 💪 Practice Exercises
+<strong>■ 💪 Practice Exercises</strong>
 
-■ Daily (15-20 minutes)
-**1.** **Lip trills and humming** for vocal warm-up
+<strong>■ Daily (15-20 minutes)</strong>
+1. Lip trills and humming for vocal warm-up
 
-**2.** **Scale exercises** (major, minor, chromatic)
+2. Scale exercises (major, minor, chromatic)
 
-**3.** **Breathing exercises** with sustained "ah" sounds
+3. Breathing exercises with sustained "ah" sounds
 
-■ Weekly Focus
-**1.** **Metronome practice** with clapping and singing
+<strong>■ Weekly Focus</strong>
+1. Metronome practice with clapping and singing
 
-**2.** **Pitch matching** using piano or tuning apps
+2. Pitch matching using piano or tuning apps
 
-**3.** **Song analysis** listening to professional recordings
+3. Song analysis listening to professional recordings
 
-**4.** **Performance practice** in front of mirror or camera
+4. Performance practice in front of mirror or camera
 
----
+_________________________________________________________________________
 
-■ 🚀 Next Steps
+<strong>■ 🚀 Next Steps</strong>
 
-■ Immediate Actions (This Week)
-**1.** Set up a daily 15-minute practice routine
+<strong>■ Immediate Actions (This Week)</strong>
+1. Set up a daily 15-minute practice routine
 
-**2.** Focus on your weakest scoring area: **${improvementAreas[0] || 'Overall consistency'}**
+2. Focus on your weakest scoring area: ${improvementAreas[0] || 'Overall consistency'}
 
-**3.** Record yourself singing the same song to track progress
+3. Record yourself singing the same song to track progress
 
-■ Short-term Goals (1-2 Months)
-**1.** Improve your lowest score by 20%
+<strong>■ Short-term Goals (1-2 Months)</strong>
+1. Improve your lowest score by 20%
 
-**2.** Learn proper breathing techniques
+2. Learn proper breathing techniques
 
-**3.** Master basic vocal warm-up routine
+3. Master basic vocal warm-up routine
 
-■ Long-term Vision (3-6 Months)
-**1.** Achieve consistent scores above 70% in all areas
+<strong>■ Long-term Vision (3-6 Months)</strong>
+1. Achieve consistent scores above 70% in all areas
 
-**2.** Develop your unique vocal style
+2. Develop your unique vocal style
 
-**3.** Consider working with a vocal coach for personalized guidance
+3. Consider working with a vocal coach for personalized guidance
 
----
+_________________________________________________________________________
 
-${votingData ? `■ 🎭 Community Feedback
+${votingData ? `<strong>■ 🎭 Community Feedback</strong>
 
-Based on **${votingData.totalVotes}** vote${votingData.totalVotes === 1 ? '' : 's'} from our community:
+Based on ${votingData.totalVotes} vote${votingData.totalVotes === 1 ? '' : 's'} from our community:
 
-• **Voice Quality**: ${votingData.avgVoiceScore.toFixed(1)}/10 ⭐
-• **Overall Song Quality**: ${votingData.avgOverallScore.toFixed(1)}/10 ⭐
+• Voice Quality: ${votingData.avgVoiceScore.toFixed(1)}/10 ⭐
+• Overall Song Quality: ${votingData.avgOverallScore.toFixed(1)}/10 ⭐
 
-*This feedback from judges and audience members provides valuable insight into how your performance resonates with listeners.*
+This feedback from judges and audience members provides valuable insight into how your performance resonates with listeners.
 
----` : ''}
+_________________________________________________________________________` : ''}
 
-**Remember**: Every professional singer started exactly where you are now. Your dedication to improvement and willingness to analyze your performance shows real commitment to growth. Keep practicing, stay patient with yourself, and celebrate small victories along the way! 🌟
+Remember: Every professional singer started exactly where you are now. Your dedication to improvement and willingness to analyze your performance shows real commitment to growth. Keep practicing, stay patient with yourself, and celebrate small victories along the way! 🌟
 
-*Generated by AI Vocal Coach Assistant*`;
+Generated by AI Vocal Coach Assistant`;
 }
