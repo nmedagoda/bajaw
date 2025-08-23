@@ -5,6 +5,7 @@ import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import PitchWaveformPlayer from "@/components/media/PitchWaveformPlayer";
+import PitchComparisonChart from "@/components/media/PitchComparisonChart";
 import { resolvePlayableUrl } from "@/lib/media";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -299,6 +300,16 @@ const SingerDashboard: React.FC = () => {
                     <div className="space-y-2">
                       <h3 className="text-sm font-medium text-foreground">Professional Singer</h3>
                       <PitchWaveformPlayer url={professionalUrl} showPitchOverlay={false} />
+                    </div>
+                  )}
+
+                  {/* Pitch Comparison Chart */}
+                  {noviceUrl && professionalUrl && (
+                    <div className="mt-6">
+                      <PitchComparisonChart 
+                        noviceUrl={noviceUrl} 
+                        professionalUrl={professionalUrl} 
+                      />
                     </div>
                   )}
                 </div>
