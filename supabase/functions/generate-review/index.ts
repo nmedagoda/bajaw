@@ -246,26 +246,32 @@ Your performance demonstrates **${performance}** potential with clear areas for 
 
 ## ✨ Key Strengths
 
-${strengths.map(strength => `• **${strength}** - Keep developing this area as it shows natural talent`).join('\n')}
+${strengths.map((strength, index) => `<div style="background: ${index % 2 === 0 ? '#f8f9fa' : '#ffffff'}; padding: 8px 12px; margin: 2px 0; border-radius: 4px;">${index + 1}. **${strength}** - Keep developing this area as it shows natural talent</div>`).join('')}
 
 ---
 
 ## 🎯 Areas for Improvement
 
-${improvementAreas.length > 0 ? improvementAreas.map(area => {
+${improvementAreas.length > 0 ? improvementAreas.map((area, index) => {
+  let description = '';
   switch(area) {
     case 'Pitch Accuracy':
-      return `• **${area}** (${(pitchScore * 100).toFixed(1)}%) - Focus on hitting notes more precisely and maintaining consistent intonation`;
+      description = `**${area}** (${(pitchScore * 100).toFixed(1)}%) - Focus on hitting notes more precisely and maintaining consistent intonation`;
+      break;
     case 'Rhythm and Timing':
-      return `• **${area}** (${(rhythmScore * 100).toFixed(1)}%) - Work on staying in sync with the beat and developing better timing consistency`;
+      description = `**${area}** (${(rhythmScore * 100).toFixed(1)}%) - Work on staying in sync with the beat and developing better timing consistency`;
+      break;
     case 'Vocal Tone Quality':
-      return `• **${area}** (${(mfccScore * 100).toFixed(1)}%) - Develop more consistent vocal timbre and improve breath support`;
+      description = `**${area}** (${(mfccScore * 100).toFixed(1)}%) - Develop more consistent vocal timbre and improve breath support`;
+      break;
     case 'Emotional Expression':
-      return `• **${area}** (${(emotionScore * 100).toFixed(1)}%) - Enhance emotional connection and expressive delivery of the lyrics`;
+      description = `**${area}** (${(emotionScore * 100).toFixed(1)}%) - Enhance emotional connection and expressive delivery of the lyrics`;
+      break;
     default:
-      return `• **${area}** - Requires focused attention and practice`;
+      description = `**${area}** - Requires focused attention and practice`;
   }
-}).join('\n') : '• Continue developing all aspects of your vocal performance'}
+  return `<div style="background: ${index % 2 === 0 ? '#f8f9fa' : '#ffffff'}; padding: 8px 12px; margin: 2px 0; border-radius: 4px;">${index + 1}. ${description}</div>`;
+}).join('') : '<div style="background: #f8f9fa; padding: 8px 12px; margin: 2px 0; border-radius: 4px;">1. Continue developing all aspects of your vocal performance</div>'}
 
 ---
 
