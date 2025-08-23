@@ -232,25 +232,25 @@ function generateFallbackReview(analysisResults: any, songTitle: string, votingD
   const improvementAreas = getImprovementAreas();
   
   return `
-# 🎵 Performance Review for "${songTitle}"
+■ 🎵 Performance Review for "${songTitle}"
 
 **Overall Grade: ${performanceGrade}** | **Average Score: ${(avgScore * 100).toFixed(1)}%**
 
 ---
 
-## 📊 Overall Performance Summary
+■ 📊 Overall Performance Summary
 
 Your performance demonstrates **${performance}** potential with clear areas for growth. You show musical ability and with dedicated practice, significant improvement is achievable. Your current performance reflects a solid foundation that can be built upon with targeted exercises and consistent practice.
 
 ---
 
-## ✨ Key Strengths
+■ ✨ Key Strengths
 
 ${strengths.map((strength, index) => `**${index + 1}.** ${strength} - Keep developing this area as it shows natural talent`).join('\n\n')}
 
 ---
 
-## 🎯 Areas for Improvement
+■ 🎯 Areas for Improvement
 
 ${improvementAreas.length > 0 ? improvementAreas.map((area, index) => {
   let description = '';
@@ -275,9 +275,9 @@ ${improvementAreas.length > 0 ? improvementAreas.map((area, index) => {
 
 ---
 
-## 🎼 Detailed Recommendations
+■ 🎼 Detailed Recommendations
 
-### 🔥 Priority Focus Areas
+■ 🔥 Priority Focus Areas
 ${improvementAreas.length > 0 ? `
 **1.** ${improvementAreas[0]} - Start here for maximum impact
 
@@ -290,7 +290,7 @@ ${improvementAreas.length > 0 ? `
 
 **3.** Performance Confidence - Work on stage presence and connection`}
 
-### 🎯 Technical Development
+■ 🎯 Technical Development
 **1.** **Warm-up Routine**: Always begin with 5-10 minutes of vocal warm-ups
 
 **2.** **Scale Practice**: Daily major and minor scales for pitch accuracy
@@ -301,16 +301,16 @@ ${improvementAreas.length > 0 ? `
 
 ---
 
-## 💪 Practice Exercises
+■ 💪 Practice Exercises
 
-### Daily (15-20 minutes)
+■ Daily (15-20 minutes)
 **1.** **Lip trills and humming** for vocal warm-up
 
 **2.** **Scale exercises** (major, minor, chromatic)
 
 **3.** **Breathing exercises** with sustained "ah" sounds
 
-### Weekly Focus
+■ Weekly Focus
 **1.** **Metronome practice** with clapping and singing
 
 **2.** **Pitch matching** using piano or tuning apps
@@ -321,23 +321,23 @@ ${improvementAreas.length > 0 ? `
 
 ---
 
-## 🚀 Next Steps
+■ 🚀 Next Steps
 
-### Immediate Actions (This Week)
+■ Immediate Actions (This Week)
 **1.** Set up a daily 15-minute practice routine
 
 **2.** Focus on your weakest scoring area: **${improvementAreas[0] || 'Overall consistency'}**
 
 **3.** Record yourself singing the same song to track progress
 
-### Short-term Goals (1-2 Months)
+■ Short-term Goals (1-2 Months)
 **1.** Improve your lowest score by 20%
 
 **2.** Learn proper breathing techniques
 
 **3.** Master basic vocal warm-up routine
 
-### Long-term Vision (3-6 Months)
+■ Long-term Vision (3-6 Months)
 **1.** Achieve consistent scores above 70% in all areas
 
 **2.** Develop your unique vocal style
@@ -346,7 +346,7 @@ ${improvementAreas.length > 0 ? `
 
 ---
 
-${votingData ? `## 🎭 Community Feedback
+${votingData ? `■ 🎭 Community Feedback
 
 Based on **${votingData.totalVotes}** vote${votingData.totalVotes === 1 ? '' : 's'} from our community:
 
