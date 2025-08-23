@@ -1,4 +1,3 @@
-import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const corsHeaders = {
@@ -13,11 +12,6 @@ serve(async (req) => {
   }
 
   try {
-    const huggingFaceApiKey = Deno.env.get('HUGGINGFACE_API_KEY');
-    if (!huggingFaceApiKey) {
-      throw new Error('Hugging Face API key not found');
-    }
-
     const { 
       songTitle, 
       analysisResults,
@@ -30,13 +24,12 @@ serve(async (req) => {
 Song: ${songTitle}
 
 Performance Analysis Results:
-- Pitch Accuracy: ${analysisResults.pitchAccuracy.novice.toFixed(3)} (Professional: ${analysisResults.pitchAccuracy.professional.toFixed(3)}, Difference: ${analysisResults.pitchAccuracy.difference.toFixed(3)})
-- Rhythm Timing: ${analysisResults.rhythmTiming.novice.toFixed(3)} (Professional: ${analysisResults.rhythmTiming.professional.toFixed(3)}, Difference: ${analysisResults.rhythmTiming.difference.toFixed(3)})
-- MFCC Similarity: ${analysisResults.mfccDistance.novice.toFixed(3)} (Professional: ${analysisResults.mfccDistance.professional.toFixed(3)}, Difference: ${analysisResults.mfccDistance.difference.toFixed(3)})
-- Emotion Match: ${analysisResults.emotionMatch.novice.toFixed(3)} (Professional: ${analysisResults.emotionMatch.professional.toFixed(3)}, Difference: ${analysisResults.emotionMatch.difference.toFixed(3)})
+- Pitch Accuracy: ${(analysisResults?.pitchAccuracy?.novice || 0) * 100}%
+- Rhythm Timing: ${(analysisResults?.rhythmTiming?.novice || 0) * 100}%
+- MFCC Similarity: ${(analysisResults?.mfccDistance?.novice || 0) * 100}%
+- Emotion Match: ${(analysisResults?.emotionMatch?.novice || 0) * 100}%
 
-Note: Scores range from 0.0 to 1.0, where 1.0 represents perfect similarity. Lower difference values indicate better performance.
-`;
+Note: Higher percentages indicate better performance. Professional comparison data is available for detailed analysis.`;
 
     const prompt = `You are an expert vocal coach analyzing a novice singer's performance. Based on the technical audio analysis data provided below, generate a comprehensive review report.
 
@@ -51,61 +44,81 @@ Please provide:
 5. **Practice Exercises** (specific exercises to improve weak areas)
 6. **Next Steps** (immediate actions the singer can take)
 
-Keep the tone encouraging but honest. Focus on practical, actionable advice that a novice singer can implement. Make the review detailed but accessible to someone without technical audio knowledge.`;
+Keep the tone encouraging but honest. Focus on practical, actionable advice that a novice singer can implement. Limit response to 400 words maximum.`;
 
-    console.log('Calling Hugging Face API with prompt:', prompt.substring(0, 200) + '...');
+    console.log('Trying free open-source models...');
 
-    // Try using a better text generation model
-    const response = await fetch('https://api-inference.huggingface.co/models/gpt2', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${huggingFaceApiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        inputs: prompt,
-        parameters: {
-          max_new_tokens: 400,
-          temperature: 0.7,
-          do_sample: true,
-          top_p: 0.9,
-          return_full_text: false,
-        },
-        options: {
-          wait_for_model: true,
-          use_cache: false
+    // Try multiple free models in order of preference
+    const freeModels = [
+      'mistralai/Mistral-7B-Instruct-v0.1',
+      'meta-llama/Llama-2-7b-chat-hf',
+      'microsoft/DialoGPT-large',
+      'google/flan-t5-large'
+    ];
+
+    let generatedReview = null;
+    
+    for (const model of freeModels) {
+      try {
+        console.log(`Trying model: ${model}`);
+        
+        const response = await fetch(`https://api-inference.huggingface.co/models/${model}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            inputs: prompt,
+            parameters: {
+              max_new_tokens: 400,
+              temperature: 0.7,
+              do_sample: true,
+              return_full_text: false
+            }
+          })
+        });
+
+        if (response.ok) {
+          const result = await response.json();
+          console.log(`Success with model ${model}:`, result);
+          
+          if (Array.isArray(result) && result[0]?.generated_text) {
+            generatedReview = result[0].generated_text;
+            console.log(`Generated review with ${model}: ${generatedReview.substring(0, 100)}...`);
+            break;
+          } else if (result.generated_text) {
+            generatedReview = result.generated_text;
+            console.log(`Generated review with ${model}: ${generatedReview.substring(0, 100)}...`);
+            break;
+          }
+        } else {
+          const errorText = await response.text();
+          console.log(`Model ${model} failed:`, response.status, errorText);
         }
-      }),
-    });
-
-    if (!response.ok) {
-      console.error('Hugging Face API error:', response.status, await response.text());
-      throw new Error(`Hugging Face API error: ${response.status}`);
+      } catch (modelError) {
+        console.log(`Error with model ${model}:`, modelError.message);
+        continue;
+      }
     }
 
-    const result = await response.json();
-    console.log('Hugging Face API response:', result);
-
-    let reviewText = '';
-    if (Array.isArray(result) && result.length > 0 && result[0].generated_text) {
-      reviewText = result[0].generated_text;
-    } else {
-      // Fallback if the API doesn't return expected format
-      reviewText = generateFallbackReview(analysisResults, songTitle);
+    // If no model worked, use fallback
+    if (!generatedReview) {
+      console.log('All free models failed, using fallback review');
+      generatedReview = generateFallbackReview(analysisResults, songTitle);
     }
 
-    return new Response(JSON.stringify({ 
-      review: reviewText,
+    return new Response(JSON.stringify({
+      review: generatedReview,
       analysisData: analysisResults,
       songTitle: songTitle
     }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
 
   } catch (error) {
     console.error('Error in generate-review function:', error);
     
-    // Try to get request data for fallback, but handle parsing errors
+    // Try to get request data for fallback
     let fallbackAnalysisResults = {};
     let fallbackSongTitle = 'Unknown Song';
     
@@ -118,15 +131,15 @@ Keep the tone encouraging but honest. Focus on practical, actionable advice that
       console.error('Failed to parse request body for fallback:', parseError);
     }
     
-    // Return a fallback review if the API fails
+    // Return a fallback review
     const fallbackReview = generateFallbackReview(fallbackAnalysisResults, fallbackSongTitle);
     
-    return new Response(JSON.stringify({ 
+    return new Response(JSON.stringify({
       review: fallbackReview,
-      error: error.message,
-      fallback: true
+      analysisData: fallbackAnalysisResults,
+      songTitle: fallbackSongTitle
     }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });
   }
 });
