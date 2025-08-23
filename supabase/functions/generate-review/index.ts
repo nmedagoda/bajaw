@@ -246,7 +246,7 @@ Your performance demonstrates **${performance}** potential with clear areas for 
 
 ## ✨ Key Strengths
 
-${strengths.map((strength, index) => `<div style="background: ${index % 2 === 0 ? '#f8f9fa' : '#ffffff'}; padding: 8px 12px; margin: 2px 0; border-radius: 4px;">${index + 1}. **${strength}** - Keep developing this area as it shows natural talent</div>`).join('')}
+${strengths.map((strength, index) => `**${index + 1}.** ${strength} - Keep developing this area as it shows natural talent`).join('\n\n')}
 
 ---
 
@@ -270,8 +270,8 @@ ${improvementAreas.length > 0 ? improvementAreas.map((area, index) => {
     default:
       description = `**${area}** - Requires focused attention and practice`;
   }
-  return `<div style="background: ${index % 2 === 0 ? '#f8f9fa' : '#ffffff'}; padding: 8px 12px; margin: 2px 0; border-radius: 4px;">${index + 1}. ${description}</div>`;
-}).join('') : '<div style="background: #f8f9fa; padding: 8px 12px; margin: 2px 0; border-radius: 4px;">1. Continue developing all aspects of your vocal performance</div>'}
+  return `**${index + 1}.** ${description}`;
+}).join('\n\n') : '**1.** Continue developing all aspects of your vocal performance'}
 
 ---
 
@@ -279,52 +279,70 @@ ${improvementAreas.length > 0 ? improvementAreas.map((area, index) => {
 
 ### 🔥 Priority Focus Areas
 ${improvementAreas.length > 0 ? `
-<div style="background: #f8f9fa; padding: 6px 12px; margin: 1px 0; border-radius: 4px;">1. **${improvementAreas[0]}** - Start here for maximum impact</div>
-<div style="background: #ffffff; padding: 6px 12px; margin: 1px 0; border-radius: 4px;">2. **Breath Support** - Foundation for all vocal improvement</div>
-<div style="background: #f8f9fa; padding: 6px 12px; margin: 1px 0; border-radius: 4px;">3. **Regular Practice Routine** - Consistency is key to progress</div>` : `
-<div style="background: #f8f9fa; padding: 6px 12px; margin: 1px 0; border-radius: 4px;">1. **Vocal Consistency** - Maintain your current level across all performances</div>
-<div style="background: #ffffff; padding: 6px 12px; margin: 1px 0; border-radius: 4px;">2. **Advanced Techniques** - Explore vibrato, runs, and stylistic elements</div>
-<div style="background: #f8f9fa; padding: 6px 12px; margin: 1px 0; border-radius: 4px;">3. **Performance Confidence** - Work on stage presence and connection</div>`}
+**1.** ${improvementAreas[0]} - Start here for maximum impact
+
+**2.** Breath Support - Foundation for all vocal improvement
+
+**3.** Regular Practice Routine - Consistency is key to progress` : `
+**1.** Vocal Consistency - Maintain your current level across all performances
+
+**2.** Advanced Techniques - Explore vibrato, runs, and stylistic elements
+
+**3.** Performance Confidence - Work on stage presence and connection`}
 
 ### 🎯 Technical Development
-<div style="background: #f8f9fa; padding: 6px 12px; margin: 1px 0; border-radius: 4px;">1. **Warm-up Routine**: Always begin with 5-10 minutes of vocal warm-ups</div>
-<div style="background: #ffffff; padding: 6px 12px; margin: 1px 0; border-radius: 4px;">2. **Scale Practice**: Daily major and minor scales for pitch accuracy</div>
-<div style="background: #f8f9fa; padding: 6px 12px; margin: 1px 0; border-radius: 4px;">3. **Breathing Exercises**: Diaphragmatic breathing for sustained vocal power</div>
-<div style="background: #ffffff; padding: 6px 12px; margin: 1px 0; border-radius: 4px;">4. **Recording Analysis**: Record yourself weekly and compare to originals</div>
+**1.** **Warm-up Routine**: Always begin with 5-10 minutes of vocal warm-ups
+
+**2.** **Scale Practice**: Daily major and minor scales for pitch accuracy
+
+**3.** **Breathing Exercises**: Diaphragmatic breathing for sustained vocal power
+
+**4.** **Recording Analysis**: Record yourself weekly and compare to originals
 
 ---
 
 ## 💪 Practice Exercises
 
 ### Daily (15-20 minutes)
-<div style="background: #f8f9fa; padding: 6px 12px; margin: 1px 0; border-radius: 4px;">1. **Lip trills and humming** for vocal warm-up</div>
-<div style="background: #ffffff; padding: 6px 12px; margin: 1px 0; border-radius: 4px;">2. **Scale exercises** (major, minor, chromatic)</div>
-<div style="background: #f8f9fa; padding: 6px 12px; margin: 1px 0; border-radius: 4px;">3. **Breathing exercises** with sustained "ah" sounds</div>
+**1.** **Lip trills and humming** for vocal warm-up
+
+**2.** **Scale exercises** (major, minor, chromatic)
+
+**3.** **Breathing exercises** with sustained "ah" sounds
 
 ### Weekly Focus
-<div style="background: #f8f9fa; padding: 6px 12px; margin: 1px 0; border-radius: 4px;">1. **Metronome practice** with clapping and singing</div>
-<div style="background: #ffffff; padding: 6px 12px; margin: 1px 0; border-radius: 4px;">2. **Pitch matching** using piano or tuning apps</div>
-<div style="background: #f8f9fa; padding: 6px 12px; margin: 1px 0; border-radius: 4px;">3. **Song analysis** listening to professional recordings</div>
-<div style="background: #ffffff; padding: 6px 12px; margin: 1px 0; border-radius: 4px;">4. **Performance practice** in front of mirror or camera</div>
+**1.** **Metronome practice** with clapping and singing
+
+**2.** **Pitch matching** using piano or tuning apps
+
+**3.** **Song analysis** listening to professional recordings
+
+**4.** **Performance practice** in front of mirror or camera
 
 ---
 
 ## 🚀 Next Steps
 
 ### Immediate Actions (This Week)
-<div style="background: #f8f9fa; padding: 6px 12px; margin: 1px 0; border-radius: 4px;">1. Set up a daily 15-minute practice routine</div>
-<div style="background: #ffffff; padding: 6px 12px; margin: 1px 0; border-radius: 4px;">2. Focus on your weakest scoring area: **${improvementAreas[0] || 'Overall consistency'}**</div>
-<div style="background: #f8f9fa; padding: 6px 12px; margin: 1px 0; border-radius: 4px;">3. Record yourself singing the same song to track progress</div>
+**1.** Set up a daily 15-minute practice routine
+
+**2.** Focus on your weakest scoring area: **${improvementAreas[0] || 'Overall consistency'}**
+
+**3.** Record yourself singing the same song to track progress
 
 ### Short-term Goals (1-2 Months)
-<div style="background: #f8f9fa; padding: 6px 12px; margin: 1px 0; border-radius: 4px;">1. Improve your lowest score by 20%</div>
-<div style="background: #ffffff; padding: 6px 12px; margin: 1px 0; border-radius: 4px;">2. Learn proper breathing techniques</div>
-<div style="background: #f8f9fa; padding: 6px 12px; margin: 1px 0; border-radius: 4px;">3. Master basic vocal warm-up routine</div>
+**1.** Improve your lowest score by 20%
+
+**2.** Learn proper breathing techniques
+
+**3.** Master basic vocal warm-up routine
 
 ### Long-term Vision (3-6 Months)
-<div style="background: #f8f9fa; padding: 6px 12px; margin: 1px 0; border-radius: 4px;">1. Achieve consistent scores above 70% in all areas</div>
-<div style="background: #ffffff; padding: 6px 12px; margin: 1px 0; border-radius: 4px;">2. Develop your unique vocal style</div>
-<div style="background: #f8f9fa; padding: 6px 12px; margin: 1px 0; border-radius: 4px;">3. Consider working with a vocal coach for personalized guidance</div>
+**1.** Achieve consistent scores above 70% in all areas
+
+**2.** Develop your unique vocal style
+
+**3.** Consider working with a vocal coach for personalized guidance
 
 ---
 
