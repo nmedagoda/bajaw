@@ -41,14 +41,19 @@ const PitchComparisonChart: React.FC<PitchComparisonChartProps> = ({
       const response = await fetch(audioUrl);
       const audioBuffer = await response.arrayBuffer();
       
-      // Convert audio buffer to base64 in chunks to avoid stack overflow
+      // Convert audio buffer to base64 using a more reliable method
       const uint8Array = new Uint8Array(audioBuffer);
-      const chunkSize = 0x8000; // 32KB chunks
-      let base64 = '';
+      
+      // Convert to string in chunks to avoid call stack issues
+      let binaryString = '';
+      const chunkSize = 8192; // 8KB chunks for string conversion
       for (let i = 0; i < uint8Array.length; i += chunkSize) {
         const chunk = uint8Array.subarray(i, i + chunkSize);
-        base64 += btoa(String.fromCharCode(...chunk));
+        binaryString += String.fromCharCode.apply(null, Array.from(chunk));
       }
+      
+      // Now convert the complete binary string to base64
+      const base64 = btoa(binaryString);
       
       // Call analysis function
       const { data, error } = await supabase.functions.invoke('analyze-audio', {

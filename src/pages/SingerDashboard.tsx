@@ -122,13 +122,16 @@ const SingerDashboard: React.FC = () => {
     const response = await fetch(url);
     const arrayBuffer = await response.arrayBuffer();
     const uint8Array = new Uint8Array(arrayBuffer);
-    let binary = '';
-    const chunkSize = 0x8000;
+    
+    // Convert to string in chunks to avoid call stack issues
+    let binaryString = '';
+    const chunkSize = 8192; // 8KB chunks for string conversion
     for (let i = 0; i < uint8Array.length; i += chunkSize) {
-      const chunk = uint8Array.subarray(i, Math.min(i + chunkSize, uint8Array.length));
-      binary += String.fromCharCode.apply(null, Array.from(chunk));
+      const chunk = uint8Array.subarray(i, i + chunkSize);
+      binaryString += String.fromCharCode.apply(null, Array.from(chunk));
     }
-    return btoa(binary);
+    
+    return btoa(binaryString);
   };
 
   const analyzeAudio = async () => {
