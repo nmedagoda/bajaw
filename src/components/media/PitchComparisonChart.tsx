@@ -36,42 +36,55 @@ const PitchComparisonChart: React.FC<PitchComparisonChartProps> = ({
     };
   }, []);
 
-  const extractPitchData = async (audioUrl: string): Promise<PitchData[]> => {
+  const convertAudioToBase64 = async (audioUrl: string): Promise<string> => {
+    const response = await fetch(audioUrl);
+    const audioBuffer = await response.arrayBuffer();
+    
+    // Convert audio buffer to base64 using a more reliable method
+    const uint8Array = new Uint8Array(audioBuffer);
+    
+    // Convert to string in chunks to avoid call stack issues
+    let binaryString = '';
+    const chunkSize = 8192; // 8KB chunks for string conversion
+    for (let i = 0; i < uint8Array.length; i += chunkSize) {
+      const chunk = uint8Array.subarray(i, i + chunkSize);
+      binaryString += String.fromCharCode.apply(null, Array.from(chunk));
+    }
+    
+    // Now convert the complete binary string to base64
+    return btoa(binaryString);
+  };
+
+  const extractBothPitchData = async (noviceUrl: string | null, professionalUrl: string | null): Promise<{ novice: PitchData[], professional: PitchData[] }> => {
     try {
-      const response = await fetch(audioUrl);
-      const audioBuffer = await response.arrayBuffer();
+      // Convert both audio files to base64
+      const noviceBase64 = noviceUrl ? await convertAudioToBase64(noviceUrl) : null;
+      const professionalBase64 = professionalUrl ? await convertAudioToBase64(professionalUrl) : null;
       
-      // Convert audio buffer to base64 using a more reliable method
-      const uint8Array = new Uint8Array(audioBuffer);
-      
-      // Convert to string in chunks to avoid call stack issues
-      let binaryString = '';
-      const chunkSize = 8192; // 8KB chunks for string conversion
-      for (let i = 0; i < uint8Array.length; i += chunkSize) {
-        const chunk = uint8Array.subarray(i, i + chunkSize);
-        binaryString += String.fromCharCode.apply(null, Array.from(chunk));
+      if (!noviceBase64 && !professionalBase64) {
+        return { novice: [], professional: [] };
       }
       
-      // Now convert the complete binary string to base64
-      const base64 = btoa(binaryString);
-      
-      // Call analysis function
+      // Call analysis function with both audio files
       const { data, error } = await supabase.functions.invoke('analyze-audio', {
         body: {
-          noviceAudio: base64,
-          professionalAudio: base64
+          noviceAudio: noviceBase64 || '',
+          professionalAudio: professionalBase64 || ''
         }
       });
 
       if (error) {
         console.error('Pitch analysis error:', error);
-        return [];
+        return { novice: [], professional: [] };
       }
 
-      const pitchArray = data?.pitchData?.novice || [];
+      const novicePitchArray = data?.pitchData?.novice || [];
+      const professionalPitchArray = data?.pitchData?.professional || [];
       const sampleRate = data?.pitchData?.sampleRate || 22050;
       
-      if (pitchArray.length > 0) {
+      const convertToTimeData = (pitchArray: number[]): PitchData[] => {
+        if (pitchArray.length === 0) return [];
+        
         const windowSize = Math.floor(sampleRate * 0.050); // 50ms windows
         const hopSize = Math.floor(windowSize / 2);
         const pitchData: PitchData[] = [];
@@ -82,12 +95,15 @@ const PitchComparisonChart: React.FC<PitchComparisonChartProps> = ({
         });
         
         return pitchData;
-      }
+      };
       
-      return [];
+      return {
+        novice: noviceUrl ? convertToTimeData(novicePitchArray) : [],
+        professional: professionalUrl ? convertToTimeData(professionalPitchArray) : []
+      };
     } catch (error) {
-      console.error('Error extracting pitch:', error);
-      return [];
+      console.error('Error extracting pitch data:', error);
+      return { novice: [], professional: [] };
     }
   };
 
@@ -97,10 +113,7 @@ const PitchComparisonChart: React.FC<PitchComparisonChartProps> = ({
       
       setIsLoading(true);
       try {
-        const [noviceData, professionalData] = await Promise.all([
-          noviceUrl ? extractPitchData(noviceUrl) : Promise.resolve([]),
-          professionalUrl ? extractPitchData(professionalUrl) : Promise.resolve([])
-        ]);
+        const { novice: noviceData, professional: professionalData } = await extractBothPitchData(noviceUrl, professionalUrl);
 
         // Create combined chart data
         const maxLength = Math.max(noviceData.length, professionalData.length);
