@@ -246,16 +246,12 @@ const PitchComparisonChart: React.FC<PitchComparisonChartProps> = ({
               />
               <Tooltip 
                 labelFormatter={(value) => `Time: ${Number(value).toFixed(1)}s`}
-                formatter={(value, name) => {
-                  const displayValue = value ? formatFrequency(Number(value)) : 'No pitch detected';
+                formatter={(value, name, props) => {
+                  if (!value) return ['No pitch detected', name === 'novice' ? 'Novice Singer' : 'Professional Singer'];
+                  
+                  const displayValue = formatFrequency(Number(value));
                   const singerType = name === 'novice' ? 'Novice Singer' : 'Professional Singer';
                   return [displayValue, singerType];
-                }}
-                itemStyle={{
-                  color: '#000'
-                }}
-                labelStyle={{
-                  color: '#000'
                 }}
                 contentStyle={{
                   backgroundColor: 'hsl(var(--card))',
@@ -268,9 +264,6 @@ const PitchComparisonChart: React.FC<PitchComparisonChartProps> = ({
                   paddingTop: '20px'
                 }}
                 iconType="line"
-                formatter={(value, entry) => (
-                  <span style={{ color: entry.color }}>{value}</span>
-                )}
               />
               {noviceUrl && (
                 <Line 
