@@ -61,6 +61,12 @@ const PitchComparisonChart: React.FC<PitchComparisonChartProps> = ({
       const noviceBase64 = noviceUrl ? await convertAudioToBase64(noviceUrl) : null;
       const professionalBase64 = professionalUrl ? await convertAudioToBase64(professionalUrl) : null;
       
+      console.log('Audio URLs:', { noviceUrl, professionalUrl });
+      console.log('Base64 lengths:', { 
+        novice: noviceBase64?.length || 0, 
+        professional: professionalBase64?.length || 0 
+      });
+      
       if (!noviceBase64 && !professionalBase64) {
         return { novice: [], professional: [] };
       }

@@ -94,10 +94,15 @@ const SingerDashboard: React.FC = () => {
         return;
       }
       
+      console.log('Selected song:', sel);
+      console.log('Recorded song URL:', sel.recorded_song_url);
+      console.log('Original song URL:', sel.original_song_url);
+      
       // Resolve novice performance URL
       const noviceSrc = sel.recorded_song_url;
       if (noviceSrc) {
         const playableNovice = await resolvePlayableUrl(noviceSrc);
+        console.log('Resolved novice URL:', playableNovice);
         setNoviceUrl(playableNovice);
       } else {
         setNoviceUrl(null);
@@ -107,6 +112,7 @@ const SingerDashboard: React.FC = () => {
       const professionalSrc = sel.original_song_url;
       if (professionalSrc) {
         const playableProfessional = await resolvePlayableUrl(professionalSrc);
+        console.log('Resolved professional URL:', playableProfessional);
         setProfessionalUrl(playableProfessional);
       } else {
         setProfessionalUrl(null);
