@@ -27,12 +27,9 @@ const PitchComparisonChart: React.FC<PitchComparisonChartProps> = ({
   const [isLoading, setIsLoading] = useState(false);
 
   const colors = useMemo(() => {
-    const root = document.documentElement;
-    const primary = getComputedStyle(root).getPropertyValue("--primary").trim();
-    const destructive = getComputedStyle(root).getPropertyValue("--destructive").trim();
     return {
-      novice: `hsl(${destructive})`,
-      professional: `hsl(${primary})`,
+      novice: "#dc2626", // Red for novice
+      professional: "#2563eb", // Blue for professional
     };
   }, []);
 
@@ -96,24 +93,24 @@ const PitchComparisonChart: React.FC<PitchComparisonChartProps> = ({
         sampleRate 
       });
       
-      const convertToTimeData = (pitchArray: number[], audioType: string): PitchData[] => {
+        const convertToTimeData = (pitchArray: number[], audioType: string): PitchData[] => {
         if (pitchArray.length === 0) return [];
         
         // Use a fixed time interval for consistency
-        const timeInterval = 0.025; // 25ms intervals
+        const timeInterval = 0.1; // 100ms intervals for better visualization
         const pitchData: PitchData[] = [];
         
         pitchArray.forEach((frequency: number, index: number) => {
           const timePos = index * timeInterval;
-          if (frequency > 0) { // Only include valid pitch detections
-            pitchData.push({ time: timePos, frequency });
-          }
+          // Include all frequencies, even zeros for continuous visualization
+          pitchData.push({ time: timePos, frequency: frequency > 0 ? frequency : null as any });
         });
         
         console.log(`Converted ${audioType} pitch data:`, { 
           length: pitchData.length, 
           firstPoint: pitchData[0], 
-          lastPoint: pitchData[pitchData.length - 1] 
+          lastPoint: pitchData[pitchData.length - 1],
+          validPoints: pitchData.filter(p => p.frequency && p.frequency > 0).length
         });
         
         return pitchData;
@@ -139,35 +136,24 @@ const PitchComparisonChart: React.FC<PitchComparisonChartProps> = ({
 
         // Create combined chart data by merging both datasets by time
         const combinedData: ChartDataPoint[] = [];
-        const timeInterval = 0.025; // 25ms intervals
+        const timeInterval = 0.1; // 100ms intervals
         
-        // Find the maximum time from both datasets
-        const maxNoviceTime = noviceData.length > 0 ? Math.max(...noviceData.map(d => d.time)) : 0;
-        const maxProfessionalTime = professionalData.length > 0 ? Math.max(...professionalData.map(d => d.time)) : 0;
-        const maxTime = Math.max(maxNoviceTime, maxProfessionalTime);
+        // Find the maximum length from both datasets
+        const maxLength = Math.max(noviceData.length, professionalData.length);
         
-        console.log('Max times:', { maxNoviceTime, maxProfessionalTime, maxTime });
+        console.log('Data lengths:', { noviceLength: noviceData.length, professionalLength: professionalData.length, maxLength });
         
-        // Create time points for the entire duration
-        const timePoints = Math.ceil(maxTime / timeInterval);
-        
-        for (let i = 0; i <= timePoints; i++) {
+        // Create data points for each time interval
+        for (let i = 0; i < maxLength; i++) {
           const currentTime = i * timeInterval;
+          const novicePoint = noviceData[i];
+          const professionalPoint = professionalData[i];
           
-          // Find the closest novice data point
-          const novicePoint = noviceData.find(d => Math.abs(d.time - currentTime) < timeInterval / 2);
-          
-          // Find the closest professional data point
-          const professionalPoint = professionalData.find(d => Math.abs(d.time - currentTime) < timeInterval / 2);
-          
-          // Only add points if we have data from at least one singer
-          if (novicePoint || professionalPoint) {
-            combinedData.push({
-              time: parseFloat(currentTime.toFixed(2)),
-              novice: novicePoint?.frequency || null,
-              professional: professionalPoint?.frequency || null
-            });
-          }
+          combinedData.push({
+            time: parseFloat(currentTime.toFixed(1)),
+            novice: novicePoint?.frequency || null,
+            professional: professionalPoint?.frequency || null
+          });
         }
         
         console.log('Combined chart data:', { 
@@ -244,20 +230,21 @@ const PitchComparisonChart: React.FC<PitchComparisonChartProps> = ({
               <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
               <XAxis 
                 dataKey="time" 
-                tickFormatter={formatTime}
+                tickFormatter={(value) => `${value.toFixed(1)}s`}
                 className="text-xs fill-muted-foreground"
                 type="number"
                 scale="linear"
-                domain={['dataMin', 'dataMax']}
+                domain={[0, 'dataMax']}
+                label={{ value: 'Time (seconds)', position: 'insideBottom', offset: -5 }}
               />
               <YAxis 
                 label={{ value: 'Frequency (Hz)', angle: -90, position: 'insideLeft' }}
                 tickFormatter={formatFrequency}
                 className="text-xs fill-muted-foreground"
-                domain={['dataMin - 20', 'dataMax + 20']}
+                domain={[50, 600]}
               />
               <Tooltip 
-                labelFormatter={(value) => `Time: ${formatTime(Number(value))}`}
+                labelFormatter={(value) => `Time: ${Number(value).toFixed(1)}s`}
                 formatter={(value, name) => [
                   value ? formatFrequency(Number(value)) : 'No pitch detected',
                   name === 'novice' ? 'Novice Singer' : 'Professional Singer'
