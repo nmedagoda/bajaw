@@ -102,8 +102,9 @@ const PitchComparisonChart: React.FC<PitchComparisonChartProps> = ({
         
         pitchArray.forEach((frequency: number, index: number) => {
           const timePos = index * timeInterval;
-          // Include all frequencies, even zeros for continuous visualization
-          pitchData.push({ time: timePos, frequency: frequency > 0 ? frequency : null as any });
+          // Convert zeros to null but keep the data point for timeline continuity
+          const validFreq = frequency > 0 ? frequency : null;
+          pitchData.push({ time: timePos, frequency: validFreq as any });
         });
         
         console.log(`Converted ${audioType} pitch data:`, { 
@@ -245,10 +246,15 @@ const PitchComparisonChart: React.FC<PitchComparisonChartProps> = ({
               />
               <Tooltip 
                 labelFormatter={(value) => `Time: ${Number(value).toFixed(1)}s`}
-                formatter={(value, name) => [
-                  value ? formatFrequency(Number(value)) : 'No pitch detected',
-                  name === 'novice' ? 'Novice Singer' : 'Professional Singer'
-                ]}
+                formatter={(value, name, props) => {
+                  const displayValue = value ? formatFrequency(Number(value)) : 'No pitch detected';
+                  const singerType = name === 'novice' ? 'Novice Singer' : 'Professional Singer';
+                  const color = name === 'novice' ? '#dc2626' : '#2563eb';
+                  return [
+                    <span style={{ color }}>{displayValue}</span>,
+                    <span style={{ color }}>{singerType}</span>
+                  ];
+                }}
                 contentStyle={{
                   backgroundColor: 'hsl(var(--card))',
                   border: '1px solid hsl(var(--border))',
@@ -261,10 +267,11 @@ const PitchComparisonChart: React.FC<PitchComparisonChartProps> = ({
                   type="monotone" 
                   dataKey="novice" 
                   stroke={colors.novice}
-                  strokeWidth={2}
+                  strokeWidth={3}
                   dot={false}
                   connectNulls={false}
                   name="Novice Singer"
+                  strokeDasharray="0"
                 />
               )}
               {professionalUrl && (
@@ -272,10 +279,11 @@ const PitchComparisonChart: React.FC<PitchComparisonChartProps> = ({
                   type="monotone" 
                   dataKey="professional" 
                   stroke={colors.professional}
-                  strokeWidth={2}
+                  strokeWidth={3}
                   dot={false}
                   connectNulls={false}
                   name="Professional Singer"
+                  strokeDasharray="0"
                 />
               )}
             </LineChart>
