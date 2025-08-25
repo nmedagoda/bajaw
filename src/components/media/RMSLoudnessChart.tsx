@@ -1,7 +1,6 @@
 
 import React, { useEffect, useState, useMemo } from "react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 interface RMSData {
@@ -34,66 +33,65 @@ const RMSLoudnessChart: React.FC<RMSLoudnessChartProps> = ({
     };
   }, []);
 
-  const convertAudioToBase64 = async (audioUrl: string): Promise<string> => {
-    const response = await fetch(audioUrl);
-    const audioBuffer = await response.arrayBuffer();
-    
-    const uint8Array = new Uint8Array(audioBuffer);
-    let binaryString = '';
-    const chunkSize = 8192;
-    for (let i = 0; i < uint8Array.length; i += chunkSize) {
-      const chunk = uint8Array.subarray(i, i + chunkSize);
-      binaryString += String.fromCharCode.apply(null, Array.from(chunk));
+  // Enhanced Web Audio API for RMS loudness analysis
+  const analyzeRMSWithWebAPI = async (audioUrl: string): Promise<RMSData[]> => {
+    try {
+      const response = await fetch(audioUrl);
+      const arrayBuffer = await response.arrayBuffer();
+      
+      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+      
+      const channelData = audioBuffer.getChannelData(0);
+      const sampleRate = audioBuffer.sampleRate;
+      const windowSize = 1024;
+      const hopSize = 256;
+      const rmsData: RMSData[] = [];
+      
+      // Process audio in overlapping windows for RMS calculation
+      for (let i = 0; i < channelData.length - windowSize; i += hopSize) {
+        const window = channelData.slice(i, i + windowSize);
+        const time = i / sampleRate;
+        
+        // Calculate RMS (Root Mean Square) for this window
+        const rms = calculateRMS(window);
+        rmsData.push({ time, rmsLevel: rms });
+      }
+      
+      audioContext.close();
+      return rmsData;
+    } catch (error) {
+      console.error('Error analyzing RMS:', error);
+      return [];
     }
-    
-    return btoa(binaryString);
+  };
+
+  // Calculate RMS (Root Mean Square) loudness
+  const calculateRMS = (buffer: Float32Array | number[]): number => {
+    let sum = 0;
+    for (let i = 0; i < buffer.length; i++) {
+      sum += buffer[i] * buffer[i];
+    }
+    return Math.sqrt(sum / buffer.length);
   };
 
   const extractRMSData = async (noviceUrl: string | null, professionalUrl: string | null): Promise<{ novice: RMSData[], professional: RMSData[] }> => {
     try {
-      const noviceBase64 = noviceUrl ? await convertAudioToBase64(noviceUrl) : null;
-      const professionalBase64 = professionalUrl ? await convertAudioToBase64(professionalUrl) : null;
+      console.log('Analyzing RMS with Web Audio API:', { noviceUrl, professionalUrl });
       
-      if (!noviceBase64 && !professionalBase64) {
-        return { novice: [], professional: [] };
-      }
+      const noviceData = noviceUrl ? await analyzeRMSWithWebAPI(noviceUrl) : [];
+      const professionalData = professionalUrl ? await analyzeRMSWithWebAPI(professionalUrl) : [];
       
-      const { data, error } = await supabase.functions.invoke('analyze-audio', {
-        body: {
-          noviceAudio: noviceBase64 || '',
-          professionalAudio: professionalBase64 || ''
-        }
+      console.log('RMS analysis results:', {
+        noviceLength: noviceData.length,
+        professionalLength: professionalData.length,
+        noviceAvgRMS: noviceData.reduce((sum, d) => sum + d.rmsLevel, 0) / noviceData.length,
+        professionalAvgRMS: professionalData.reduce((sum, d) => sum + d.rmsLevel, 0) / professionalData.length
       });
-
-      if (error) {
-        console.error('RMS analysis error:', error);
-        return { novice: [], professional: [] };
-      }
-
-      // Simulate RMS data based on pitch data
-      const novicePitchArray = data?.pitchData?.novice || [];
-      const professionalPitchArray = data?.pitchData?.professional || [];
-      
-      const convertToRMSData = (pitchArray: number[]): RMSData[] => {
-        if (pitchArray.length === 0) return [];
-        
-        const timeInterval = 0.1;
-        const rmsData: RMSData[] = [];
-        
-        pitchArray.forEach((frequency: number, index: number) => {
-          const timePos = index * timeInterval;
-          // Simulate RMS level: higher when there's pitch, lower when silent
-          const baseRMS = frequency > 0 ? 0.3 + Math.random() * 0.4 : 0.05 + Math.random() * 0.1;
-          const rmsLevel = Math.min(1, baseRMS);
-          rmsData.push({ time: timePos, rmsLevel });
-        });
-        
-        return rmsData;
-      };
       
       return {
-        novice: noviceUrl ? convertToRMSData(novicePitchArray) : [],
-        professional: professionalUrl ? convertToRMSData(professionalPitchArray) : []
+        novice: noviceData,
+        professional: professionalData
       };
     } catch (error) {
       console.error('Error extracting RMS data:', error);
@@ -110,7 +108,7 @@ const RMSLoudnessChart: React.FC<RMSLoudnessChartProps> = ({
         const { novice: noviceData, professional: professionalData } = await extractRMSData(noviceUrl, professionalUrl);
 
         const combinedData: RMSDataPoint[] = [];
-        const timeInterval = 0.1;
+        const timeInterval = 256 / 22050; // Match analysis interval from Web Audio API
         const maxLength = Math.max(noviceData.length, professionalData.length);
         
         for (let i = 0; i < maxLength; i++) {
@@ -119,7 +117,7 @@ const RMSLoudnessChart: React.FC<RMSLoudnessChartProps> = ({
           const professionalPoint = professionalData[i];
           
           combinedData.push({
-            time: parseFloat(currentTime.toFixed(1)),
+            time: parseFloat(currentTime.toFixed(3)),
             novice: novicePoint?.rmsLevel || null,
             professional: professionalPoint?.rmsLevel || null
           });

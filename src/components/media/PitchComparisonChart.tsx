@@ -1,6 +1,5 @@
 import React, { useEffect, useState, useMemo } from "react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 interface PitchData {
@@ -33,94 +32,107 @@ const PitchComparisonChart: React.FC<PitchComparisonChartProps> = ({
     };
   }, []);
 
-  const convertAudioToBase64 = async (audioUrl: string): Promise<string> => {
-    const response = await fetch(audioUrl);
-    const audioBuffer = await response.arrayBuffer();
+  // Enhanced Web Audio API for pitch detection
+  const analyzeAudioWithWebAPI = async (audioUrl: string): Promise<PitchData[]> => {
+    try {
+      const response = await fetch(audioUrl);
+      const arrayBuffer = await response.arrayBuffer();
+      
+      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+      
+      const channelData = audioBuffer.getChannelData(0);
+      const sampleRate = audioBuffer.sampleRate;
+      const windowSize = 1024;
+      const hopSize = 256;
+      const pitchData: PitchData[] = [];
+      
+      // Process audio in overlapping windows
+      for (let i = 0; i < channelData.length - windowSize; i += hopSize) {
+        const window = channelData.slice(i, i + windowSize);
+        const time = i / sampleRate;
+        
+        // Apply Hamming window
+        const hammingWindow = window.map((sample, idx) => 
+          sample * (0.54 - 0.46 * Math.cos(2 * Math.PI * idx / (windowSize - 1)))
+        );
+        
+        // Pitch detection using autocorrelation
+        const pitch = detectPitchAutocorrelation(hammingWindow, sampleRate);
+        pitchData.push({ time, frequency: pitch });
+      }
+      
+      audioContext.close();
+      return pitchData;
+    } catch (error) {
+      console.error('Error analyzing audio:', error);
+      return [];
+    }
+  };
+
+  // Autocorrelation-based pitch detection
+  const detectPitchAutocorrelation = (buffer: Float32Array | number[], sampleRate: number): number => {
+    const bufferLength = buffer.length;
+    const rms = Math.sqrt(Array.from(buffer).reduce((sum, val) => sum + val * val, 0) / bufferLength);
     
-    // Convert audio buffer to base64 using a more reliable method
-    const uint8Array = new Uint8Array(audioBuffer);
+    // Skip if too quiet
+    if (rms < 0.01) return 0;
     
-    // Convert to string in chunks to avoid call stack issues
-    let binaryString = '';
-    const chunkSize = 8192; // 8KB chunks for string conversion
-    for (let i = 0; i < uint8Array.length; i += chunkSize) {
-      const chunk = uint8Array.subarray(i, i + chunkSize);
-      binaryString += String.fromCharCode.apply(null, Array.from(chunk));
+    const autocorrelation = new Array(bufferLength);
+    
+    // Calculate autocorrelation
+    for (let lag = 0; lag < bufferLength; lag++) {
+      let sum = 0;
+      for (let i = 0; i < bufferLength - lag; i++) {
+        sum += buffer[i] * buffer[i + lag];
+      }
+      autocorrelation[lag] = sum;
     }
     
-    // Now convert the complete binary string to base64
-    return btoa(binaryString);
+    // Find the first peak after the initial peak
+    const minPeriod = Math.floor(sampleRate / 800); // 800 Hz max
+    const maxPeriod = Math.floor(sampleRate / 80);  // 80 Hz min
+    
+    let maxVal = -1;
+    let bestPeriod = -1;
+    
+    for (let period = minPeriod; period < Math.min(maxPeriod, autocorrelation.length); period++) {
+      if (autocorrelation[period] > maxVal) {
+        maxVal = autocorrelation[period];
+        bestPeriod = period;
+      }
+    }
+    
+    if (bestPeriod === -1) return 0;
+    
+    // Refine using parabolic interpolation
+    const y1 = autocorrelation[bestPeriod - 1] || 0;
+    const y2 = autocorrelation[bestPeriod];
+    const y3 = autocorrelation[bestPeriod + 1] || 0;
+    
+    const x0 = (y3 - y1) / (2 * (2 * y2 - y1 - y3));
+    const refinedPeriod = bestPeriod + x0;
+    
+    return sampleRate / refinedPeriod;
   };
 
   const extractBothPitchData = async (noviceUrl: string | null, professionalUrl: string | null): Promise<{ novice: PitchData[], professional: PitchData[] }> => {
     try {
-      // Convert both audio files to base64
-      const noviceBase64 = noviceUrl ? await convertAudioToBase64(noviceUrl) : null;
-      const professionalBase64 = professionalUrl ? await convertAudioToBase64(professionalUrl) : null;
+      console.log('Analyzing audio with Web Audio API:', { noviceUrl, professionalUrl });
       
-      console.log('Audio URLs:', { noviceUrl, professionalUrl });
-      console.log('Base64 lengths:', { 
-        novice: noviceBase64?.length || 0, 
-        professional: professionalBase64?.length || 0 
+      const noviceData = noviceUrl ? await analyzeAudioWithWebAPI(noviceUrl) : [];
+      const professionalData = professionalUrl ? await analyzeAudioWithWebAPI(professionalUrl) : [];
+      
+      console.log('Web Audio API analysis results:', {
+        noviceLength: noviceData.length,
+        professionalLength: professionalData.length,
+        noviceValidPoints: noviceData.filter(p => p.frequency > 0).length,
+        professionalValidPoints: professionalData.filter(p => p.frequency > 0).length
       });
-      
-      if (!noviceBase64 && !professionalBase64) {
-        return { novice: [], professional: [] };
-      }
-      
-      // Call analysis function with both audio files
-      const { data, error } = await supabase.functions.invoke('analyze-audio', {
-        body: {
-          noviceAudio: noviceBase64 || '',
-          professionalAudio: professionalBase64 || ''
-        }
-      });
-
-      if (error) {
-        console.error('Pitch analysis error:', error);
-        return { novice: [], professional: [] };
-      }
-
-      console.log('Analysis response:', data);
-
-      const novicePitchArray = data?.pitchData?.novice || [];
-      const professionalPitchArray = data?.pitchData?.professional || [];
-      const sampleRate = data?.pitchData?.sampleRate || 22050;
-      
-      console.log('Raw pitch arrays:', { 
-        noviceLength: novicePitchArray.length, 
-        professionalLength: professionalPitchArray.length,
-        sampleRate 
-      });
-      
-        const convertToTimeData = (pitchArray: number[], audioType: string): PitchData[] => {
-        if (pitchArray.length === 0) return [];
-        
-        // Use the actual time interval from the analysis (256 samples hop size at 22050 Hz)
-        const timeInterval = 256 / 22050; // ~0.0116 seconds per sample
-        const pitchData: PitchData[] = [];
-        
-        pitchArray.forEach((frequency: number, index: number) => {
-          const timePos = index * timeInterval;
-          // Keep zero values as 0 rather than null to show silent periods
-          // Only convert negative or invalid values to null
-          const validFreq = (frequency >= 0 && !isNaN(frequency)) ? frequency : null;
-          pitchData.push({ time: timePos, frequency: validFreq as any });
-        });
-        
-        console.log(`Converted ${audioType} pitch data:`, { 
-          length: pitchData.length, 
-          firstPoint: pitchData[0], 
-          lastPoint: pitchData[pitchData.length - 1],
-          validPoints: pitchData.filter(p => p.frequency && p.frequency > 0).length
-        });
-        
-        return pitchData;
-      };
       
       return {
-        novice: noviceUrl ? convertToTimeData(novicePitchArray, 'novice') : [],
-        professional: professionalUrl ? convertToTimeData(professionalPitchArray, 'professional') : []
+        novice: noviceData,
+        professional: professionalData
       };
     } catch (error) {
       console.error('Error extracting pitch data:', error);

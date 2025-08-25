@@ -1,7 +1,6 @@
 
 import React, { useEffect, useState, useMemo } from "react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 interface SpectrogramData {
@@ -34,66 +33,96 @@ const SpectrogramChart: React.FC<SpectrogramChartProps> = ({
     };
   }, []);
 
-  const convertAudioToBase64 = async (audioUrl: string): Promise<string> => {
-    const response = await fetch(audioUrl);
-    const audioBuffer = await response.arrayBuffer();
+  // Enhanced Web Audio API for spectrogram analysis
+  const analyzeSpectrogramWithWebAPI = async (audioUrl: string): Promise<SpectrogramData[]> => {
+    try {
+      const response = await fetch(audioUrl);
+      const arrayBuffer = await response.arrayBuffer();
+      
+      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+      
+      const channelData = audioBuffer.getChannelData(0);
+      const sampleRate = audioBuffer.sampleRate;
+      const windowSize = 1024;
+      const hopSize = 256;
+      const spectrogramData: SpectrogramData[] = [];
+      
+      // Process audio in overlapping windows for spectrogram
+      for (let i = 0; i < channelData.length - windowSize; i += hopSize) {
+        const window = channelData.slice(i, i + windowSize);
+        const time = i / sampleRate;
+        
+        // Apply Hamming window
+        const hammingWindow = window.map((sample, idx) => 
+          sample * (0.54 - 0.46 * Math.cos(2 * Math.PI * idx / (windowSize - 1)))
+        );
+        
+        // Calculate FFT for spectral analysis
+        const fftResult = calculateFFT(hammingWindow);
+        const spectralCentroid = calculateSpectralCentroid(fftResult, sampleRate);
+        
+        spectrogramData.push({ time, spectralCentroid });
+      }
+      
+      audioContext.close();
+      return spectrogramData;
+    } catch (error) {
+      console.error('Error analyzing spectrogram:', error);
+      return [];
+    }
+  };
+
+  // Simple FFT implementation for spectral analysis
+  const calculateFFT = (signal: Float32Array | number[]): number[] => {
+    const N = signal.length;
+    const magnitude = new Array(N / 2);
     
-    const uint8Array = new Uint8Array(audioBuffer);
-    let binaryString = '';
-    const chunkSize = 8192;
-    for (let i = 0; i < uint8Array.length; i += chunkSize) {
-      const chunk = uint8Array.subarray(i, i + chunkSize);
-      binaryString += String.fromCharCode.apply(null, Array.from(chunk));
+    // Simple magnitude spectrum calculation
+    for (let k = 0; k < N / 2; k++) {
+      let real = 0, imag = 0;
+      for (let n = 0; n < N; n++) {
+        const angle = -2 * Math.PI * k * n / N;
+        real += signal[n] * Math.cos(angle);
+        imag += signal[n] * Math.sin(angle);
+      }
+      magnitude[k] = Math.sqrt(real * real + imag * imag);
     }
     
-    return btoa(binaryString);
+    return magnitude;
+  };
+
+  // Calculate spectral centroid from FFT magnitude spectrum
+  const calculateSpectralCentroid = (magnitude: number[], sampleRate: number): number => {
+    let weightedSum = 0;
+    let magnitudeSum = 0;
+    
+    for (let i = 0; i < magnitude.length; i++) {
+      const frequency = (i * sampleRate) / (2 * magnitude.length);
+      weightedSum += frequency * magnitude[i];
+      magnitudeSum += magnitude[i];
+    }
+    
+    return magnitudeSum > 0 ? weightedSum / magnitudeSum : 0;
   };
 
   const extractSpectrogramData = async (noviceUrl: string | null, professionalUrl: string | null): Promise<{ novice: SpectrogramData[], professional: SpectrogramData[] }> => {
     try {
-      const noviceBase64 = noviceUrl ? await convertAudioToBase64(noviceUrl) : null;
-      const professionalBase64 = professionalUrl ? await convertAudioToBase64(professionalUrl) : null;
+      console.log('Analyzing spectrogram with Web Audio API:', { noviceUrl, professionalUrl });
       
-      if (!noviceBase64 && !professionalBase64) {
-        return { novice: [], professional: [] };
-      }
+      const noviceData = noviceUrl ? await analyzeSpectrogramWithWebAPI(noviceUrl) : [];
+      const professionalData = professionalUrl ? await analyzeSpectrogramWithWebAPI(professionalUrl) : [];
       
-      const { data, error } = await supabase.functions.invoke('analyze-audio', {
-        body: {
-          noviceAudio: noviceBase64 || '',
-          professionalAudio: professionalBase64 || ''
-        }
+      console.log('Spectrogram analysis results:', {
+        noviceLength: noviceData.length,
+        professionalLength: professionalData.length,
+        noviceAvgCentroid: noviceData.reduce((sum, d) => sum + d.spectralCentroid, 0) / noviceData.length,
+        professionalAvgCentroid: professionalData.reduce((sum, d) => sum + d.spectralCentroid, 0) / professionalData.length
       });
-
-      if (error) {
-        console.error('Spectrogram analysis error:', error);
-        return { novice: [], professional: [] };
-      }
-
-      // Simulate spectrogram data based on pitch data
-      const novicePitchArray = data?.pitchData?.novice || [];
-      const professionalPitchArray = data?.pitchData?.professional || [];
-      
-      const convertToSpectrogramData = (pitchArray: number[]): SpectrogramData[] => {
-        if (pitchArray.length === 0) return [];
-        
-        const timeInterval = 256 / 22050; // Match analysis interval
-        const spectrogramData: SpectrogramData[] = [];
-        
-        pitchArray.forEach((frequency: number, index: number) => {
-          const timePos = index * timeInterval;
-          // Simulate spectral centroid based on pitch (higher pitch = higher spectral centroid)
-          // Convert zeros to null for gaps in the chart
-          const spectralCentroid = frequency > 0 ? frequency * (1 + Math.random() * 0.3) : null;
-          spectrogramData.push({ time: timePos, spectralCentroid: spectralCentroid as any });
-        });
-        
-        return spectrogramData;
-      };
       
       return {
-        novice: noviceUrl ? convertToSpectrogramData(novicePitchArray) : [],
-        professional: professionalUrl ? convertToSpectrogramData(professionalPitchArray) : []
+        novice: noviceData,
+        professional: professionalData
       };
     } catch (error) {
       console.error('Error extracting spectrogram data:', error);
@@ -110,7 +139,7 @@ const SpectrogramChart: React.FC<SpectrogramChartProps> = ({
         const { novice: noviceData, professional: professionalData } = await extractSpectrogramData(noviceUrl, professionalUrl);
 
         const combinedData: SpectrogramDataPoint[] = [];
-        const timeInterval = 256 / 22050; // Match analysis interval
+        const timeInterval = 256 / 22050; // Match analysis interval from Web Audio API
         const maxLength = Math.max(noviceData.length, professionalData.length);
         
         for (let i = 0; i < maxLength; i++) {
@@ -119,7 +148,7 @@ const SpectrogramChart: React.FC<SpectrogramChartProps> = ({
           const professionalPoint = professionalData[i];
           
           combinedData.push({
-            time: parseFloat(currentTime.toFixed(3)), // More precision for smaller intervals
+            time: parseFloat(currentTime.toFixed(3)),
             novice: novicePoint?.spectralCentroid || null,
             professional: professionalPoint?.spectralCentroid || null
           });
