@@ -93,12 +93,18 @@ const SingerDashboard: React.FC = () => {
       if (!sel) {
         setNoviceUrl(null);
         setProfessionalUrl(null);
+        setAnalysisResults(null); // Clear analysis results
+        setReviewReport(null); // Clear review report
         return;
       }
       
       console.log('Selected song:', sel);
       console.log('Recorded song URL:', sel.recorded_song_url);
       console.log('Original song URL:', sel.original_song_url);
+      
+      // Clear previous analysis results when changing songs
+      setAnalysisResults(null);
+      setReviewReport(null);
       
       // Resolve novice performance URL
       const noviceSrc = sel.recorded_song_url;

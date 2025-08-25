@@ -96,8 +96,8 @@ const PitchComparisonChart: React.FC<PitchComparisonChartProps> = ({
         const convertToTimeData = (pitchArray: number[], audioType: string): PitchData[] => {
         if (pitchArray.length === 0) return [];
         
-        // Use a fixed time interval for consistency
-        const timeInterval = 0.1; // 100ms intervals for better visualization
+        // Use the actual time interval from the analysis (256 samples hop size at 22050 Hz)
+        const timeInterval = 256 / 22050; // ~0.0116 seconds per sample
         const pitchData: PitchData[] = [];
         
         pitchArray.forEach((frequency: number, index: number) => {
@@ -138,7 +138,7 @@ const PitchComparisonChart: React.FC<PitchComparisonChartProps> = ({
 
         // Create combined chart data by merging both datasets by time
         const combinedData: ChartDataPoint[] = [];
-        const timeInterval = 0.1; // 100ms intervals
+        const timeInterval = 256 / 22050; // Match the analysis hop size
         
         // Find the maximum length from both datasets
         const maxLength = Math.max(noviceData.length, professionalData.length);
@@ -152,7 +152,7 @@ const PitchComparisonChart: React.FC<PitchComparisonChartProps> = ({
           const professionalPoint = professionalData[i];
           
           combinedData.push({
-            time: parseFloat(currentTime.toFixed(1)),
+            time: parseFloat(currentTime.toFixed(3)), // More precision for smaller intervals
             novice: novicePoint?.frequency || null,
             professional: professionalPoint?.frequency || null
           });
@@ -190,7 +190,8 @@ const PitchComparisonChart: React.FC<PitchComparisonChartProps> = ({
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active) {
       const time = Number(label);
-      const timeIndex = Math.round(time / 0.1);
+      const timeInterval = 256 / 22050; // Match analysis interval
+      const timeIndex = Math.round(time / timeInterval);
       
       // Get data for both singers at this time point
       const noviceData = chartData[timeIndex]?.novice;
@@ -198,7 +199,7 @@ const PitchComparisonChart: React.FC<PitchComparisonChartProps> = ({
       
       return (
         <div className="bg-card border border-border rounded-lg p-3 shadow-lg">
-          <p className="text-sm font-medium">{`Time: ${time.toFixed(1)}s`}</p>
+          <p className="text-sm font-medium">{`Time: ${time.toFixed(2)}s`}</p>
           <p className="text-sm" style={{ color: colors.novice }}>
             {`Novice Singer: ${noviceData ? formatFrequency(Number(noviceData)) : 'No data available'}`}
           </p>

@@ -77,7 +77,7 @@ const SpectrogramChart: React.FC<SpectrogramChartProps> = ({
       const convertToSpectrogramData = (pitchArray: number[]): SpectrogramData[] => {
         if (pitchArray.length === 0) return [];
         
-        const timeInterval = 0.1;
+        const timeInterval = 256 / 22050; // Match analysis interval
         const spectrogramData: SpectrogramData[] = [];
         
         pitchArray.forEach((frequency: number, index: number) => {
@@ -110,7 +110,7 @@ const SpectrogramChart: React.FC<SpectrogramChartProps> = ({
         const { novice: noviceData, professional: professionalData } = await extractSpectrogramData(noviceUrl, professionalUrl);
 
         const combinedData: SpectrogramDataPoint[] = [];
-        const timeInterval = 0.1;
+        const timeInterval = 256 / 22050; // Match analysis interval
         const maxLength = Math.max(noviceData.length, professionalData.length);
         
         for (let i = 0; i < maxLength; i++) {
@@ -119,7 +119,7 @@ const SpectrogramChart: React.FC<SpectrogramChartProps> = ({
           const professionalPoint = professionalData[i];
           
           combinedData.push({
-            time: parseFloat(currentTime.toFixed(1)),
+            time: parseFloat(currentTime.toFixed(3)), // More precision for smaller intervals
             novice: novicePoint?.spectralCentroid || null,
             professional: professionalPoint?.spectralCentroid || null
           });
@@ -143,7 +143,8 @@ const SpectrogramChart: React.FC<SpectrogramChartProps> = ({
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active) {
       const time = Number(label);
-      const timeIndex = Math.round(time / 0.1);
+      const timeInterval = 256 / 22050; // Match analysis interval
+      const timeIndex = Math.round(time / timeInterval);
       
       // Get data for both singers at this time point
       const noviceData = chartData[timeIndex]?.novice;
@@ -151,7 +152,7 @@ const SpectrogramChart: React.FC<SpectrogramChartProps> = ({
       
       return (
         <div className="bg-card border border-border rounded-lg p-3 shadow-lg">
-          <p className="text-sm font-medium">{`Time: ${time.toFixed(1)}s`}</p>
+          <p className="text-sm font-medium">{`Time: ${time.toFixed(2)}s`}</p>
           <p className="text-sm" style={{ color: colors.novice }}>
             {`Novice Singer: ${noviceData ? formatFrequency(Number(noviceData)) : 'No data available'}`}
           </p>

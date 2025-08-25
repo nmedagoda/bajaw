@@ -47,8 +47,8 @@ function calculateDTW(seq1: number[], seq2: number[]): number {
 
 // Simple pitch extraction using autocorrelation
 function extractPitch(audioBuffer: Float32Array, sampleRate: number): number[] {
-  const windowSize = 2048;
-  const hopSize = 512;
+  const windowSize = 1024; // Smaller window for better time resolution  
+  const hopSize = 256; // Much smaller hop size for more data points
   const pitches: number[] = [];
   
   console.log(`Extracting pitch from ${audioBuffer.length} samples at ${sampleRate}Hz`);
@@ -71,7 +71,8 @@ function extractPitch(audioBuffer: Float32Array, sampleRate: number): number[] {
     
     pitches.push(Math.round(bestFreq));
     
-    if (pitches.length >= 150) break; // Limit number of pitch points
+    // Remove the limit to get more data points for better visualization
+    if (pitches.length >= 800) break; // Increased limit for better charts
   }
   
   console.log(`Extracted ${pitches.length} pitch points, non-zero: ${pitches.filter(p => p > 0).length}`);
