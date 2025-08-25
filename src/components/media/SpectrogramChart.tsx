@@ -83,8 +83,9 @@ const SpectrogramChart: React.FC<SpectrogramChartProps> = ({
         pitchArray.forEach((frequency: number, index: number) => {
           const timePos = index * timeInterval;
           // Simulate spectral centroid based on pitch (higher pitch = higher spectral centroid)
-          const spectralCentroid = frequency > 0 ? frequency * (1 + Math.random() * 0.3) : 0;
-          spectrogramData.push({ time: timePos, spectralCentroid });
+          // Convert zeros to null for gaps in the chart
+          const spectralCentroid = frequency > 0 ? frequency * (1 + Math.random() * 0.3) : null;
+          spectrogramData.push({ time: timePos, spectralCentroid: spectralCentroid as any });
         });
         
         return spectrogramData;
@@ -140,22 +141,23 @@ const SpectrogramChart: React.FC<SpectrogramChartProps> = ({
   };
 
   const CustomTooltip = ({ active, payload, label }: any) => {
-    if (active && payload && payload.length) {
+    if (active) {
+      const time = Number(label);
+      const timeIndex = Math.round(time / 0.1);
+      
+      // Get data for both singers at this time point
+      const noviceData = chartData[timeIndex]?.novice;
+      const professionalData = chartData[timeIndex]?.professional;
+      
       return (
         <div className="bg-card border border-border rounded-lg p-3 shadow-lg">
-          <p className="text-sm font-medium">{`Time: ${Number(label).toFixed(1)}s`}</p>
-          {payload.map((entry: any, index: number) => {
-            const isNovice = entry.dataKey === 'novice';
-            const singerType = isNovice ? 'Novice Singer' : 'Professional Singer';
-            const value = entry.value;
-            const displayValue = value ? formatFrequency(Number(value)) : 'No data';
-            
-            return (
-              <p key={index} className="text-sm" style={{ color: entry.color }}>
-                {`${singerType}: ${displayValue}`}
-              </p>
-            );
-          })}
+          <p className="text-sm font-medium">{`Time: ${time.toFixed(1)}s`}</p>
+          <p className="text-sm" style={{ color: colors.novice }}>
+            {`Novice Singer: ${noviceData ? formatFrequency(Number(noviceData)) : 'No data available'}`}
+          </p>
+          <p className="text-sm" style={{ color: colors.professional }}>
+            {`Professional Singer: ${professionalData ? formatFrequency(Number(professionalData)) : 'No data available'}`}
+          </p>
         </div>
       );
     }
@@ -233,7 +235,7 @@ const SpectrogramChart: React.FC<SpectrogramChartProps> = ({
                   stroke={colors.novice}
                   strokeWidth={2}
                   dot={false}
-                  connectNulls={false}
+                  connectNulls={true}
                   name="Novice Singer"
                 />
               )}
@@ -244,7 +246,7 @@ const SpectrogramChart: React.FC<SpectrogramChartProps> = ({
                   stroke={colors.professional}
                   strokeWidth={2}
                   dot={false}
-                  connectNulls={false}
+                  connectNulls={true}
                   name="Professional Singer"
                 />
               )}
