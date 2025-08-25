@@ -164,17 +164,17 @@ function findFundamentalFrequency(magnitudes: number[], sampleRate: number): num
   
   // Find peak in HPS
   let maxValue = 0;
-  let maxBin = 0;
+  let peakBin = 0;
   
   for (let bin = minBin; bin <= maxBin; bin++) {
     if (hps[bin] > maxValue) {
       maxValue = hps[bin];
-      maxBin = bin;
+      peakBin = bin;
     }
   }
   
   // Convert bin to frequency
-  const freq = maxBin * sampleRate / magnitudes.length;
+  const freq = peakBin * sampleRate / magnitudes.length;
   
   // Validate frequency is in reasonable range with sufficient magnitude
   if (freq >= minFreq && freq <= maxFreq && maxValue > 0.01) {
