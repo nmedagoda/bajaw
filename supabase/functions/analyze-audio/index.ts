@@ -6,10 +6,9 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-// Simplified DTW implementation with reduced complexity
-function simpleDTW(seq1: number[], seq2: number[]): number {
-  // Limit sequence length to prevent timeout
-  const maxLength = 100;
+// Enhanced DTW implementation with better normalization for pitch comparison
+function enhancedDTW(seq1: number[], seq2: number[]): number {
+  const maxLength = 150;
   const s1 = seq1.slice(0, maxLength);
   const s2 = seq2.slice(0, maxLength);
   
@@ -18,7 +17,15 @@ function simpleDTW(seq1: number[], seq2: number[]): number {
   
   if (m === 0 || n === 0) return 1.0;
   
-  // Use only current and previous row to save memory
+  // Normalize sequences to reduce impact of octave differences
+  const normalizeSequence = (seq: number[]) => {
+    return seq.map(f => f > 0 ? Math.log2(f / 220) : 0); // Normalize to A3 (220Hz)
+  };
+  
+  const norm_s1 = normalizeSequence(s1);
+  const norm_s2 = normalizeSequence(s2);
+  
+  // Dynamic programming with memory optimization
   let prevRow = new Array(n + 1).fill(Infinity);
   let currRow = new Array(n + 1).fill(Infinity);
   
@@ -27,17 +34,29 @@ function simpleDTW(seq1: number[], seq2: number[]): number {
   for (let i = 1; i <= m; i++) {
     currRow[0] = Infinity;
     for (let j = 1; j <= n; j++) {
-      const cost = Math.abs(s1[i - 1] - s2[j - 1]);
+      // Enhanced cost function for pitch comparison
+      let cost = 0;
+      if (norm_s1[i - 1] === 0 && norm_s2[j - 1] === 0) {
+        cost = 0; // Both silent
+      } else if (norm_s1[i - 1] === 0 || norm_s2[j - 1] === 0) {
+        cost = 2; // One silent, one voiced
+      } else {
+        cost = Math.abs(norm_s1[i - 1] - norm_s2[j - 1]); // Pitch difference
+      }
+      
       currRow[j] = cost + Math.min(
-        prevRow[j],        // insertion
-        currRow[j - 1],    // deletion
-        prevRow[j - 1]     // match
+        prevRow[j] + 1,        // insertion penalty
+        currRow[j - 1] + 1,    // deletion penalty
+        prevRow[j - 1]         // match/substitution
       );
     }
     [prevRow, currRow] = [currRow, prevRow];
   }
   
-  return prevRow[n] / Math.max(m, n);
+  // Better normalization - convert to similarity score
+  const maxPossibleDistance = Math.max(m, n) * 2;
+  const normalizedDistance = Math.min(1, prevRow[n] / maxPossibleDistance);
+  return normalizedDistance;
 }
 
 // Enhanced Web Audio API-based pitch extraction with FFT analysis
@@ -241,38 +260,81 @@ function detectOnsets(audioBuffer: Float32Array, sampleRate: number): number[] {
   return onsets;
 }
 
-// Fast MFCC-like features
-function extractSimpleFeatures(audioBuffer: Float32Array, sampleRate: number): number[][] {
+// Enhanced spectral feature extraction with Web Audio API concepts
+function extractAdvancedFeatures(audioBuffer: Float32Array, sampleRate: number): number[][] {
   const windowSize = Math.floor(sampleRate * 0.100); // 100ms windows
   const hopSize = Math.floor(windowSize / 2);
   const features: number[][] = [];
-  const maxFrames = 30; // Limit number of frames
+  const maxFrames = 40; // Increased frames for better analysis
   
   for (let i = 0; i < audioBuffer.length - windowSize && features.length < maxFrames; i += hopSize) {
     const window = audioBuffer.slice(i, i + windowSize);
     
-    // Simple spectral features instead of full MFCC
+    // Apply Hamming window
+    for (let j = 0; j < windowSize; j++) {
+      window[j] *= 0.54 - 0.46 * Math.cos(2 * Math.PI * j / (windowSize - 1));
+    }
+    
+    // Enhanced spectral features
     const feature = [];
     
-    // Energy
-    feature.push(window.reduce((sum, s) => sum + s * s, 0) / window.length);
+    // 1. RMS Energy (better than simple energy)
+    const rmsEnergy = Math.sqrt(window.reduce((sum, s) => sum + s * s, 0) / window.length);
+    feature.push(rmsEnergy);
     
-    // Zero crossing rate
+    // 2. Zero Crossing Rate
     let zcr = 0;
     for (let j = 1; j < window.length; j++) {
       if ((window[j] >= 0) !== (window[j-1] >= 0)) zcr++;
     }
     feature.push(zcr / window.length);
     
-    // Simple spectral centroid approximation
-    let centroid = 0;
-    let totalEnergy = 0;
-    for (let j = 0; j < window.length; j++) {
-      const energy = window[j] * window[j];
-      centroid += j * energy;
-      totalEnergy += energy;
+    // 3. Enhanced Spectral Centroid via FFT
+    const spectrum = performFFT(window);
+    const magnitudes = spectrum.slice(0, Math.floor(spectrum.length / 2))
+      .map(complex => Math.sqrt(complex.real * complex.real + complex.imag * complex.imag));
+    
+    let spectralCentroid = 0;
+    let totalMagnitude = 0;
+    for (let k = 0; k < magnitudes.length; k++) {
+      const freq = k * sampleRate / (2 * magnitudes.length);
+      spectralCentroid += freq * magnitudes[k];
+      totalMagnitude += magnitudes[k];
     }
-    feature.push(totalEnergy > 0 ? centroid / totalEnergy / window.length : 0);
+    feature.push(totalMagnitude > 0 ? spectralCentroid / totalMagnitude : 0);
+    
+    // 4. Spectral Rolloff (frequency below which 85% of energy lies)
+    const cumulativeEnergy = new Array(magnitudes.length);
+    cumulativeEnergy[0] = magnitudes[0] * magnitudes[0];
+    for (let k = 1; k < magnitudes.length; k++) {
+      cumulativeEnergy[k] = cumulativeEnergy[k-1] + magnitudes[k] * magnitudes[k];
+    }
+    const totalEnergy = cumulativeEnergy[cumulativeEnergy.length - 1];
+    const rolloffThreshold = 0.85 * totalEnergy;
+    let rolloffBin = magnitudes.length - 1;
+    for (let k = 0; k < cumulativeEnergy.length; k++) {
+      if (cumulativeEnergy[k] >= rolloffThreshold) {
+        rolloffBin = k;
+        break;
+      }
+    }
+    feature.push(rolloffBin * sampleRate / (2 * magnitudes.length));
+    
+    // 5. Spectral Flux (measure of how quickly the spectrum is changing)
+    if (features.length > 0) {
+      const prevMagnitudes = features[features.length - 1].slice(5, 5 + Math.min(50, magnitudes.length));
+      let flux = 0;
+      for (let k = 0; k < Math.min(prevMagnitudes.length, magnitudes.length); k++) {
+        const diff = magnitudes[k] - prevMagnitudes[k];
+        flux += diff * diff;
+      }
+      feature.push(Math.sqrt(flux));
+    } else {
+      feature.push(0);
+    }
+    
+    // Store first 50 magnitude bins for next frame's flux calculation
+    feature.push(...magnitudes.slice(0, Math.min(50, magnitudes.length)));
     
     features.push(feature);
   }
@@ -362,33 +424,54 @@ serve(async (req) => {
     const noviceOnsets = detectOnsets(noviceBuffer, sampleRate);
     const professionalOnsets = detectOnsets(professionalBuffer, sampleRate);
     
-    const noviceFeatures = extractSimpleFeatures(noviceBuffer, sampleRate);
-    const professionalFeatures = extractSimpleFeatures(professionalBuffer, sampleRate);
+    const noviceFeatures = extractAdvancedFeatures(noviceBuffer, sampleRate);
+    const professionalFeatures = extractAdvancedFeatures(professionalBuffer, sampleRate);
     
     console.log('Features extracted successfully')
 
     // Calculate metrics quickly
     console.log('Calculating metrics...')
     
-    // 1. Pitch Accuracy using simplified DTW
-    const pitchAccuracy = Math.max(0, 1 - (simpleDTW(novicePitch, professionalPitch) / 50));
+    // 1. Enhanced Pitch Accuracy using improved DTW with logarithmic normalization
+    const dtwDistance = enhancedDTW(novicePitch, professionalPitch);
+    const pitchAccuracy = Math.max(0, 1 - dtwDistance);
+    console.log(`DTW distance: ${dtwDistance.toFixed(3)}, Pitch accuracy: ${(pitchAccuracy * 100).toFixed(1)}%`);
     
     // 2. Rhythm Timing Error
     const rhythmError = noviceOnsets.length > 0 && professionalOnsets.length > 0 
       ? Math.abs(noviceOnsets.length - professionalOnsets.length) / Math.max(noviceOnsets.length, professionalOnsets.length)
       : 0;
     
-    // 3. Feature similarity (simplified MFCC replacement)
+    // 3. Enhanced Feature similarity using advanced spectral features
     let featureSimilarity = 0;
     if (noviceFeatures.length > 0 && professionalFeatures.length > 0) {
       const minLength = Math.min(noviceFeatures.length, professionalFeatures.length);
       let totalDiff = 0;
+      let featureCount = 0;
+      
       for (let i = 0; i < minLength; i++) {
-        for (let j = 0; j < 3; j++) { // 3 features per frame
-          totalDiff += Math.abs((noviceFeatures[i][j] || 0) - (professionalFeatures[i][j] || 0));
+        // Compare first 5 main spectral features (RMS, ZCR, Centroid, Rolloff, Flux)
+        for (let j = 0; j < Math.min(5, noviceFeatures[i].length, professionalFeatures[i].length); j++) {
+          const noviceVal = noviceFeatures[i][j] || 0;
+          const professionalVal = professionalFeatures[i][j] || 0;
+          
+          // Normalize differences by feature type
+          let normalizedDiff = 0;
+          if (j === 0) { // RMS Energy
+            normalizedDiff = Math.abs(noviceVal - professionalVal) / Math.max(noviceVal + professionalVal, 0.001);
+          } else if (j === 1) { // ZCR
+            normalizedDiff = Math.abs(noviceVal - professionalVal);
+          } else { // Spectral features (centroid, rolloff, flux)
+            normalizedDiff = Math.abs(noviceVal - professionalVal) / Math.max(Math.max(noviceVal, professionalVal), 1000);
+          }
+          
+          totalDiff += normalizedDiff;
+          featureCount++;
         }
       }
-      featureSimilarity = Math.max(0, 1 - (totalDiff / (minLength * 3)));
+      
+      featureSimilarity = featureCount > 0 ? Math.max(0, 1 - (totalDiff / featureCount)) : 0;
+      console.log(`Feature similarity: ${(featureSimilarity * 100).toFixed(1)}% (compared ${featureCount} features)`);
     }
     
     // 4. Emotion Match
