@@ -40,40 +40,71 @@ function simpleDTW(seq1: number[], seq2: number[]): number {
   return prevRow[n] / Math.max(m, n);
 }
 
-// Fast pitch extraction using simplified autocorrelation
+// Improved pitch extraction with better coverage and accuracy
 function extractPitch(audioBuffer: Float32Array, sampleRate: number): number[] {
-  // Downsample for faster processing
-  const downsampleFactor = 4;
-  const windowSize = Math.floor(sampleRate * 0.050 / downsampleFactor); // 50ms windows
-  const hopSize = Math.floor(windowSize / 2);
+  const windowSize = 2048; // Larger window for better frequency resolution
+  const hopSize = Math.floor(windowSize / 4); // 25% overlap
   const pitches: number[] = [];
-  const maxPitches = 50; // Limit number of pitch estimates
   
-  for (let i = 0; i < audioBuffer.length - windowSize && pitches.length < maxPitches; i += hopSize * downsampleFactor) {
+  // Calculate target number of points based on audio duration
+  const audioDuration = audioBuffer.length / sampleRate;
+  const targetPoints = Math.min(200, Math.floor(audioDuration * 20)); // 20 points per second, max 200
+  const actualHopSize = Math.floor((audioBuffer.length - windowSize) / targetPoints);
+  
+  for (let i = 0; i < audioBuffer.length - windowSize; i += actualHopSize) {
     const window = audioBuffer.slice(i, i + windowSize);
     
-    // Simple energy-based pitch estimation
-    let maxEnergy = 0;
+    // Apply Hanning window to reduce spectral leakage
+    for (let j = 0; j < windowSize; j++) {
+      window[j] *= 0.5 - 0.5 * Math.cos(2 * Math.PI * j / (windowSize - 1));
+    }
+    
+    // Calculate energy threshold
+    let energy = 0;
+    for (let j = 0; j < windowSize; j++) {
+      energy += window[j] * window[j];
+    }
+    energy = Math.sqrt(energy / windowSize);
+    
     let bestFreq = 0;
     
-    // Check common frequency ranges
-    const freqSteps = [80, 120, 160, 200, 250, 300, 400, 500]; // Hz
-    
-    for (const freq of freqSteps) {
-      const period = Math.floor(sampleRate / freq / downsampleFactor);
-      if (period < window.length / 2) {
-        let energy = 0;
-        for (let j = 0; j < window.length - period; j++) {
-          energy += window[j] * window[j + period];
+    // Only process if energy is above threshold (voice activity detection)
+    if (energy > 0.01) {
+      // Improved autocorrelation-based pitch detection
+      let maxCorr = 0;
+      const minPitch = 80;  // Hz
+      const maxPitch = 500; // Hz
+      const minPeriod = Math.floor(sampleRate / maxPitch);
+      const maxPeriod = Math.floor(sampleRate / minPitch);
+      
+      for (let period = minPeriod; period <= maxPeriod; period++) {
+        let correlation = 0;
+        let count = 0;
+        
+        for (let j = 0; j < windowSize - period; j++) {
+          correlation += window[j] * window[j + period];
+          count++;
         }
-        if (energy > maxEnergy) {
-          maxEnergy = energy;
-          bestFreq = freq;
+        
+        if (count > 0) {
+          correlation /= count; // Normalize
+          
+          if (correlation > maxCorr) {
+            maxCorr = correlation;
+            bestFreq = sampleRate / period;
+          }
         }
+      }
+      
+      // Only accept if correlation is strong enough
+      if (maxCorr < 0.3) {
+        bestFreq = 0;
       }
     }
     
-    pitches.push(bestFreq);
+    pitches.push(Math.round(bestFreq));
+    
+    if (pitches.length >= targetPoints) break;
   }
   
   return pitches;
