@@ -49,6 +49,12 @@ const SingerDashboard: React.FC = () => {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [reviewReport, setReviewReport] = useState<ReviewReport | null>(null);
   const [isGeneratingReview, setIsGeneratingReview] = useState(false);
+  const [chartsVisible, setChartsVisible] = useState(false);
+  const [chartLoadingStates, setChartLoadingStates] = useState({
+    pitch: false,
+    spectrogram: false,
+    rms: false
+  });
 
   useEffect(() => {
     document.title = "My Performances - Bajaw";
@@ -105,6 +111,8 @@ const SingerDashboard: React.FC = () => {
       // Clear previous analysis results when changing songs
       setAnalysisResults(null);
       setReviewReport(null);
+      setChartsVisible(false);
+      setChartLoadingStates({ pitch: false, spectrogram: false, rms: false });
       
       // Resolve novice performance URL
       const noviceSrc = sel.recorded_song_url;
@@ -332,23 +340,49 @@ const SingerDashboard: React.FC = () => {
                     </div>
                   )}
 
-                  {/* Pitch Comparison Chart */}
+                  {/* Analysis Charts - Lazy Loaded */}
                   {noviceUrl && professionalUrl && (
                     <div className="mt-6 space-y-6">
-                      <PitchComparisonChart 
-                        noviceUrl={noviceUrl} 
-                        professionalUrl={professionalUrl} 
-                      />
-                      
-                      <SpectrogramChart 
-                        noviceUrl={noviceUrl} 
-                        professionalUrl={professionalUrl} 
-                      />
-                      
-                      <RMSLoudnessChart 
-                        noviceUrl={noviceUrl} 
-                        professionalUrl={professionalUrl} 
-                      />
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                          <h3 className="text-lg font-semibold text-foreground">Audio Analysis Charts</h3>
+                          {!chartsVisible && (
+                            <Button 
+                              onClick={() => setChartsVisible(true)}
+                              variant="outline"
+                              className="ml-auto"
+                            >
+                              <BarChart3 className="w-4 h-4 mr-2" />
+                              Load Analysis Charts
+                            </Button>
+                          )}
+                        </div>
+                        
+                        {chartsVisible && (
+                          <div className="space-y-6">
+                            <React.Suspense fallback={<div className="animate-pulse bg-muted h-64 rounded-lg" />}>
+                              <PitchComparisonChart 
+                                noviceUrl={noviceUrl} 
+                                professionalUrl={professionalUrl}
+                              />
+                            </React.Suspense>
+                            
+                            <React.Suspense fallback={<div className="animate-pulse bg-muted h-64 rounded-lg" />}>
+                              <SpectrogramChart 
+                                noviceUrl={noviceUrl} 
+                                professionalUrl={professionalUrl}
+                              />
+                            </React.Suspense>
+                            
+                            <React.Suspense fallback={<div className="animate-pulse bg-muted h-64 rounded-lg" />}>
+                              <RMSLoudnessChart 
+                                noviceUrl={noviceUrl} 
+                                professionalUrl={professionalUrl}
+                              />
+                            </React.Suspense>
+                          </div>
+                        )}
+                      </div>
                       
                       {/* Graph descriptions */}
                       <div className="mt-6 p-4 border rounded-lg bg-card">
