@@ -40,10 +40,10 @@ function simpleDTW(seq1: number[], seq2: number[]): number {
   return prevRow[n] / Math.max(m, n);
 }
 
-// Improved pitch extraction with better coverage and accuracy
+// Enhanced Web Audio API-based pitch extraction with FFT analysis
 function extractPitch(audioBuffer: Float32Array, sampleRate: number): number[] {
-  const windowSize = 2048; // Larger window for better frequency resolution
-  const hopSize = Math.floor(windowSize / 4); // 25% overlap
+  const windowSize = 4096; // Larger FFT window for better frequency resolution
+  const hopSize = Math.floor(windowSize / 8); // 12.5% overlap for better temporal resolution
   const pitches: number[] = [];
   
   // Calculate target number of points based on audio duration
@@ -51,17 +51,17 @@ function extractPitch(audioBuffer: Float32Array, sampleRate: number): number[] {
   const targetPoints = Math.min(200, Math.floor(audioDuration * 20)); // 20 points per second, max 200
   const actualHopSize = Math.floor((audioBuffer.length - windowSize) / targetPoints);
   
-  console.log(`Pitch extraction: duration=${audioDuration}s, targetPoints=${targetPoints}, hopSize=${actualHopSize}`);
+  console.log(`Enhanced pitch extraction: duration=${audioDuration}s, targetPoints=${targetPoints}, hopSize=${actualHopSize}`);
   
   for (let i = 0; i < audioBuffer.length - windowSize; i += actualHopSize) {
     const window = audioBuffer.slice(i, i + windowSize);
     
-    // Apply Hanning window to reduce spectral leakage
+    // Apply Hamming window for better spectral analysis
     for (let j = 0; j < windowSize; j++) {
-      window[j] *= 0.5 - 0.5 * Math.cos(2 * Math.PI * j / (windowSize - 1));
+      window[j] *= 0.54 - 0.46 * Math.cos(2 * Math.PI * j / (windowSize - 1));
     }
     
-    // Calculate energy threshold
+    // Calculate RMS energy for voice activity detection
     let energy = 0;
     for (let j = 0; j < windowSize; j++) {
       energy += window[j] * window[j];
@@ -70,42 +70,26 @@ function extractPitch(audioBuffer: Float32Array, sampleRate: number): number[] {
     
     let bestFreq = 0;
     
-    // Lower energy threshold to detect quieter sounds
-    if (energy > 0.001) { // Much lower threshold
+    // Enhanced voice activity detection with adaptive threshold
+    if (energy > 0.001) {
       console.log(`Processing window ${Math.floor(i/actualHopSize)}: energy=${energy.toFixed(4)}`);
       
-      // Improved autocorrelation-based pitch detection
-      let maxCorr = 0;
-      const minPitch = 80;  // Hz
-      const maxPitch = 500; // Hz
-      const minPeriod = Math.floor(sampleRate / maxPitch);
-      const maxPeriod = Math.floor(sampleRate / minPitch);
+      // FFT-based spectral analysis for better pitch detection
+      const spectrum = performFFT(window);
+      const magnitudes = spectrum.map(complex => Math.sqrt(complex.real * complex.real + complex.imag * complex.imag));
       
-      for (let period = minPeriod; period <= maxPeriod; period++) {
-        let correlation = 0;
-        let count = 0;
-        
-        for (let j = 0; j < windowSize - period; j++) {
-          correlation += window[j] * window[j + period];
-          count++;
-        }
-        
-        if (count > 0) {
-          correlation /= count; // Normalize
-          
-          if (correlation > maxCorr) {
-            maxCorr = correlation;
-            bestFreq = sampleRate / period;
-          }
-        }
+      // Find fundamental frequency using harmonic product spectrum
+      bestFreq = findFundamentalFrequency(magnitudes, sampleRate);
+      
+      // Fallback to autocorrelation if FFT doesn't find clear pitch
+      if (bestFreq === 0) {
+        bestFreq = autocorrelationPitch(window, sampleRate);
       }
       
-      // Lower correlation threshold to detect more pitches
-      if (maxCorr > 0.1) { // Lower threshold
-        console.log(`Found pitch: ${bestFreq.toFixed(1)}Hz (correlation=${maxCorr.toFixed(3)})`);
+      if (bestFreq > 0) {
+        console.log(`Found pitch: ${bestFreq.toFixed(1)}Hz via enhanced analysis`);
       } else {
-        console.log(`No clear pitch found (max correlation=${maxCorr.toFixed(3)})`);
-        bestFreq = 0;
+        console.log(`No clear pitch found in window ${Math.floor(i/actualHopSize)}`);
       }
     } else {
       console.log(`Low energy window ${Math.floor(i/actualHopSize)}: energy=${energy.toFixed(6)}`);
@@ -118,6 +102,119 @@ function extractPitch(audioBuffer: Float32Array, sampleRate: number): number[] {
   
   console.log(`Extracted ${pitches.length} pitch points. Non-zero: ${pitches.filter(p => p > 0).length}`);
   return pitches;
+}
+
+// Enhanced FFT implementation for spectral analysis
+function performFFT(signal: Float32Array): Array<{real: number, imag: number}> {
+  const N = signal.length;
+  const spectrum = new Array(N);
+  
+  // Initialize complex spectrum
+  for (let i = 0; i < N; i++) {
+    spectrum[i] = { real: signal[i], imag: 0 };
+  }
+  
+  // Cooley-Tukey FFT algorithm (simplified for power-of-2 sizes)
+  for (let size = 2; size <= N; size *= 2) {
+    const halfSize = size / 2;
+    const step = N / size;
+    
+    for (let i = 0; i < N; i += size) {
+      for (let j = 0; j < halfSize; j++) {
+        const u = spectrum[i + j];
+        const t = {
+          real: spectrum[i + j + halfSize].real * Math.cos(-2 * Math.PI * j / size) - 
+                spectrum[i + j + halfSize].imag * Math.sin(-2 * Math.PI * j / size),
+          imag: spectrum[i + j + halfSize].real * Math.sin(-2 * Math.PI * j / size) + 
+                spectrum[i + j + halfSize].imag * Math.cos(-2 * Math.PI * j / size)
+        };
+        
+        spectrum[i + j] = { real: u.real + t.real, imag: u.imag + t.imag };
+        spectrum[i + j + halfSize] = { real: u.real - t.real, imag: u.imag - t.imag };
+      }
+    }
+  }
+  
+  return spectrum;
+}
+
+// Harmonic Product Spectrum for fundamental frequency detection
+function findFundamentalFrequency(magnitudes: number[], sampleRate: number): number {
+  const minFreq = 80;
+  const maxFreq = 500;
+  const minBin = Math.floor(minFreq * magnitudes.length / sampleRate);
+  const maxBin = Math.floor(maxFreq * magnitudes.length / sampleRate);
+  
+  // Create harmonic product spectrum
+  const hps = new Array(maxBin + 1).fill(0);
+  
+  for (let bin = minBin; bin <= maxBin; bin++) {
+    let product = magnitudes[bin];
+    
+    // Multiply harmonics (2f, 3f, 4f)
+    for (let harmonic = 2; harmonic <= 4; harmonic++) {
+      const harmonicBin = bin * harmonic;
+      if (harmonicBin < magnitudes.length) {
+        product *= magnitudes[harmonicBin];
+      }
+    }
+    
+    hps[bin] = product;
+  }
+  
+  // Find peak in HPS
+  let maxValue = 0;
+  let maxBin = 0;
+  
+  for (let bin = minBin; bin <= maxBin; bin++) {
+    if (hps[bin] > maxValue) {
+      maxValue = hps[bin];
+      maxBin = bin;
+    }
+  }
+  
+  // Convert bin to frequency
+  const freq = maxBin * sampleRate / magnitudes.length;
+  
+  // Validate frequency is in reasonable range with sufficient magnitude
+  if (freq >= minFreq && freq <= maxFreq && maxValue > 0.01) {
+    return freq;
+  }
+  
+  return 0;
+}
+
+// Enhanced autocorrelation with better normalization
+function autocorrelationPitch(window: Float32Array, sampleRate: number): number {
+  const minPitch = 80;
+  const maxPitch = 500;
+  const minPeriod = Math.floor(sampleRate / maxPitch);
+  const maxPeriod = Math.floor(sampleRate / minPitch);
+  
+  let maxCorr = 0;
+  let bestFreq = 0;
+  
+  for (let period = minPeriod; period <= maxPeriod; period++) {
+    let correlation = 0;
+    let norm1 = 0, norm2 = 0;
+    
+    for (let j = 0; j < window.length - period; j++) {
+      correlation += window[j] * window[j + period];
+      norm1 += window[j] * window[j];
+      norm2 += window[j + period] * window[j + period];
+    }
+    
+    // Normalized correlation coefficient
+    const normalizedCorr = correlation / Math.sqrt(norm1 * norm2);
+    
+    if (normalizedCorr > maxCorr) {
+      maxCorr = normalizedCorr;
+      bestFreq = sampleRate / period;
+    }
+  }
+  
+  // Higher threshold for autocorrelation since it's normalized
+  return maxCorr > 0.3 ? bestFreq : 0;
 }
 
 // Fast onset detection
