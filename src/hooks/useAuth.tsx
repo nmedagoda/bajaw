@@ -35,49 +35,61 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [roles, setRoles] = useState<string[]>([]);
   const [activeRole, setActiveRoleState] = useState<string | null>(null);
 
+  const fetchUserData = async (userId: string) => {
+    try {
+      // Fetch profile and roles in parallel
+      const [profileResult, rolesResult] = await Promise.all([
+        supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', userId)
+          .maybeSingle(),
+        supabase
+          .from('user_roles')
+          .select('role')
+          .eq('user_id', userId)
+      ]);
+
+      setProfile(profileResult.data);
+      
+      const roleList = rolesResult.data?.map((r: any) => r.role) ?? [];
+      setRoles(roleList);
+
+      // Handle active role
+      const stored = localStorage.getItem('activeRole');
+      if (stored && roleList.includes(stored)) {
+        setActiveRoleState(stored);
+      } else if (roleList.length === 1) {
+        setActiveRoleState(roleList[0]);
+        localStorage.setItem('activeRole', roleList[0]);
+      } else {
+        setActiveRoleState(null);
+        localStorage.removeItem('activeRole');
+      }
+    } catch (error) {
+      console.error('Error fetching user data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
+      (event, session) => {
         setSession(session);
         setUser(session?.user ?? null);
         
         if (session?.user) {
-          // Fetch user profile
-          setTimeout(async () => {
-            const { data: profileData } = await supabase
-              .from('profiles')
-              .select('*')
-              .eq('id', session.user.id)
-              .maybeSingle();
-            setProfile(profileData);
-
-            // Fetch user roles and determine active role
-            const { data: rolesData } = await supabase
-              .from('user_roles')
-              .select('role')
-              .eq('user_id', session.user.id);
-            const roleList = rolesData?.map((r: any) => r.role) ?? [];
-            setRoles(roleList);
-
-            const stored = localStorage.getItem('activeRole');
-            if (stored && roleList.includes(stored)) {
-              setActiveRoleState(stored);
-            } else if (roleList.length === 1) {
-              setActiveRoleState(roleList[0]);
-              localStorage.setItem('activeRole', roleList[0]);
-            } else {
-              setActiveRoleState(null);
-              localStorage.removeItem('activeRole');
-            }
-          }, 0);
+          // Defer heavy operations to avoid blocking
+          setTimeout(() => fetchUserData(session.user.id), 0);
         } else {
           setProfile(null);
           setRoles([]);
           setActiveRoleState(null);
           localStorage.removeItem('activeRole');
+          setLoading(false);
         }
-        setLoading(false);
       }
     );
 
@@ -85,7 +97,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
-      if (!session) {
+      if (session?.user) {
+        fetchUserData(session.user.id);
+      } else {
         setLoading(false);
       }
     });

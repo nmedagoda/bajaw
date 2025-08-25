@@ -18,7 +18,7 @@ const Auth = () => {
   const [resetEmail, setResetEmail] = useState('');
   const [resetDialogOpen, setResetDialogOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('signin');
-  const { signIn, signUp, resetPassword, user, roles, activeRole, setActiveRole } = useAuth();
+  const { signIn, signUp, resetPassword, user, roles, activeRole, setActiveRole, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const [roleDialogOpen, setRoleDialogOpen] = useState(false);
   const [selectedRole, setSelectedRole] = useState<string>('');
@@ -118,7 +118,7 @@ const Auth = () => {
   };
 
   useEffect(() => {
-    if (!user) return;
+    if (!user || authLoading) return;
 
     // Always prompt for role if user has multiple roles
     if (roles && roles.length > 1) {
@@ -129,14 +129,30 @@ const Auth = () => {
       return;
     }
 
-    // Single role: set it and continue
+    // Single role: set it and navigate
     if (roles && roles.length === 1) {
       if (activeRole !== roles[0]) {
         setActiveRole(roles[0]);
       }
       navigate('/');
     }
-  }, [user, roles, activeRole, roleDialogOpen, navigate, setActiveRole]);
+  }, [user, roles, activeRole, authLoading]);
+
+  // Show loading spinner while auth is initializing
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-background via-secondary/20 to-primary/10 flex items-center justify-center p-4">
+        <Card className="w-full max-w-md shadow-2xl border-border/50">
+          <CardContent className="flex items-center justify-center p-8">
+            <div className="text-center space-y-4">
+              <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto"></div>
+              <p className="text-muted-foreground">Loading...</p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-secondary/20 to-primary/10 flex items-center justify-center p-4">
