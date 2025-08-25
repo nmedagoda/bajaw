@@ -343,6 +343,22 @@ const SingerDashboard: React.FC = () => {
                         noviceUrl={noviceUrl} 
                         professionalUrl={professionalUrl} 
                       />
+                      
+                      {/* Graph descriptions */}
+                      <div className="mt-6 p-4 border rounded-lg bg-card">
+                        <h3 className="text-lg font-semibold mb-3 text-foreground">Understanding the Analysis Charts</h3>
+                        <div className="space-y-3 text-sm text-muted-foreground">
+                          <div>
+                            <span className="font-medium text-foreground">• Pitch contours</span> → Are they singing the right notes? Most important for assessing technical accuracy
+                          </div>
+                          <div>
+                            <span className="font-medium text-foreground">• Spectrograms</span> → How does their tone quality compare? Very important for timbre, resonance, and vocal color (how "professional" it sounds)
+                          </div>
+                          <div>
+                            <span className="font-medium text-foreground">• RMS loudness</span> → How strong and controlled is their voice? Useful, but secondary, it helps with dynamics, but not enough alone to judge skill.
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   )}
                 </div>
