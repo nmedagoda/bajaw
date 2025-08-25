@@ -51,6 +51,8 @@ function extractPitch(audioBuffer: Float32Array, sampleRate: number): number[] {
   const targetPoints = Math.min(200, Math.floor(audioDuration * 20)); // 20 points per second, max 200
   const actualHopSize = Math.floor((audioBuffer.length - windowSize) / targetPoints);
   
+  console.log(`Pitch extraction: duration=${audioDuration}s, targetPoints=${targetPoints}, hopSize=${actualHopSize}`);
+  
   for (let i = 0; i < audioBuffer.length - windowSize; i += actualHopSize) {
     const window = audioBuffer.slice(i, i + windowSize);
     
@@ -68,8 +70,10 @@ function extractPitch(audioBuffer: Float32Array, sampleRate: number): number[] {
     
     let bestFreq = 0;
     
-    // Only process if energy is above threshold (voice activity detection)
-    if (energy > 0.01) {
+    // Lower energy threshold to detect quieter sounds
+    if (energy > 0.001) { // Much lower threshold
+      console.log(`Processing window ${Math.floor(i/actualHopSize)}: energy=${energy.toFixed(4)}`);
+      
       // Improved autocorrelation-based pitch detection
       let maxCorr = 0;
       const minPitch = 80;  // Hz
@@ -96,10 +100,15 @@ function extractPitch(audioBuffer: Float32Array, sampleRate: number): number[] {
         }
       }
       
-      // Only accept if correlation is strong enough
-      if (maxCorr < 0.3) {
+      // Lower correlation threshold to detect more pitches
+      if (maxCorr > 0.1) { // Lower threshold
+        console.log(`Found pitch: ${bestFreq.toFixed(1)}Hz (correlation=${maxCorr.toFixed(3)})`);
+      } else {
+        console.log(`No clear pitch found (max correlation=${maxCorr.toFixed(3)})`);
         bestFreq = 0;
       }
+    } else {
+      console.log(`Low energy window ${Math.floor(i/actualHopSize)}: energy=${energy.toFixed(6)}`);
     }
     
     pitches.push(Math.round(bestFreq));
@@ -107,6 +116,7 @@ function extractPitch(audioBuffer: Float32Array, sampleRate: number): number[] {
     if (pitches.length >= targetPoints) break;
   }
   
+  console.log(`Extracted ${pitches.length} pitch points. Non-zero: ${pitches.filter(p => p > 0).length}`);
   return pitches;
 }
 

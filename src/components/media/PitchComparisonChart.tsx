@@ -102,8 +102,9 @@ const PitchComparisonChart: React.FC<PitchComparisonChartProps> = ({
         
         pitchArray.forEach((frequency: number, index: number) => {
           const timePos = index * timeInterval;
-          // Convert zeros to null but keep the data point for timeline continuity
-          const validFreq = frequency > 0 ? frequency : null;
+          // Keep zero values as 0 rather than null to show silent periods
+          // Only convert negative or invalid values to null
+          const validFreq = (frequency >= 0 && !isNaN(frequency)) ? frequency : null;
           pitchData.push({ time: timePos, frequency: validFreq as any });
         });
         
