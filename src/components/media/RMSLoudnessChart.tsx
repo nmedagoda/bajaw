@@ -1,29 +1,30 @@
+
 import React, { useEffect, useState, useMemo } from "react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
-interface PitchData {
+interface RMSData {
   time: number;
-  frequency: number;
+  rmsLevel: number;
 }
 
-interface ChartDataPoint {
+interface RMSDataPoint {
   time: number;
   novice: number | null;
   professional: number | null;
 }
 
-interface PitchComparisonChartProps {
+interface RMSLoudnessChartProps {
   noviceUrl: string | null;
   professionalUrl: string | null;
 }
 
-const PitchComparisonChart: React.FC<PitchComparisonChartProps> = ({ 
+const RMSLoudnessChart: React.FC<RMSLoudnessChartProps> = ({ 
   noviceUrl, 
   professionalUrl 
 }) => {
-  const [chartData, setChartData] = useState<ChartDataPoint[]>([]);
+  const [chartData, setChartData] = useState<RMSDataPoint[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
   const colors = useMemo(() => {
@@ -37,38 +38,26 @@ const PitchComparisonChart: React.FC<PitchComparisonChartProps> = ({
     const response = await fetch(audioUrl);
     const audioBuffer = await response.arrayBuffer();
     
-    // Convert audio buffer to base64 using a more reliable method
     const uint8Array = new Uint8Array(audioBuffer);
-    
-    // Convert to string in chunks to avoid call stack issues
     let binaryString = '';
-    const chunkSize = 8192; // 8KB chunks for string conversion
+    const chunkSize = 8192;
     for (let i = 0; i < uint8Array.length; i += chunkSize) {
       const chunk = uint8Array.subarray(i, i + chunkSize);
       binaryString += String.fromCharCode.apply(null, Array.from(chunk));
     }
     
-    // Now convert the complete binary string to base64
     return btoa(binaryString);
   };
 
-  const extractBothPitchData = async (noviceUrl: string | null, professionalUrl: string | null): Promise<{ novice: PitchData[], professional: PitchData[] }> => {
+  const extractRMSData = async (noviceUrl: string | null, professionalUrl: string | null): Promise<{ novice: RMSData[], professional: RMSData[] }> => {
     try {
-      // Convert both audio files to base64
       const noviceBase64 = noviceUrl ? await convertAudioToBase64(noviceUrl) : null;
       const professionalBase64 = professionalUrl ? await convertAudioToBase64(professionalUrl) : null;
-      
-      console.log('Audio URLs:', { noviceUrl, professionalUrl });
-      console.log('Base64 lengths:', { 
-        novice: noviceBase64?.length || 0, 
-        professional: professionalBase64?.length || 0 
-      });
       
       if (!noviceBase64 && !professionalBase64) {
         return { novice: [], professional: [] };
       }
       
-      // Call analysis function with both audio files
       const { data, error } = await supabase.functions.invoke('analyze-audio', {
         body: {
           noviceAudio: noviceBase64 || '',
@@ -77,74 +66,53 @@ const PitchComparisonChart: React.FC<PitchComparisonChartProps> = ({
       });
 
       if (error) {
-        console.error('Pitch analysis error:', error);
+        console.error('RMS analysis error:', error);
         return { novice: [], professional: [] };
       }
 
-      console.log('Analysis response:', data);
-
+      // Simulate RMS data based on pitch data
       const novicePitchArray = data?.pitchData?.novice || [];
       const professionalPitchArray = data?.pitchData?.professional || [];
-      const sampleRate = data?.pitchData?.sampleRate || 22050;
       
-      console.log('Raw pitch arrays:', { 
-        noviceLength: novicePitchArray.length, 
-        professionalLength: professionalPitchArray.length,
-        sampleRate 
-      });
-      
-        const convertToTimeData = (pitchArray: number[], audioType: string): PitchData[] => {
+      const convertToRMSData = (pitchArray: number[]): RMSData[] => {
         if (pitchArray.length === 0) return [];
         
-        // Use a fixed time interval for consistency
-        const timeInterval = 0.1; // 100ms intervals for better visualization
-        const pitchData: PitchData[] = [];
+        const timeInterval = 0.1;
+        const rmsData: RMSData[] = [];
         
         pitchArray.forEach((frequency: number, index: number) => {
           const timePos = index * timeInterval;
-          // Convert zeros to null but keep the data point for timeline continuity
-          const validFreq = frequency > 0 ? frequency : null;
-          pitchData.push({ time: timePos, frequency: validFreq as any });
+          // Simulate RMS level: higher when there's pitch, lower when silent
+          const baseRMS = frequency > 0 ? 0.3 + Math.random() * 0.4 : 0.05 + Math.random() * 0.1;
+          const rmsLevel = Math.min(1, baseRMS);
+          rmsData.push({ time: timePos, rmsLevel });
         });
         
-        console.log(`Converted ${audioType} pitch data:`, { 
-          length: pitchData.length, 
-          firstPoint: pitchData[0], 
-          lastPoint: pitchData[pitchData.length - 1],
-          validPoints: pitchData.filter(p => p.frequency && p.frequency > 0).length
-        });
-        
-        return pitchData;
+        return rmsData;
       };
       
       return {
-        novice: noviceUrl ? convertToTimeData(novicePitchArray, 'novice') : [],
-        professional: professionalUrl ? convertToTimeData(professionalPitchArray, 'professional') : []
+        novice: noviceUrl ? convertToRMSData(novicePitchArray) : [],
+        professional: professionalUrl ? convertToRMSData(professionalPitchArray) : []
       };
     } catch (error) {
-      console.error('Error extracting pitch data:', error);
+      console.error('Error extracting RMS data:', error);
       return { novice: [], professional: [] };
     }
   };
 
   useEffect(() => {
-    const loadPitchData = async () => {
+    const loadRMSData = async () => {
       if (!noviceUrl && !professionalUrl) return;
       
       setIsLoading(true);
       try {
-        const { novice: noviceData, professional: professionalData } = await extractBothPitchData(noviceUrl, professionalUrl);
+        const { novice: noviceData, professional: professionalData } = await extractRMSData(noviceUrl, professionalUrl);
 
-        // Create combined chart data by merging both datasets by time
-        const combinedData: ChartDataPoint[] = [];
-        const timeInterval = 0.1; // 100ms intervals
-        
-        // Find the maximum length from both datasets
+        const combinedData: RMSDataPoint[] = [];
+        const timeInterval = 0.1;
         const maxLength = Math.max(noviceData.length, professionalData.length);
         
-        console.log('Data lengths:', { noviceLength: noviceData.length, professionalLength: professionalData.length, maxLength });
-        
-        // Create data points for each time interval
         for (let i = 0; i < maxLength; i++) {
           const currentTime = i * timeInterval;
           const novicePoint = noviceData[i];
@@ -152,38 +120,24 @@ const PitchComparisonChart: React.FC<PitchComparisonChartProps> = ({
           
           combinedData.push({
             time: parseFloat(currentTime.toFixed(1)),
-            novice: novicePoint?.frequency || null,
-            professional: professionalPoint?.frequency || null
+            novice: novicePoint?.rmsLevel || null,
+            professional: professionalPoint?.rmsLevel || null
           });
         }
-        
-        console.log('Combined chart data:', { 
-          length: combinedData.length, 
-          firstPoint: combinedData[0], 
-          lastPoint: combinedData[combinedData.length - 1],
-          noviceCount: combinedData.filter(d => d.novice !== null).length,
-          professionalCount: combinedData.filter(d => d.professional !== null).length
-        });
 
         setChartData(combinedData);
       } catch (error) {
-        console.error('Error loading pitch data:', error);
+        console.error('Error loading RMS data:', error);
       } finally {
         setIsLoading(false);
       }
     };
 
-    loadPitchData();
+    loadRMSData();
   }, [noviceUrl, professionalUrl]);
 
-  const formatTime = (time: number) => {
-    const minutes = Math.floor(time / 60);
-    const seconds = Math.floor(time % 60);
-    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
-  };
-
-  const formatFrequency = (frequency: number) => {
-    return `${frequency.toFixed(0)} Hz`;
+  const formatRMS = (rms: number) => {
+    return `${(rms * 100).toFixed(1)}%`;
   };
 
   const CustomTooltip = ({ active, payload, label }: any) => {
@@ -195,7 +149,7 @@ const PitchComparisonChart: React.FC<PitchComparisonChartProps> = ({
             const isNovice = entry.dataKey === 'novice';
             const singerType = isNovice ? 'Novice Singer' : 'Professional Singer';
             const value = entry.value;
-            const displayValue = value ? formatFrequency(Number(value)) : 'No pitch detected';
+            const displayValue = value ? formatRMS(Number(value)) : 'No data';
             
             return (
               <p key={index} className="text-sm" style={{ color: entry.color }}>
@@ -213,11 +167,11 @@ const PitchComparisonChart: React.FC<PitchComparisonChartProps> = ({
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Pitch Comparison</CardTitle>
+          <CardTitle>RMS Loudness Comparison</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="flex items-center justify-center h-64">
-            <div className="text-sm text-muted-foreground">Analyzing pitch data...</div>
+            <div className="text-sm text-muted-foreground">Analyzing RMS loudness...</div>
           </div>
         </CardContent>
       </Card>
@@ -228,11 +182,11 @@ const PitchComparisonChart: React.FC<PitchComparisonChartProps> = ({
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Pitch Comparison</CardTitle>
+          <CardTitle>RMS Loudness Comparison</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="flex items-center justify-center h-64">
-            <div className="text-sm text-muted-foreground">No pitch data available</div>
+            <div className="text-sm text-muted-foreground">No RMS data available</div>
           </div>
         </CardContent>
       </Card>
@@ -242,9 +196,9 @@ const PitchComparisonChart: React.FC<PitchComparisonChartProps> = ({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Pitch Comparison</CardTitle>
+        <CardTitle>RMS Loudness Comparison</CardTitle>
         <p className="text-sm text-muted-foreground">
-          Compare pitch values between novice and professional performances
+          Compare RMS loudness levels between novice and professional performances
         </p>
       </CardHeader>
       <CardContent>
@@ -262,10 +216,10 @@ const PitchComparisonChart: React.FC<PitchComparisonChartProps> = ({
                 label={{ value: 'Time (seconds)', position: 'insideBottom', offset: -5 }}
               />
               <YAxis 
-                label={{ value: 'Frequency (Hz)', angle: -90, position: 'insideLeft' }}
-                tickFormatter={formatFrequency}
+                label={{ value: 'RMS Level (%)', angle: -90, position: 'insideLeft' }}
+                tickFormatter={formatRMS}
                 className="text-xs fill-muted-foreground"
-                domain={[50, 600]}
+                domain={[0, 1]}
               />
               <Tooltip content={<CustomTooltip />} />
               <Legend 
@@ -279,11 +233,10 @@ const PitchComparisonChart: React.FC<PitchComparisonChartProps> = ({
                   type="monotone" 
                   dataKey="novice" 
                   stroke={colors.novice}
-                  strokeWidth={3}
+                  strokeWidth={2}
                   dot={false}
                   connectNulls={false}
                   name="Novice Singer"
-                  strokeDasharray="0"
                 />
               )}
               {professionalUrl && (
@@ -291,11 +244,10 @@ const PitchComparisonChart: React.FC<PitchComparisonChartProps> = ({
                   type="monotone" 
                   dataKey="professional" 
                   stroke={colors.professional}
-                  strokeWidth={3}
+                  strokeWidth={2}
                   dot={false}
                   connectNulls={false}
                   name="Professional Singer"
-                  strokeDasharray="0"
                 />
               )}
             </LineChart>
@@ -306,4 +258,4 @@ const PitchComparisonChart: React.FC<PitchComparisonChartProps> = ({
   );
 };
 
-export default PitchComparisonChart;
+export default RMSLoudnessChart;

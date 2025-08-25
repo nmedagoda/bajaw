@@ -6,6 +6,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import PitchWaveformPlayer from "@/components/media/PitchWaveformPlayer";
 import PitchComparisonChart from "@/components/media/PitchComparisonChart";
+import SpectrogramChart from "@/components/media/SpectrogramChart";
+import RMSLoudnessChart from "@/components/media/RMSLoudnessChart";
 import { resolvePlayableUrl } from "@/lib/media";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -314,8 +316,18 @@ const SingerDashboard: React.FC = () => {
 
                   {/* Pitch Comparison Chart */}
                   {noviceUrl && professionalUrl && (
-                    <div className="mt-6">
+                    <div className="mt-6 space-y-6">
                       <PitchComparisonChart 
+                        noviceUrl={noviceUrl} 
+                        professionalUrl={professionalUrl} 
+                      />
+                      
+                      <SpectrogramChart 
+                        noviceUrl={noviceUrl} 
+                        professionalUrl={professionalUrl} 
+                      />
+                      
+                      <RMSLoudnessChart 
                         noviceUrl={noviceUrl} 
                         professionalUrl={professionalUrl} 
                       />
