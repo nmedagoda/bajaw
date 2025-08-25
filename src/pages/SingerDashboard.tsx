@@ -164,16 +164,28 @@ const SingerDashboard: React.FC = () => {
       const noviceBase64 = await audioToBase64(noviceUrl);
       const professionalBase64 = await audioToBase64(professionalUrl);
 
-      const { data, error } = await supabase.functions.invoke('analyze-audio', {
+      // Try enhanced HuggingFace analysis first, fallback to basic if needed
+      const { data, error } = await supabase.functions.invoke('analyze-audio-hf', {
         body: {
           noviceAudio: noviceBase64,
           professionalAudio: professionalBase64
         }
       });
 
-      if (error) throw error;
-
-      setAnalysisResults(data);
+      if (error) {
+        console.log('Enhanced analysis failed, falling back to basic analysis');
+        // Fallback to original analyze-audio function
+        const fallbackResult = await supabase.functions.invoke('analyze-audio', {
+          body: {
+            noviceAudio: noviceBase64,
+            professionalAudio: professionalBase64
+          }
+        });
+        if (fallbackResult.error) throw fallbackResult.error;
+        setAnalysisResults(fallbackResult.data);
+      } else {
+        setAnalysisResults(data);
+      }
       toast({
         title: "Analysis Complete",
         description: "Performance comparison results are ready.",

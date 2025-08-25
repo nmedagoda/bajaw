@@ -1,4 +1,7 @@
 project_id = "ywosoqjzagmwhkybelqp"
 
+[functions.analyze-audio-hf]
+verify_jwt = false
+
 [functions.generate-review]
 verify_jwt = false
