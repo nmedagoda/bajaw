@@ -11,6 +11,7 @@ import {
   DropdownMenuSeparator 
 } from '@/components/ui/dropdown-menu';
 import { Music, Mic, Users, Gavel, Search, Trophy, User, LogOut } from 'lucide-react';
+import { ThemeToggle } from '@/components/theme-toggle';
 
 const Navigation = () => {
   const { user, profile, signOut, activeRole, setActiveRole, roles } = useAuth();
@@ -85,6 +86,7 @@ const Navigation = () => {
           </div>
 
           <div className="flex items-center space-x-4">
+            <ThemeToggle />
             <div className="flex items-center space-x-2">
               <config.icon className={`w-5 h-5 ${config.color}`} />
               <span className="text-sm font-medium capitalize">{currentRole}</span>
