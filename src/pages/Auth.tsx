@@ -11,6 +11,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Music, Mic, Users, Gavel, Check, X } from 'lucide-react';
 import { toast } from 'sonner';
+import { ThemeToggle } from '@/components/theme-toggle';
 
 const Auth = () => {
   const [isLoading, setIsLoading] = useState(false);
@@ -156,6 +157,9 @@ const Auth = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-secondary/20 to-primary/10 flex items-center justify-center p-4">
+      <div className="absolute top-4 right-4">
+        <ThemeToggle />
+      </div>
       <Card className="w-full max-w-md shadow-2xl border-border/50">
         <CardHeader className="text-center space-y-4">
           <div className="flex justify-center">
@@ -270,7 +274,7 @@ const Auth = () => {
                 
                 <div className="space-y-2">
                   <Label htmlFor="role">I want to join as a</Label>
-                  <Select value={signUpData.role} onValueChange={(value) => setSignUpData({ ...signUpData, role: value })}>
+                  <Select value={signUpData.role || ""} onValueChange={(value) => setSignUpData({ ...signUpData, role: value })}>
                     <SelectTrigger>
                       <SelectValue placeholder="Select your role" />
                     </SelectTrigger>
