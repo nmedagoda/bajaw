@@ -19,9 +19,8 @@ const WaveformPlayer: React.FC<WaveformPlayerProps> = ({ url, height = 96 }) => 
     const root = document.documentElement;
     const primary = getComputedStyle(root).getPropertyValue("--primary").trim();
     const accent = getComputedStyle(root).getPropertyValue("--accent").trim();
-    const muted = getComputedStyle(root).getPropertyValue("--muted-foreground").trim() || primary;
     return {
-      wave: `hsl(${muted})`,
+      wave: '#fbbf24', // Yellow color
       progress: `hsl(${accent})`,
       cursor: `hsl(${primary})`,
     };

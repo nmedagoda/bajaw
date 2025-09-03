@@ -34,10 +34,9 @@ const PitchWaveformPlayer: React.FC<PitchWaveformPlayerProps> = ({
     const root = document.documentElement;
     const primary = getComputedStyle(root).getPropertyValue("--primary").trim();
     const accent = getComputedStyle(root).getPropertyValue("--accent").trim();
-    const muted = getComputedStyle(root).getPropertyValue("--muted-foreground").trim() || primary;
     const destructive = getComputedStyle(root).getPropertyValue("--destructive").trim();
     return {
-      wave: `hsl(${muted})`,
+      wave: '#fbbf24', // Yellow color
       progress: `hsl(${accent})`,
       cursor: `hsl(${primary})`,
       zeroPitch: `hsl(${destructive})`,
