@@ -13,7 +13,8 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/components/ui/use-toast";
-import { Mic, FileAudio, ExternalLink, BarChart3, Loader2, FileText } from "lucide-react";
+import { Mic, FileAudio, ExternalLink, BarChart3, Loader2, FileText, User } from "lucide-react";
+import ProfileForm from "@/components/ProfileForm";
 
 interface UploadedSongRow {
   id: string;
@@ -293,6 +294,9 @@ const SingerDashboard: React.FC = () => {
           </TabsTrigger>
           <TabsTrigger value="review" className="flex items-center gap-2">
             <FileText className="w-4 h-4" /> Review Report
+          </TabsTrigger>
+          <TabsTrigger value="profile" className="flex items-center gap-2">
+            <User className="w-4 h-4" /> Profile
           </TabsTrigger>
           <TabsTrigger value="record" className="flex items-center gap-2">
             <FileAudio className="w-4 h-4" /> Record New
@@ -664,6 +668,10 @@ const SingerDashboard: React.FC = () => {
               )}
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="profile" className="space-y-6">
+          <ProfileForm />
         </TabsContent>
 
         <TabsContent value="record">
