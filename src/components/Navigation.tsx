@@ -27,6 +27,7 @@ const Navigation = () => {
         { path: '/singer/dashboard', label: 'My Performances', icon: Mic },
         { path: '/singer/record', label: 'Record New Song', icon: Music },
         { path: '/performances', label: 'Browse Performances', icon: Search },
+        { path: '/profile', label: 'Profile', icon: User },
       ]
     },
     judge: {
@@ -35,6 +36,7 @@ const Navigation = () => {
       routes: [
         { path: '/judge/dashboard', label: 'Judge Dashboard', icon: Gavel },
         { path: '/performances', label: 'Rate Performances', icon: Trophy },
+        { path: '/profile', label: 'Profile', icon: User },
       ]
     },
     audience: {
@@ -43,6 +45,7 @@ const Navigation = () => {
       routes: [
         { path: '/audience/dashboard', label: 'Audience Dashboard', icon: Users },
         { path: '/performances', label: 'Watch & Vote', icon: Trophy },
+        { path: '/profile', label: 'Profile', icon: User },
       ]
     }
   };
