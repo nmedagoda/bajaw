@@ -63,7 +63,7 @@ const Navigation = () => {
               <div className="w-8 h-8 bg-gradient-to-br from-primary to-accent rounded-lg flex items-center justify-center">
                 <Music className="w-5 h-5 text-primary-foreground" />
               </div>
-              <span className="text-xl font-bold text-foreground">Bajaw</span>
+              <span className="text-xl font-bold text-foreground">Bajawu</span>
             </Link>
             
             <div className="flex items-center space-x-6">

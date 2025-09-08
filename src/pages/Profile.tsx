@@ -3,7 +3,7 @@ import ProfileForm from '@/components/ProfileForm';
 
 const Profile = () => {
   useEffect(() => {
-    document.title = "Profile Settings - Bajaw";
+    document.title = "Profile Settings - Bajawu";
     const metaDesc = document.querySelector('meta[name="description"]');
     const content = "Manage your profile information and settings";
     if (metaDesc) metaDesc.setAttribute("content", content);

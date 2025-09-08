@@ -167,7 +167,7 @@ const Auth = () => {
               <Music className="w-8 h-8 text-primary-foreground" />
             </div>
           </div>
-          <CardTitle className="text-2xl font-bold">Welcome to Bajaw</CardTitle>
+          <CardTitle className="text-2xl font-bold">Welcome to Bajawu</CardTitle>
           <CardDescription>
             Join the global vocal performance platform
           </CardDescription>

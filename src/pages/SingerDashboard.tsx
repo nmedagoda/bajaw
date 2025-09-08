@@ -57,7 +57,7 @@ const SingerDashboard: React.FC = () => {
   });
 
   useEffect(() => {
-    document.title = "My Performances - Bajaw";
+    document.title = "My Performances - Bajawu";
     const metaDesc = document.querySelector('meta[name="description"]');
     const content = "My performances with waveform player and song selection";
     if (metaDesc) metaDesc.setAttribute("content", content);

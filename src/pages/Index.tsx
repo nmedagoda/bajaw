@@ -52,7 +52,7 @@ const Index = () => {
             </div>
             
             <h1 className="text-4xl md:text-6xl font-bold text-foreground mb-6">
-              Welcome to <span className="bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">Bajaw</span>
+              Welcome to <span className="bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">Bajawu</span>
             </h1>
             
             <p className="text-xl md:text-2xl text-muted-foreground mb-8 max-w-3xl mx-auto">
@@ -162,7 +162,7 @@ const Index = () => {
               A Global Entertainment Platform
             </h2>
             <p className="text-lg text-muted-foreground max-w-3xl mx-auto mb-8">
-              Bajaw brings together singers, judges, and music lovers from every culture and age group. 
+              Bajawu brings together singers, judges, and music lovers from every culture and age group. 
               Whether you're 8 or 80, there's a place for you in our musical community.
             </p>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mt-12">
@@ -198,7 +198,7 @@ const Index = () => {
           </p>
           <Button size="lg" onClick={() => navigate('/auth')} className="px-8 py-3">
             <Music className="w-5 h-5 mr-2" />
-            Join Bajaw Today
+            Join Bajawu Today
           </Button>
         </div>
       </div>
