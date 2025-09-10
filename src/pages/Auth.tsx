@@ -288,7 +288,7 @@ const Auth = () => {
                       <SelectItem value="judge">
                         <div className="flex items-center gap-2">
                           <Gavel className="w-4 h-4" />
-                          Judge
+                          Judger
                         </div>
                       </SelectItem>
                       <SelectItem value="audience">

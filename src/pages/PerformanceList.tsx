@@ -384,7 +384,7 @@ const PerformanceList = () => {
                 {canVote ? (
                   <VoteControls performanceId={activeMedia.id} onVoted={fetchPerformances} />
                 ) : (
-                  <p className="text-sm text-muted-foreground">Sign in as audience or judge to vote.</p>
+                  <p className="text-sm text-muted-foreground">Sign in as audience or judger to vote.</p>
                 )}
               </aside>
             </div>

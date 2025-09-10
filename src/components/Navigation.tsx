@@ -34,7 +34,7 @@ const Navigation = () => {
       icon: Gavel,
       color: 'text-primary',
       routes: [
-        { path: '/judge/dashboard', label: 'Judge Dashboard', icon: Gavel },
+        { path: '/judge/dashboard', label: 'Judger Dashboard', icon: Gavel },
         { path: '/performances', label: 'Rate Performances', icon: Trophy },
         { path: '/profile', label: 'Profile', icon: User },
       ]

@@ -80,7 +80,7 @@ const Index = () => {
             Three Ways to Experience Music
           </h2>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-            Join our global community as a singer, judge, or audience member
+            Join our global community as a singer, judger, or audience member
           </p>
         </div>
 
@@ -107,13 +107,13 @@ const Index = () => {
             </CardContent>
           </Card>
 
-          {/* Judge */}
+          {/* Judger */}
           <Card className="text-center group hover:shadow-xl transition-all duration-300 border-border/50">
             <CardHeader>
               <div className="w-16 h-16 bg-gradient-to-br from-primary to-primary/80 rounded-full flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform">
                 <Gavel className="w-8 h-8 text-primary-foreground" />
               </div>
-              <CardTitle className="text-2xl">Judge</CardTitle>
+              <CardTitle className="text-2xl">Judger</CardTitle>
               <CardDescription className="text-base">
                 Provide expert evaluation and constructive feedback
               </CardDescription>
@@ -162,7 +162,7 @@ const Index = () => {
               A Global Entertainment Platform
             </h2>
             <p className="text-lg text-muted-foreground max-w-3xl mx-auto mb-8">
-              Bajawu brings together singers, judges, and music lovers from every culture and age group. 
+              Bajawu brings together singers, judgers, and music lovers from every culture and age group. 
               Whether you're 8 or 80, there's a place for you in our musical community.
             </p>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mt-12">
@@ -194,7 +194,7 @@ const Index = () => {
             Ready to Share Your Voice?
           </h2>
           <p className="text-lg text-muted-foreground mb-8 max-w-2xl mx-auto">
-            Join thousands of singers, judges, and music lovers from around the world
+            Join thousands of singers, judgers, and music lovers from around the world
           </p>
           <Button size="lg" onClick={() => navigate('/auth')} className="px-8 py-3">
             <Music className="w-5 h-5 mr-2" />

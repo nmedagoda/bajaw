@@ -395,7 +395,7 @@ const SingerDashboard: React.FC = () => {
                             <span className="font-medium text-foreground">• Spectrograms</span> → How does their tone quality compare? Very important for timbre, resonance, and vocal color (how "professional" it sounds)
                           </div>
                           <div>
-                            <span className="font-medium text-foreground">• RMS loudness</span> → How strong and controlled is their voice? Useful, but secondary, it helps with dynamics, but not enough alone to judge skill.
+                            <span className="font-medium text-foreground">• RMS loudness</span> → How strong and controlled is their voice? Useful, but secondary, it helps with dynamics, but not enough alone to assess skill.
                           </div>
                         </div>
                       </div>

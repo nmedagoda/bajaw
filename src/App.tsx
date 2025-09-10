@@ -67,7 +67,7 @@ const App = () => (
                 element={
                   <ProtectedRoute allowedRoles={['judge']}>
                     <div className="p-8 text-center">
-                      <h1 className="text-3xl font-bold mb-4">Judge Dashboard</h1>
+                      <h1 className="text-3xl font-bold mb-4">Judger Dashboard</h1>
                       <p className="text-muted-foreground">Coming soon: Performance evaluation tools and analytics</p>
                     </div>
                   </ProtectedRoute>
