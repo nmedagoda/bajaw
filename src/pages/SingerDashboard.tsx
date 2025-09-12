@@ -627,9 +627,10 @@ const SingerDashboard: React.FC = () => {
                       
                       <div className="prose prose-sm max-w-none">
                         <div className="bg-muted/30 p-6 rounded-lg border">
-                          <div className="whitespace-pre-line text-sm leading-relaxed">
-                            {reviewReport.review}
-                          </div>
+                          <div 
+                            className="whitespace-pre-line text-sm leading-relaxed"
+                            dangerouslySetInnerHTML={{ __html: reviewReport.review }}
+                          />
                         </div>
                       </div>
 
