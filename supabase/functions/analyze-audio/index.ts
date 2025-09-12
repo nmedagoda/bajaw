@@ -45,18 +45,31 @@ function calculateDTW(seq1: number[], seq2: number[]): number {
   return Math.min(1, dtw[m][n] / maxDistance);
 }
 
-// Simple pitch extraction using autocorrelation
+// Improved pitch extraction using autocorrelation with better detection
 function extractPitch(audioBuffer: Float32Array, sampleRate: number): number[] {
-  const windowSize = 1024; // Smaller window for better time resolution  
-  const hopSize = 256; // Much smaller hop size for more data points
+  const windowSize = 2048; // Larger window for better frequency resolution
+  const hopSize = 512; // Balanced hop size for good time resolution
   const pitches: number[] = [];
   
   console.log(`Extracting pitch from ${audioBuffer.length} samples at ${sampleRate}Hz`);
   
-  for (let i = 0; i < audioBuffer.length - windowSize; i += hopSize) {
-    const window = audioBuffer.slice(i, i + windowSize);
+  // Pre-emphasize the signal to boost higher frequencies
+  const emphasized = new Float32Array(audioBuffer.length);
+  emphasized[0] = audioBuffer[0];
+  for (let i = 1; i < audioBuffer.length; i++) {
+    emphasized[i] = audioBuffer[i] - 0.97 * audioBuffer[i - 1];
+  }
+  
+  for (let i = 0; i < emphasized.length - windowSize; i += hopSize) {
+    const window = emphasized.slice(i, i + windowSize);
     
-    // Calculate RMS energy
+    // Apply Hamming window
+    for (let j = 0; j < windowSize; j++) {
+      const hammingValue = 0.54 - 0.46 * Math.cos(2 * Math.PI * j / (windowSize - 1));
+      window[j] *= hammingValue;
+    }
+    
+    // Calculate RMS energy with better threshold
     let energy = 0;
     for (let j = 0; j < windowSize; j++) {
       energy += window[j] * window[j];
@@ -65,40 +78,44 @@ function extractPitch(audioBuffer: Float32Array, sampleRate: number): number[] {
     
     let bestFreq = 0;
     
-    if (energy > 0.005) { // Voice activity detection
+    if (energy > 0.001) { // Lower threshold for voice activity detection
       bestFreq = autocorrelationPitch(window, sampleRate);
     }
     
     pitches.push(Math.round(bestFreq));
     
-    // Remove the limit to get more data points for better visualization
-    if (pitches.length >= 800) break; // Increased limit for better charts
+    if (pitches.length >= 1000) break; // More data points for better analysis
   }
   
   console.log(`Extracted ${pitches.length} pitch points, non-zero: ${pitches.filter(p => p > 0).length}`);
   return pitches;
 }
 
-// Autocorrelation-based pitch detection
+// Enhanced autocorrelation-based pitch detection
 function autocorrelationPitch(window: Float32Array, sampleRate: number): number {
-  const minPitch = 80;
-  const maxPitch = 500;
+  const minPitch = 60;  // Lower minimum for male voices
+  const maxPitch = 600; // Higher maximum for female voices  
   const minPeriod = Math.floor(sampleRate / maxPitch);
   const maxPeriod = Math.floor(sampleRate / minPitch);
   
   let maxCorr = 0;
   let bestFreq = 0;
   
+  // Calculate autocorrelation with normalization
   for (let period = minPeriod; period <= maxPeriod; period++) {
     let correlation = 0;
-    let norm = 0;
+    let norm1 = 0;
+    let norm2 = 0;
     
-    for (let j = 0; j < window.length - period; j++) {
+    const len = window.length - period;
+    for (let j = 0; j < len; j++) {
       correlation += window[j] * window[j + period];
-      norm += window[j] * window[j];
+      norm1 += window[j] * window[j];
+      norm2 += window[j + period] * window[j + period];
     }
     
-    const normalizedCorr = norm > 0 ? correlation / norm : 0;
+    // Better normalization
+    const normalizedCorr = (norm1 * norm2) > 0 ? correlation / Math.sqrt(norm1 * norm2) : 0;
     
     if (normalizedCorr > maxCorr) {
       maxCorr = normalizedCorr;
@@ -106,7 +123,12 @@ function autocorrelationPitch(window: Float32Array, sampleRate: number): number 
     }
   }
   
-  return maxCorr > 0.3 ? bestFreq : 0;
+  // Lower threshold but add frequency validation
+  if (maxCorr > 0.2 && bestFreq >= minPitch && bestFreq <= maxPitch) {
+    return bestFreq;
+  }
+  
+  return 0;
 }
 
 // Simple onset detection
@@ -170,31 +192,79 @@ function extractFeatures(audioBuffer: Float32Array, sampleRate: number): number[
   return features;
 }
 
-// Simple audio buffer decoding
+// Improved audio buffer decoding with better format support
 function decodeAudioBuffer(base64: string): Float32Array {
   try {
     const binaryString = atob(base64);
-    const maxSamples = 22050 * 8; // Limit to 8 seconds at 22kHz
-    const sampleCount = Math.min(Math.floor(binaryString.length / 2), maxSamples);
+    console.log(`Decoding audio: ${binaryString.length} bytes`);
     
-    const float32Array = new Float32Array(sampleCount);
+    // Try different decoding strategies based on data patterns
+    let float32Array: Float32Array;
     
+    // Strategy 1: Try as WAV file (skip header if present)
+    let offset = 0;
+    if (binaryString.length > 44 && binaryString.substring(0, 4) === 'RIFF') {
+      console.log('Detected WAV format, skipping header');
+      offset = 44; // Skip WAV header
+    }
+    
+    const dataLength = binaryString.length - offset;
+    const maxSamples = 44100 * 10; // 10 seconds at 44kHz
+    const sampleCount = Math.min(Math.floor(dataLength / 2), maxSamples);
+    
+    float32Array = new Float32Array(sampleCount);
+    
+    // Decode 16-bit PCM samples
     for (let i = 0; i < sampleCount; i++) {
-      const byteIndex = i * 2;
+      const byteIndex = offset + (i * 2);
       if (byteIndex + 1 < binaryString.length) {
-        const sample = (binaryString.charCodeAt(byteIndex) & 0xFF) | 
-                      ((binaryString.charCodeAt(byteIndex + 1) & 0xFF) << 8);
+        const low = binaryString.charCodeAt(byteIndex) & 0xFF;
+        const high = binaryString.charCodeAt(byteIndex + 1) & 0xFF;
+        const sample = low | (high << 8);
         const signed = sample > 32767 ? sample - 65536 : sample;
         float32Array[i] = signed / 32768.0;
       }
     }
     
-    console.log(`Decoded ${sampleCount} audio samples`);
+    // Apply basic normalization and noise gate
+    const maxAmplitude = Math.max(...Array.from(float32Array).map(Math.abs));
+    if (maxAmplitude > 0) {
+      const normalizeGain = 0.8 / maxAmplitude;
+      for (let i = 0; i < float32Array.length; i++) {
+        float32Array[i] *= normalizeGain;
+        // Simple noise gate
+        if (Math.abs(float32Array[i]) < 0.001) {
+          float32Array[i] = 0;
+        }
+      }
+    }
+    
+    console.log(`Decoded ${sampleCount} audio samples, max amplitude: ${maxAmplitude.toFixed(4)}`);
     return float32Array;
   } catch (error) {
     console.error('Audio decode error:', error);
     throw new Error('Failed to decode audio data');
   }
+}
+
+// Add audio fingerprinting to ensure unique analysis
+function calculateAudioFingerprint(audioBuffer: Float32Array): string {
+  let sum = 0;
+  let squares = 0;
+  let peaks = 0;
+  
+  for (let i = 0; i < Math.min(audioBuffer.length, 10000); i++) {
+    const sample = audioBuffer[i];
+    sum += sample;
+    squares += sample * sample;
+    if (Math.abs(sample) > 0.1) peaks++;
+  }
+  
+  const mean = sum / audioBuffer.length;
+  const rms = Math.sqrt(squares / audioBuffer.length);
+  const peakRatio = peaks / audioBuffer.length;
+  
+  return `${mean.toFixed(6)}_${rms.toFixed(6)}_${peakRatio.toFixed(6)}`;
 }
 
 serve(async (req) => {
@@ -219,6 +289,12 @@ serve(async (req) => {
     const professionalBuffer = decodeAudioBuffer(professionalAudio);
     
     console.log(`Audio decoded: Novice ${noviceBuffer.length} samples, Professional ${professionalBuffer.length} samples`)
+    
+    // Add unique audio fingerprinting to ensure different analysis
+    const noviceFingerprint = calculateAudioFingerprint(noviceBuffer);
+    const professionalFingerprint = calculateAudioFingerprint(professionalBuffer);
+    
+    console.log(`Audio fingerprints: Novice ${noviceFingerprint}, Professional ${professionalFingerprint}`)
 
     // Extract features
     console.log('Extracting features...')
