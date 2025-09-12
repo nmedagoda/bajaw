@@ -63,10 +63,14 @@ const RecordSong = () => {
   // Karaoke track state for Recording Studio
   const [karaokeFile, setKaraokeFile] = useState<File | null>(null);
   const [selectedKaraokeTrack, setSelectedKaraokeTrack] = useState<Song | null>(null);
-  const [karaokeSource, setKaraokeSource] = useState<'upload' | 'select' | null>(null);
+  const [karaokeSource, setKaraokeSource] = useState<'upload' | 'select' | 'database' | null>(null);
   const [isKaraokeReady, setIsKaraokeReady] = useState(false);
   const [karaokeSongTitle, setKaraokeSongTitle] = useState('');
   const [karaokeOriginalSinger, setKaraokeOriginalSinger] = useState('');
+  const [databaseKaraokeTracks, setDatabaseKaraokeTracks] = useState<any[]>([]);
+  const [karaokeSearchTerm, setKaraokeSearchTerm] = useState('');
+  const [selectedDatabaseTrack, setSelectedDatabaseTrack] = useState<any>(null);
+  const [showUploadOption, setShowUploadOption] = useState(false);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioStreamRef = useRef<MediaStream | null>(null);
@@ -75,7 +79,45 @@ const RecordSong = () => {
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Search for songs using Google API with singer priority
+  // Load karaoke tracks from database on component mount
+  useEffect(() => {
+    const loadKaraokeTracks = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('uploaded_songs')
+          .select('*')
+          .not('original_song_url', 'is', null)
+          .order('created_at', { ascending: false });
+
+        if (error) {
+          console.error('Error loading karaoke tracks:', error);
+          return;
+        }
+
+        setDatabaseKaraokeTracks(data || []);
+      } catch (error) {
+        console.error('Error loading karaoke tracks:', error);
+      }
+    };
+
+    loadKaraokeTracks();
+  }, []);
+
+  // Filter karaoke tracks based on search term
+  const filteredKaraokeTracks = databaseKaraokeTracks.filter(track => 
+    track.song_title.toLowerCase().includes(karaokeSearchTerm.toLowerCase()) ||
+    track.original_singer_name.toLowerCase().includes(karaokeSearchTerm.toLowerCase())
+  );
+
+  // Select karaoke track from database
+  const selectDatabaseKaraokeTrack = (track: any) => {
+    setSelectedDatabaseTrack(track);
+    setKaraokeSource('database');
+    setKaraokeFile(null);
+    setSelectedKaraokeTrack(null);
+    setIsKaraokeReady(true);
+    toast.success('Karaoke track selected from library!');
+  };
   const searchSongs = async (singer: string, words?: string) => {
     if (!singer.trim()) {
       setSongs([]);
@@ -658,10 +700,12 @@ const RecordSong = () => {
   const clearKaraokeSelection = () => {
     setKaraokeFile(null);
     setSelectedKaraokeTrack(null);
+    setSelectedDatabaseTrack(null);
     setKaraokeSource(null);
     setIsKaraokeReady(false);
     setKaraokeSongTitle('');
     setKaraokeOriginalSinger('');
+    setShowUploadOption(false);
   };
 
   return (
@@ -1036,11 +1080,117 @@ const RecordSong = () => {
                 Select or upload a karaoke track to record with background music
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 gap-6">
-                {/* Upload Karaoke File */}
-                <div className="space-y-4">
-                  <h3 className="font-semibold text-sm">Upload Karaoke Track</h3>
+            <CardContent className="space-y-6">
+              {/* Step 1: Browse Existing Karaoke Tracks */}
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-semibold text-lg">1. Browse Karaoke Library</h3>
+                  <Badge variant="secondary">{databaseKaraokeTracks.length} tracks available</Badge>
+                </div>
+                
+                {/* Search existing tracks */}
+                <div className="space-y-3">
+                  <Input
+                    placeholder="Search by song title or artist name..."
+                    value={karaokeSearchTerm}
+                    onChange={(e) => setKaraokeSearchTerm(e.target.value)}
+                    className="w-full"
+                  />
+                  
+                  <div className="max-h-48 overflow-y-auto space-y-2 bg-muted/20 rounded-lg p-3">
+                    {filteredKaraokeTracks.length > 0 ? (
+                      filteredKaraokeTracks.map((track) => (
+                        <div
+                          key={track.id}
+                          className={`p-3 border rounded-lg cursor-pointer transition-colors hover:bg-muted/50 ${
+                            selectedDatabaseTrack?.id === track.id ? 'border-primary bg-primary/10' : 'border-border'
+                          }`}
+                          onClick={() => selectDatabaseKaraokeTrack(track)}
+                        >
+                          <div className="flex justify-between items-start">
+                            <div>
+                              <p className="font-medium text-sm">{track.song_title}</p>
+                              <p className="text-xs text-muted-foreground">by {track.original_singer_name}</p>
+                              <p className="text-xs text-muted-foreground">
+                                Added {new Date(track.created_at).toLocaleDateString()}
+                              </p>
+                            </div>
+                            {selectedDatabaseTrack?.id === track.id && (
+                              <Badge variant="default" className="text-xs">Selected</Badge>
+                            )}
+                          </div>
+                        </div>
+                      ))
+                    ) : karaokeSearchTerm ? (
+                      <div className="text-center py-4 text-muted-foreground">
+                        <p className="text-sm">No tracks found for "{karaokeSearchTerm}"</p>
+                        <Button 
+                          variant="link" 
+                          size="sm" 
+                          onClick={() => setShowUploadOption(true)}
+                          className="mt-2"
+                        >
+                          Upload this track instead
+                        </Button>
+                      </div>
+                    ) : (
+                      <div className="text-center py-4 text-muted-foreground">
+                        <p className="text-sm">No karaoke tracks available yet</p>
+                        <Button 
+                          variant="link" 
+                          size="sm" 
+                          onClick={() => setShowUploadOption(true)}
+                          className="mt-2"
+                        >
+                          Be the first to upload
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Step 2: Search Online Songs (fallback) */}
+              {!selectedDatabaseTrack && (
+                <div className="space-y-4 border-t pt-4">
+                  <h3 className="font-semibold text-lg">2. Search Online Songs</h3>
+                  <div className="max-h-40 overflow-y-auto space-y-2">
+                    {songs.slice(0, 3).map((song) => (
+                      <div
+                        key={song.id}
+                        className={`p-3 border rounded-lg cursor-pointer transition-colors hover:bg-muted/50 ${
+                          selectedKaraokeTrack?.id === song.id ? 'border-primary bg-primary/10' : 'border-border'
+                        }`}
+                        onClick={() => selectKaraokeTrack(song)}
+                      >
+                        <p className="text-sm font-medium">{song.title}</p>
+                        <p className="text-xs text-muted-foreground">{song.artist}</p>
+                      </div>
+                    ))}
+                    {songs.length === 0 && (
+                      <p className="text-sm text-muted-foreground text-center py-2">
+                        Go to Song Library tab to search for songs
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Step 3: Upload New Track (fallback) */}
+              {(showUploadOption || (!selectedDatabaseTrack && songs.length === 0)) && (
+                <div className="space-y-4 border-t pt-4">
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-semibold text-lg">3. Upload New Karaoke Track</h3>
+                    {showUploadOption && (
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        onClick={() => setShowUploadOption(false)}
+                      >
+                        <X className="w-4 h-4" />
+                      </Button>
+                    )}
+                  </div>
                   
                   {/* Song Information */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1095,45 +1245,87 @@ const RecordSong = () => {
                     </Button>
                   )}
                 </div>
+              )}
 
-                {/* Select from Database */}
-                <div className="space-y-3">
-                  <h3 className="font-semibold text-sm">Select from Songs</h3>
-                  <div className="max-h-40 overflow-y-auto space-y-2">
-                    {songs.slice(0, 5).map((song) => (
-                      <div
-                        key={song.id}
-                        className={`p-3 border rounded-lg cursor-pointer transition-colors hover:bg-muted/50 ${
-                          selectedKaraokeTrack?.id === song.id ? 'border-primary bg-primary/10' : ''
-                        }`}
-                        onClick={() => selectKaraokeTrack(song)}
-                      >
-                        <p className="text-sm font-medium">{song.title}</p>
-                        <p className="text-xs text-muted-foreground">{song.artist}</p>
-                      </div>
-                    ))}
+              {/* Current Selection Display */}
+              {isKaraokeReady && (
+                <div className="border border-dashed border-border rounded-lg p-4 bg-primary/5">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <Music className="w-4 h-4 text-primary" />
+                      <span className="font-medium">
+                        {karaokeSource === 'upload' ? 'Uploaded Track' : 
+                         karaokeSource === 'database' ? 'Library Track' : 'Selected Track'}
+                      </span>
+                    </div>
+                    <Button variant="outline" size="sm" onClick={clearKaraokeSelection}>
+                      <X className="w-3 h-3 mr-1" />
+                      Clear
+                    </Button>
                   </div>
+                  
+                  {karaokeSource === 'upload' && karaokeFile && (
+                    <div>
+                      <p className="text-sm mb-2 font-medium">{karaokeSongTitle || karaokeFile.name}</p>
+                      {karaokeOriginalSinger && (
+                        <p className="text-xs text-muted-foreground mb-2">by {karaokeOriginalSinger}</p>
+                      )}
+                      <audio
+                        ref={karaokeAudioRef}
+                        controls
+                        src={URL.createObjectURL(karaokeFile)}
+                        className="w-full"
+                        onLoadedData={() => setIsKaraokeReady(true)}
+                      />
+                    </div>
+                  )}
+                  
+                  {karaokeSource === 'database' && selectedDatabaseTrack && (
+                    <div>
+                      <p className="text-sm mb-1 font-medium">{selectedDatabaseTrack.song_title}</p>
+                      <p className="text-xs text-muted-foreground mb-2">by {selectedDatabaseTrack.original_singer_name}</p>
+                      <audio
+                        ref={karaokeAudioRef}
+                        controls
+                        src={selectedDatabaseTrack.original_song_url}
+                        className="w-full"
+                        onLoadedData={() => setIsKaraokeReady(true)}
+                      />
+                    </div>
+                  )}
+                  
+                  {karaokeSource === 'select' && selectedKaraokeTrack && (
+                    <div>
+                      <p className="text-sm mb-2 font-medium">
+                        {selectedKaraokeTrack.title} by {selectedKaraokeTrack.artist}
+                      </p>
+                      {selectedKaraokeTrack.previewUrl && (
+                        <audio
+                          ref={karaokeAudioRef}
+                          controls
+                          src={selectedKaraokeTrack.previewUrl}
+                          className="w-full"
+                          onLoadedData={() => setIsKaraokeReady(true)}
+                        />
+                      )}
+                    </div>
+                  )}
                 </div>
+              )}
 
-                {/* Select from Database */}
-                <div className="space-y-3">
-                  <h3 className="font-semibold text-sm">Select from Songs</h3>
-                  <div className="max-h-40 overflow-y-auto space-y-2">
-                    {songs.slice(0, 5).map((song) => (
-                      <div
-                        key={song.id}
-                        className={`p-3 border rounded-lg cursor-pointer transition-colors hover:bg-muted/50 ${
-                          selectedKaraokeTrack?.id === song.id ? 'border-primary bg-primary/10' : ''
-                        }`}
-                        onClick={() => selectKaraokeTrack(song)}
-                      >
-                        <p className="text-sm font-medium">{song.title}</p>
-                        <p className="text-xs text-muted-foreground">{song.artist}</p>
-                      </div>
-                    ))}
-                  </div>
+              {!isKaraokeReady && !showUploadOption && (
+                <div className="text-center py-6 text-muted-foreground">
+                  <Music className="w-8 h-8 mx-auto mb-2" />
+                  <p>Select a karaoke track from the library above to get started</p>
+                  <Button 
+                    variant="link" 
+                    onClick={() => setShowUploadOption(true)}
+                    className="mt-2"
+                  >
+                    Or upload a new track
+                  </Button>
                 </div>
-              </div>
+              )}
 
               {/* Current Karaoke Track */}
               {isKaraokeReady && (
