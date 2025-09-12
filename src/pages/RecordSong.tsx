@@ -335,33 +335,98 @@ const RecordSong = () => {
       return;
     }
 
+    if (!user) {
+      toast.error('Please log in to upload performances');
+      return;
+    }
+
     try {
+      setUploadProgress(10);
+      
+      // Convert audio blob to file
+      const audioFile = new File([audioBlob], 'performance.webm', { type: 'audio/webm' });
+      
+      // Upload audio file to storage
+      const audioFileName = `${user.id}/performances/${Date.now()}_${audioFile.name}`;
+      setUploadProgress(30);
+      
+      const { data: audioData, error: audioError } = await supabase.storage
+        .from('audio-uploads')
+        .upload(audioFileName, audioFile);
+      
+      if (audioError) throw audioError;
+      setUploadProgress(60);
+
+      // Get public URL
+      const { data: audioUrl } = supabase.storage
+        .from('audio-uploads')
+        .getPublicUrl(audioData.path);
+      
+      setUploadProgress(80);
+
+      // Save performance to database
+      const performanceData: any = {
+        singer_id: user.id,
+        title: performanceTitle.trim(),
+        audio_url: audioUrl.publicUrl,
+        analysis_data: {
+          recording_duration: recordingTime,
+          karaoke_used: isKaraokeReady,
+          karaoke_source: karaokeSource,
+          description: performanceDescription.trim() || null
+        }
+      };
+
+      // If there's a selected song, try to link it
+      if (selectedSong) {
+        // First try to find existing song in database
+        const { data: existingSong } = await supabase
+          .from('songs')
+          .select('id')
+          .ilike('title', selectedSong.title)
+          .ilike('artist', selectedSong.artist)
+          .maybeSingle();
+
+        if (existingSong) {
+          performanceData.song_id = existingSong.id;
+        } else {
+          // Create new song entry
+          const { data: newSong, error: songError } = await supabase
+            .from('songs')
+            .insert({
+              title: selectedSong.title,
+              artist: selectedSong.artist,
+              lyrics: selectedSong.lyrics || null
+            })
+            .select('id')
+            .single();
+
+          if (!songError && newSong) {
+            performanceData.song_id = newSong.id;
+          }
+        }
+      }
+
+      const { error: dbError } = await supabase
+        .from('performances')
+        .insert(performanceData);
+
+      if (dbError) throw dbError;
+
+      setUploadProgress(100);
+      toast.success('Performance uploaded successfully!');
+      
+      // Reset form
+      setAudioBlob(null);
+      setPerformanceTitle('');
+      setPerformanceDescription('');
+      setRecordingTime(0);
       setUploadProgress(0);
       
-      // Simulate upload progress
-      const progressInterval = setInterval(() => {
-        setUploadProgress(prev => {
-          if (prev >= 90) {
-            clearInterval(progressInterval);
-            return prev;
-          }
-          return prev + 10;
-        });
-      }, 200);
-
-      // Here you would typically upload to your backend/Supabase
-      // For now, we'll simulate the upload
-      setTimeout(() => {
-        setUploadProgress(100);
-        toast.success('Performance uploaded successfully!');
-        
-        // Reset form
-        setAudioBlob(null);
-        setPerformanceTitle('');
-        setPerformanceDescription('');
-        setRecordingTime(0);
-        setUploadProgress(0);
-      }, 2000);
+      // Clear karaoke selection if it was uploaded file
+      if (karaokeSource === 'upload') {
+        clearKaraokeSelection();
+      }
 
     } catch (error) {
       console.error('Upload error:', error);
