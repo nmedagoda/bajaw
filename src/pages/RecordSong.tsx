@@ -65,6 +65,8 @@ const RecordSong = () => {
   const [selectedKaraokeTrack, setSelectedKaraokeTrack] = useState<Song | null>(null);
   const [karaokeSource, setKaraokeSource] = useState<'upload' | 'select' | null>(null);
   const [isKaraokeReady, setIsKaraokeReady] = useState(false);
+  const [karaokeSongTitle, setKaraokeSongTitle] = useState('');
+  const [karaokeOriginalSinger, setKaraokeOriginalSinger] = useState('');
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioStreamRef = useRef<MediaStream | null>(null);
@@ -507,8 +509,56 @@ const RecordSong = () => {
     }
   };
 
+  // Save karaoke track information to database
+  const saveKaraokeTrack = async (file: File) => {
+    if (!user) {
+      toast.error('Please log in to save karaoke tracks');
+      return;
+    }
+
+    if (!karaokeSongTitle.trim() || !karaokeOriginalSinger.trim()) {
+      toast.error('Please fill in song title and original singer name');
+      return;
+    }
+
+    try {
+      // Upload karaoke file to storage
+      const karaokeFileName = `${user.id}/karaoke/${Date.now()}_${file.name}`;
+      const { data: karaokeData, error: karaokeError } = await supabase.storage
+        .from('audio-uploads')
+        .upload(karaokeFileName, file);
+      
+      if (karaokeError) throw karaokeError;
+
+      // Get public URL
+      const { data: karaokeUrl } = supabase.storage
+        .from('audio-uploads')
+        .getPublicUrl(karaokeData.path);
+
+      // Save to uploaded_songs table
+      const { error: dbError } = await supabase
+        .from('uploaded_songs')
+        .insert({
+          singer_id: user.id,
+          song_title: karaokeSongTitle.trim(),
+          original_singer_name: karaokeOriginalSinger.trim(),
+          original_song_url: karaokeUrl.publicUrl,
+          recorded_song_url: null, // No recorded version for karaoke tracks
+          original_file_type: file.type === 'audio/wav' ? 'wav' : 'mp3',
+          recorded_file_type: null
+        });
+
+      if (dbError) throw dbError;
+
+      toast.success('Karaoke track saved successfully!');
+    } catch (error) {
+      console.error('Save karaoke error:', error);
+      toast.error('Failed to save karaoke track');
+    }
+  };
+
   // Handle karaoke file upload
-  const handleKaraokeFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleKaraokeFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       const fileType = file.type;
@@ -517,7 +567,13 @@ const RecordSong = () => {
         setKaraokeSource('upload');
         setSelectedKaraokeTrack(null);
         setIsKaraokeReady(true);
-        toast.success('Karaoke track uploaded!');
+        
+        // Auto-save if song details are provided
+        if (karaokeSongTitle.trim() && karaokeOriginalSinger.trim()) {
+          await saveKaraokeTrack(file);
+        } else {
+          toast.success('Karaoke track uploaded! Fill in song details to save.');
+        }
       } else {
         toast.error('Please select a valid .wav or .mp3 file');
       }
@@ -539,6 +595,8 @@ const RecordSong = () => {
     setSelectedKaraokeTrack(null);
     setKaraokeSource(null);
     setIsKaraokeReady(false);
+    setKaraokeSongTitle('');
+    setKaraokeOriginalSinger('');
   };
 
   return (
@@ -914,24 +972,82 @@ const RecordSong = () => {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-6">
                 {/* Upload Karaoke File */}
-                <div className="space-y-3">
+                <div className="space-y-4">
                   <h3 className="font-semibold text-sm">Upload Karaoke Track</h3>
-                  <Input
-                    type="file"
-                    accept=".wav,.mp3,audio/wav,audio/mpeg,audio/mp3"
-                    onChange={handleKaraokeFileChange}
-                    className="file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-primary-foreground hover:file:bg-primary/90"
-                  />
-                  {karaokeFile && karaokeSource === 'upload' && (
-                    <div className="p-3 bg-muted/50 rounded-lg">
-                      <p className="text-sm font-medium">Selected: {karaokeFile.name}</p>
-                      <p className="text-xs text-muted-foreground">
-                        Size: {(karaokeFile.size / 1024 / 1024).toFixed(2)} MB
-                      </p>
+                  
+                  {/* Song Information */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="karaokeSongTitle">Song Title *</Label>
+                      <Input
+                        id="karaokeSongTitle"
+                        placeholder="Enter song title..."
+                        value={karaokeSongTitle}
+                        onChange={(e) => setKaraokeSongTitle(e.target.value)}
+                      />
                     </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="karaokeOriginalSinger">Original Singer *</Label>
+                      <Input
+                        id="karaokeOriginalSinger"
+                        placeholder="Enter original singer name..."
+                        value={karaokeOriginalSinger}
+                        onChange={(e) => setKaraokeOriginalSinger(e.target.value)}
+                      />
+                    </div>
+                  </div>
+
+                  {/* File Upload */}
+                  <div className="space-y-3">
+                    <Label>Karaoke Audio File</Label>
+                    <Input
+                      type="file"
+                      accept=".wav,.mp3,audio/wav,audio/mpeg,audio/mp3"
+                      onChange={handleKaraokeFileChange}
+                      className="file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-primary-foreground hover:file:bg-primary/90"
+                    />
+                    {karaokeFile && karaokeSource === 'upload' && (
+                      <div className="p-3 bg-muted/50 rounded-lg">
+                        <p className="text-sm font-medium">Selected: {karaokeFile.name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          Size: {(karaokeFile.size / 1024 / 1024).toFixed(2)} MB
+                        </p>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Manual Save Button */}
+                  {karaokeFile && karaokeSource === 'upload' && karaokeSongTitle.trim() && karaokeOriginalSinger.trim() && (
+                    <Button 
+                      onClick={() => saveKaraokeTrack(karaokeFile)}
+                      variant="outline"
+                      size="sm"
+                    >
+                      <Upload className="w-4 h-4 mr-2" />
+                      Save Karaoke Track
+                    </Button>
                   )}
+                </div>
+
+                {/* Select from Database */}
+                <div className="space-y-3">
+                  <h3 className="font-semibold text-sm">Select from Songs</h3>
+                  <div className="max-h-40 overflow-y-auto space-y-2">
+                    {songs.slice(0, 5).map((song) => (
+                      <div
+                        key={song.id}
+                        className={`p-3 border rounded-lg cursor-pointer transition-colors hover:bg-muted/50 ${
+                          selectedKaraokeTrack?.id === song.id ? 'border-primary bg-primary/10' : ''
+                        }`}
+                        onClick={() => selectKaraokeTrack(song)}
+                      >
+                        <p className="text-sm font-medium">{song.title}</p>
+                        <p className="text-xs text-muted-foreground">{song.artist}</p>
+                      </div>
+                    ))}
+                  </div>
                 </div>
 
                 {/* Select from Database */}
