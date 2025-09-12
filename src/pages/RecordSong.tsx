@@ -60,8 +60,16 @@ const RecordSong = () => {
   const [originalFileType, setOriginalFileType] = useState<'wav' | 'mp3'>('mp3');
   const [isUploading, setIsUploading] = useState(false);
 
+  // Karaoke track state for Recording Studio
+  const [karaokeFile, setKaraokeFile] = useState<File | null>(null);
+  const [selectedKaraokeTrack, setSelectedKaraokeTrack] = useState<Song | null>(null);
+  const [karaokeSource, setKaraokeSource] = useState<'upload' | 'select' | null>(null);
+  const [isKaraokeReady, setIsKaraokeReady] = useState(false);
+
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioStreamRef = useRef<MediaStream | null>(null);
+  const karaokeAudioRef = useRef<HTMLAudioElement | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -179,17 +187,42 @@ const RecordSong = () => {
 
   const startRecording = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ 
+      // Get microphone stream
+      const micStream = await navigator.mediaDevices.getUserMedia({ 
         audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true,
+          echoCancellation: false, // Disable for better mixing
+          noiseSuppression: false,
+          autoGainControl: false,
           sampleRate: 44100
         } 
       });
       
-      audioStreamRef.current = stream;
-      const mediaRecorder = new MediaRecorder(stream, {
+      // Create audio context for mixing
+      const audioContext = new AudioContext();
+      audioContextRef.current = audioContext;
+      
+      // Create microphone source
+      const micSource = audioContext.createMediaStreamSource(micStream);
+      
+      // Create destination for mixed audio
+      const destination = audioContext.createMediaStreamDestination();
+      
+      // Connect microphone to destination
+      micSource.connect(destination);
+      
+      // If karaoke track is selected, play it and mix with microphone
+      if (karaokeAudioRef.current && isKaraokeReady) {
+        const karaokeSource = audioContext.createMediaElementSource(karaokeAudioRef.current);
+        karaokeSource.connect(destination);
+        karaokeSource.connect(audioContext.destination); // Also play through speakers
+        
+        // Start karaoke playback
+        karaokeAudioRef.current.currentTime = 0;
+        await karaokeAudioRef.current.play();
+      }
+      
+      audioStreamRef.current = destination.stream;
+      const mediaRecorder = new MediaRecorder(destination.stream, {
         mimeType: 'audio/webm;codecs=opus'
       });
       
@@ -204,6 +237,16 @@ const RecordSong = () => {
       mediaRecorder.onstop = () => {
         const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
         setAudioBlob(audioBlob);
+        
+        // Stop karaoke playback
+        if (karaokeAudioRef.current) {
+          karaokeAudioRef.current.pause();
+        }
+        
+        // Clean up audio context
+        if (audioContextRef.current) {
+          audioContextRef.current.close();
+        }
       };
       
       mediaRecorderRef.current = mediaRecorder;
@@ -216,7 +259,7 @@ const RecordSong = () => {
         setRecordingTime(prev => prev + 1);
       }, 1000);
       
-      toast.success('Recording started!');
+      toast.success('Recording started with karaoke!');
     } catch (error) {
       console.error('Error starting recording:', error);
       toast.error('Failed to start recording. Please check microphone permissions.');
@@ -227,6 +270,9 @@ const RecordSong = () => {
     if (mediaRecorderRef.current && isRecording) {
       if (isPaused) {
         mediaRecorderRef.current.resume();
+        if (karaokeAudioRef.current) {
+          karaokeAudioRef.current.play();
+        }
         intervalRef.current = setInterval(() => {
           setRecordingTime(prev => prev + 1);
         }, 1000);
@@ -234,6 +280,9 @@ const RecordSong = () => {
         toast.success('Recording resumed');
       } else {
         mediaRecorderRef.current.pause();
+        if (karaokeAudioRef.current) {
+          karaokeAudioRef.current.pause();
+        }
         if (intervalRef.current) {
           clearInterval(intervalRef.current);
         }
@@ -250,9 +299,20 @@ const RecordSong = () => {
         clearInterval(intervalRef.current);
       }
       
+      // Stop karaoke playback
+      if (karaokeAudioRef.current) {
+        karaokeAudioRef.current.pause();
+        karaokeAudioRef.current.currentTime = 0;
+      }
+      
       // Stop all tracks
       if (audioStreamRef.current) {
         audioStreamRef.current.getTracks().forEach(track => track.stop());
+      }
+      
+      // Clean up audio context
+      if (audioContextRef.current) {
+        audioContextRef.current.close();
       }
       
       setIsRecording(false);
@@ -445,6 +505,40 @@ const RecordSong = () => {
         toast.error('Please select a valid .wav or .mp3 file');
       }
     }
+  };
+
+  // Handle karaoke file upload
+  const handleKaraokeFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const fileType = file.type;
+      if (fileType === 'audio/wav' || fileType === 'audio/mpeg' || fileType === 'audio/mp3') {
+        setKaraokeFile(file);
+        setKaraokeSource('upload');
+        setSelectedKaraokeTrack(null);
+        setIsKaraokeReady(true);
+        toast.success('Karaoke track uploaded!');
+      } else {
+        toast.error('Please select a valid .wav or .mp3 file');
+      }
+    }
+  };
+
+  // Handle karaoke track selection from database
+  const selectKaraokeTrack = (song: Song) => {
+    setSelectedKaraokeTrack(song);
+    setKaraokeSource('select');
+    setKaraokeFile(null);
+    setIsKaraokeReady(true);
+    toast.success('Karaoke track selected!');
+  };
+
+  // Clear karaoke selection
+  const clearKaraokeSelection = () => {
+    setKaraokeFile(null);
+    setSelectedKaraokeTrack(null);
+    setKaraokeSource(null);
+    setIsKaraokeReady(false);
   };
 
   return (
@@ -808,6 +902,114 @@ const RecordSong = () => {
         </TabsContent>
 
         <TabsContent value="record" className="space-y-6">
+          {/* Karaoke Track Selection */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Music className="w-5 h-5" />
+                Choose Karaoke Track
+              </CardTitle>
+              <CardDescription>
+                Select or upload a karaoke track to record with background music
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Upload Karaoke File */}
+                <div className="space-y-3">
+                  <h3 className="font-semibold text-sm">Upload Karaoke Track</h3>
+                  <Input
+                    type="file"
+                    accept=".wav,.mp3,audio/wav,audio/mpeg,audio/mp3"
+                    onChange={handleKaraokeFileChange}
+                    className="file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-primary-foreground hover:file:bg-primary/90"
+                  />
+                  {karaokeFile && karaokeSource === 'upload' && (
+                    <div className="p-3 bg-muted/50 rounded-lg">
+                      <p className="text-sm font-medium">Selected: {karaokeFile.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        Size: {(karaokeFile.size / 1024 / 1024).toFixed(2)} MB
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Select from Database */}
+                <div className="space-y-3">
+                  <h3 className="font-semibold text-sm">Select from Songs</h3>
+                  <div className="max-h-40 overflow-y-auto space-y-2">
+                    {songs.slice(0, 5).map((song) => (
+                      <div
+                        key={song.id}
+                        className={`p-3 border rounded-lg cursor-pointer transition-colors hover:bg-muted/50 ${
+                          selectedKaraokeTrack?.id === song.id ? 'border-primary bg-primary/10' : ''
+                        }`}
+                        onClick={() => selectKaraokeTrack(song)}
+                      >
+                        <p className="text-sm font-medium">{song.title}</p>
+                        <p className="text-xs text-muted-foreground">{song.artist}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Current Karaoke Track */}
+              {isKaraokeReady && (
+                <div className="border border-dashed border-border rounded-lg p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <Music className="w-4 h-4 text-primary" />
+                      <span className="font-medium">
+                        {karaokeSource === 'upload' ? 'Uploaded Track' : 'Selected Track'}
+                      </span>
+                    </div>
+                    <Button variant="outline" size="sm" onClick={clearKaraokeSelection}>
+                      <X className="w-3 h-3" />
+                    </Button>
+                  </div>
+                  
+                  {karaokeSource === 'upload' && karaokeFile && (
+                    <div>
+                      <p className="text-sm mb-2">{karaokeFile.name}</p>
+                      <audio
+                        ref={karaokeAudioRef}
+                        controls
+                        src={URL.createObjectURL(karaokeFile)}
+                        className="w-full"
+                        onLoadedData={() => setIsKaraokeReady(true)}
+                      />
+                    </div>
+                  )}
+                  
+                  {karaokeSource === 'select' && selectedKaraokeTrack && (
+                    <div>
+                      <p className="text-sm mb-2">
+                        {selectedKaraokeTrack.title} by {selectedKaraokeTrack.artist}
+                      </p>
+                      {selectedKaraokeTrack.previewUrl && (
+                        <audio
+                          ref={karaokeAudioRef}
+                          controls
+                          src={selectedKaraokeTrack.previewUrl}
+                          className="w-full"
+                          onLoadedData={() => setIsKaraokeReady(true)}
+                        />
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {!isKaraokeReady && (
+                <div className="text-center py-6 text-muted-foreground">
+                  <Music className="w-8 h-8 mx-auto mb-2" />
+                  <p>Upload a karaoke track or select a song to get started</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
           {/* Recording Studio */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Recording Controls */}
@@ -818,15 +1020,35 @@ const RecordSong = () => {
                   Recording Controls
                 </CardTitle>
                 <CardDescription>
-                  Record your performance with professional-quality audio
+                  Record your vocals with karaoke background music
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                {selectedSong && (
-                  <div className="bg-muted/50 rounded-lg p-4">
-                    <h3 className="font-semibold text-sm mb-1">Selected Song</h3>
-                    <p className="text-sm">{selectedSong.title}</p>
-                    <p className="text-xs text-muted-foreground">by {selectedSong.artist}</p>
+                {/* Karaoke Track Status */}
+                {isKaraokeReady ? (
+                  <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-4">
+                    <div className="flex items-center gap-2 mb-1">
+                      <div className="w-2 h-2 bg-green-500 rounded-full" />
+                      <span className="text-sm font-medium text-green-700 dark:text-green-400">
+                        Karaoke Track Ready
+                      </span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {karaokeSource === 'upload' && karaokeFile ? karaokeFile.name : 
+                       selectedKaraokeTrack ? `${selectedKaraokeTrack.title} by ${selectedKaraokeTrack.artist}` : ''}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-4">
+                    <div className="flex items-center gap-2 mb-1">
+                      <div className="w-2 h-2 bg-amber-500 rounded-full" />
+                      <span className="text-sm font-medium text-amber-700 dark:text-amber-400">
+                        No Karaoke Track
+                      </span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Recording will capture vocals only without background music
+                    </p>
                   </div>
                 )}
 
@@ -855,9 +1077,14 @@ const RecordSong = () => {
                   {/* Control Buttons */}
                   <div className="flex items-center justify-center gap-3">
                     {!isRecording ? (
-                      <Button onClick={startRecording} size="lg" className="px-8">
+                      <Button 
+                        onClick={startRecording} 
+                        size="lg" 
+                        className="px-8"
+                        disabled={!isKaraokeReady}
+                      >
                         <Mic className="w-4 h-4 mr-2" />
-                        Start Recording
+                        {isKaraokeReady ? 'Start Recording with Karaoke' : 'Start Recording'}
                       </Button>
                     ) : (
                       <>
@@ -878,6 +1105,12 @@ const RecordSong = () => {
                       </>
                     )}
                   </div>
+
+                  {!isKaraokeReady && (
+                    <p className="text-center text-sm text-muted-foreground mt-2">
+                      Select a karaoke track above to record with background music
+                    </p>
+                  )}
                 </div>
 
                 {/* Audio Preview */}
