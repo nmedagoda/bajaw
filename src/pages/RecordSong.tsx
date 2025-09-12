@@ -714,89 +714,95 @@ const RecordSong = () => {
   };
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-6xl">
-      <div className="mb-8">
-        <h1 className="text-4xl font-bold mb-2 bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+    <div className="container mx-auto px-2 sm:px-4 py-4 sm:py-8 max-w-6xl">
+      <div className="mb-6 sm:mb-8">
+        <h1 className="text-2xl sm:text-4xl font-bold mb-2 bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
           Record New Song
         </h1>
-        <p className="text-muted-foreground">
+        <p className="text-muted-foreground text-sm sm:text-base">
           Choose a song and record your performance to get AI-powered vocal analysis
         </p>
       </div>
 
-      <Tabs defaultValue={defaultTab} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="upload" className="flex items-center gap-2">
-            <FileAudio className="w-4 h-4" />
-            Upload Songs
+      <Tabs defaultValue={defaultTab} className="space-y-4 sm:space-y-6">
+        <TabsList className="grid w-full grid-cols-3 h-auto p-1">
+          <TabsTrigger value="upload" className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2 text-xs sm:text-sm p-2 sm:p-3">
+            <FileAudio className="w-3 h-3 sm:w-4 sm:h-4" />
+            <span className="hidden sm:inline">Upload Songs</span>
+            <span className="sm:hidden">Upload</span>
           </TabsTrigger>
-          <TabsTrigger value="search" className="flex items-center gap-2">
-            <Search className="w-4 h-4" />
-            Song Library
+          <TabsTrigger value="search" className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2 text-xs sm:text-sm p-2 sm:p-3">
+            <Search className="w-3 h-3 sm:w-4 sm:h-4" />
+            <span className="hidden sm:inline">Song Library</span>
+            <span className="sm:hidden">Library</span>
           </TabsTrigger>
-          <TabsTrigger value="record" className="flex items-center gap-2">
-            <Mic className="w-4 h-4" />
-            Recording Studio
+          <TabsTrigger value="record" className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2 text-xs sm:text-sm p-2 sm:p-3">
+            <Mic className="w-3 h-3 sm:w-4 sm:h-4" />
+            <span className="hidden sm:inline">Recording Studio</span>
+            <span className="sm:hidden">Record</span>
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="upload" className="space-y-6">
+        <TabsContent value="upload" className="space-y-4 sm:space-y-6">
           {/* Upload Songs */}
           <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <FileAudio className="w-5 h-5" />
+              <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
+                <FileAudio className="w-4 h-4 sm:w-5 sm:h-5" />
                 Upload Songs
               </CardTitle>
-              <CardDescription>
+              <CardDescription className="text-sm">
                 Upload both your recorded version and the original song for comparison
               </CardDescription>
             </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <CardContent className="space-y-4 sm:space-y-6">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
                 {/* Song Information */}
                 <div className="space-y-4">
-                  <h3 className="text-lg font-semibold">Song Information</h3>
+                  <h3 className="text-base sm:text-lg font-semibold">Song Information</h3>
                   
                   <div className="space-y-2">
-                    <Label htmlFor="songTitle">Song Title *</Label>
+                    <Label htmlFor="songTitle" className="text-sm">Song Title *</Label>
                     <Input
                       id="songTitle"
                       placeholder="Enter song title..."
                       value={songTitle}
                       onChange={(e) => setSongTitle(e.target.value)}
+                      className="text-sm"
                     />
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="originalSinger">Original Singer's Name *</Label>
+                    <Label htmlFor="originalSinger" className="text-sm">Original Singer's Name *</Label>
                     <Input
                       id="originalSinger"
                       placeholder="Enter original singer's name..."
                       value={originalSingerName}
                       onChange={(e) => setOriginalSingerName(e.target.value)}
+                      className="text-sm"
                     />
                   </div>
                 </div>
 
                 {/* File Uploads */}
                 <div className="space-y-4">
-                  <h3 className="text-lg font-semibold">Audio Files</h3>
+                  <h3 className="text-base sm:text-lg font-semibold">Audio Files</h3>
                   
                   {/* Recorded Song Upload */}
                   <div className="space-y-2">
-                    <Label htmlFor="recordedFile">Your Recorded Version *</Label>
+                    <Label htmlFor="recordedFile" className="text-sm">Your Recorded Version *</Label>
                     <div className="space-y-2">
                       <Input
                         id="recordedFile"
                         type="file"
                         accept=".wav,.mp3,audio/wav,audio/mpeg,audio/mp3"
                         onChange={handleRecordedFileChange}
+                        className="text-sm"
                       />
                       <div className="flex items-center gap-2">
-                        <Label htmlFor="recordedType" className="text-sm">File Type:</Label>
+                        <Label htmlFor="recordedType" className="text-xs sm:text-sm">File Type:</Label>
                         <Select value={recordedFileType} onValueChange={(value: 'wav' | 'mp3') => setRecordedFileType(value)}>
-                          <SelectTrigger className="w-20">
+                          <SelectTrigger className="w-16 sm:w-20 text-xs">
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>

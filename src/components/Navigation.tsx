@@ -56,17 +56,18 @@ const Navigation = () => {
 
   return (
     <nav className="bg-card border-b border-border/50 shadow-sm">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-8">
         <div className="flex justify-between h-16">
-          <div className="flex items-center space-x-8">
-            <Link to="/" className="flex items-center space-x-2">
+          <div className="flex items-center space-x-2 sm:space-x-8">
+            <Link to="/" className="flex items-center space-x-2 flex-shrink-0">
               <div className="w-8 h-8 bg-gradient-to-br from-primary to-accent rounded-lg flex items-center justify-center">
                 <Music className="w-5 h-5 text-primary-foreground" />
               </div>
-              <span className="text-xl font-bold text-foreground">Bajawu</span>
+              <span className="text-xl font-bold text-foreground hidden sm:block">Bajawu</span>
             </Link>
             
-            <div className="flex items-center space-x-6">
+            {/* Desktop Navigation */}
+            <div className="hidden lg:flex items-center space-x-6">
               {config.routes.map((route) => {
                 const Icon = route.icon;
                 const isActive = location.pathname === route.path;
@@ -86,18 +87,44 @@ const Navigation = () => {
                 );
               })}
             </div>
+
+            {/* Mobile Navigation */}
+            <div className="flex lg:hidden items-center space-x-1">
+              {config.routes.slice(0, 2).map((route) => {
+                const Icon = route.icon;
+                const isActive = location.pathname === route.path;
+                return (
+                  <Link
+                    key={route.path}
+                    to={route.path}
+                    className={`flex items-center justify-center p-2 rounded-md transition-colors ${
+                      isActive
+                        ? 'bg-primary text-primary-foreground'
+                        : 'text-muted-foreground hover:text-foreground hover:bg-secondary'
+                    }`}
+                    title={route.label}
+                  >
+                    <Icon className="w-4 h-4" />
+                  </Link>
+                );
+              })}
+            </div>
           </div>
 
-          <div className="flex items-center space-x-4">
+          <div className="flex items-center space-x-2 sm:space-x-4">
             <ThemeToggle />
-            <div className="flex items-center space-x-2">
+            
+            {/* Role indicator - hidden on mobile */}
+            <div className="hidden sm:flex items-center space-x-2">
               <config.icon className={`w-5 h-5 ${config.color}`} />
               <span className="text-sm font-medium capitalize">{currentRole}</span>
             </div>
+
+            {/* Role switcher - compact on mobile */}
             {roles && roles.length > 1 && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm" className="capitalize">
+                  <Button variant="outline" size="sm" className="hidden sm:flex capitalize">
                     Acting as: {currentRole}
                   </Button>
                 </DropdownMenuTrigger>
@@ -110,6 +137,8 @@ const Navigation = () => {
                 </DropdownMenuContent>
               </DropdownMenu>
             )}
+
+            {/* User menu */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="relative h-8 w-8 rounded-full">
@@ -125,8 +154,37 @@ const Navigation = () => {
                 <div className="flex flex-col space-y-1 p-2">
                   <p className="text-sm font-medium">{profile?.full_name}</p>
                   <p className="text-xs text-muted-foreground">{user.email}</p>
+                  {/* Show role on mobile in user menu */}
+                  <p className="text-xs text-muted-foreground sm:hidden capitalize">Role: {currentRole}</p>
                 </div>
                 <DropdownMenuSeparator />
+                
+                {/* Mobile menu items */}
+                <div className="lg:hidden">
+                  {config.routes.slice(2).map((route) => (
+                    <DropdownMenuItem key={route.path} asChild>
+                      <Link to={route.path} className="flex items-center">
+                        <route.icon className="mr-2 h-4 w-4" />
+                        {route.label}
+                      </Link>
+                    </DropdownMenuItem>
+                  ))}
+                  <DropdownMenuSeparator />
+                </div>
+
+                {/* Role switcher for mobile */}
+                {roles && roles.length > 1 && (
+                  <div className="sm:hidden">
+                    <div className="px-2 py-1 text-xs text-muted-foreground">Switch Role:</div>
+                    {roles.map((r) => (
+                      <DropdownMenuItem key={r} className="capitalize pl-4" onClick={() => setActiveRole(r)}>
+                        {r}
+                      </DropdownMenuItem>
+                    ))}
+                    <DropdownMenuSeparator />
+                  </div>
+                )}
+                
                 <DropdownMenuItem asChild>
                   <Link to="/profile" className="flex items-center">
                     <User className="mr-2 h-4 w-4" />

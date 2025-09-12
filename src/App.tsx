@@ -27,7 +27,8 @@ const App = () => (
           <BrowserRouter>
           <div className="min-h-screen bg-background">
             <Navigation />
-            <Routes>
+            <div className="px-2 sm:px-4 lg:px-8">
+              <Routes>
               <Route path="/" element={<Index />} />
               <Route path="/auth" element={<Auth />} />
               <Route 
@@ -95,6 +96,7 @@ const App = () => (
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>
+            </div>
           </div>
         </BrowserRouter>
       </TooltipProvider>

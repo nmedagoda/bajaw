@@ -277,25 +277,33 @@ const SingerDashboard: React.FC = () => {
   };
 
   return (
-    <div className="max-w-6xl mx-auto p-6">
-      <header className="mb-6">
-        <h1 className="text-3xl font-bold text-foreground">My Performances</h1>
-        <p className="text-muted-foreground">Select a song to view your waveform and play it back.</p>
+    <div className="max-w-6xl mx-auto p-2 sm:p-4 lg:p-6">
+      <header className="mb-4 sm:mb-6">
+        <h1 className="text-2xl sm:text-3xl font-bold text-foreground">My Performances</h1>
+        <p className="text-muted-foreground text-sm sm:text-base">Select a song to view your waveform and play it back.</p>
       </header>
 
-      <Tabs defaultValue="my" className="space-y-6">
-        <TabsList>
-          <TabsTrigger value="my" className="flex items-center gap-2">
-            <Mic className="w-4 h-4" /> My Performances
+      <Tabs defaultValue="my" className="space-y-4 sm:space-y-6">
+        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4">
+          <TabsTrigger value="my" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm">
+            <Mic className="w-3 h-3 sm:w-4 sm:h-4" /> 
+            <span className="hidden sm:inline">My Performances</span>
+            <span className="sm:hidden">Performances</span>
           </TabsTrigger>
-          <TabsTrigger value="analyze" className="flex items-center gap-2">
-            <BarChart3 className="w-4 h-4" /> Audio Analysis
+          <TabsTrigger value="analyze" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm">
+            <BarChart3 className="w-3 h-3 sm:w-4 sm:h-4" /> 
+            <span className="hidden sm:inline">Audio Analysis</span>
+            <span className="sm:hidden">Analysis</span>
           </TabsTrigger>
-          <TabsTrigger value="review" className="flex items-center gap-2">
-            <FileText className="w-4 h-4" /> Review Report
+          <TabsTrigger value="review" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm">
+            <FileText className="w-3 h-3 sm:w-4 sm:h-4" /> 
+            <span className="hidden sm:inline">Review Report</span>
+            <span className="sm:hidden">Review</span>
           </TabsTrigger>
-          <TabsTrigger value="record" className="flex items-center gap-2">
-            <FileAudio className="w-4 h-4" /> Record New
+          <TabsTrigger value="record" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm">
+            <FileAudio className="w-3 h-3 sm:w-4 sm:h-4" /> 
+            <span className="hidden sm:inline">Record New</span>
+            <span className="sm:hidden">Record</span>
           </TabsTrigger>
         </TabsList>
 
@@ -461,40 +469,40 @@ const SingerDashboard: React.FC = () => {
                   {analysisResults && (
                     <div className="space-y-4">
                       <h3 className="text-lg font-semibold">Analysis Results</h3>
-                      <div className="rounded-lg border">
-                        <Table>
+                      <div className="rounded-lg border overflow-x-auto -mx-2 sm:mx-0">
+                        <Table className="min-w-full">
                           <TableHeader>
                             <TableRow>
-                              <TableHead>Metric</TableHead>
-                              <TableHead>Novice Singer</TableHead>
-                              <TableHead>Professional Singer</TableHead>
-                              <TableHead>Difference</TableHead>
+                              <TableHead className="text-xs sm:text-sm whitespace-nowrap">Metric</TableHead>
+                              <TableHead className="text-xs sm:text-sm whitespace-nowrap">Novice Singer</TableHead>
+                              <TableHead className="text-xs sm:text-sm whitespace-nowrap">Professional Singer</TableHead>
+                              <TableHead className="text-xs sm:text-sm whitespace-nowrap">Difference</TableHead>
                             </TableRow>
                           </TableHeader>
                           <TableBody>
                             <TableRow>
-                              <TableCell className="font-medium">Pitch Accuracy (DTW)</TableCell>
-                              <TableCell>{formatScore(analysisResults.pitchAccuracy.novice)}</TableCell>
-                              <TableCell>{formatScore(analysisResults.pitchAccuracy.professional)}</TableCell>
-                              <TableCell>{formatScore(analysisResults.pitchAccuracy.difference)}</TableCell>
+                              <TableCell className="font-medium text-xs sm:text-sm">Pitch Accuracy (DTW)</TableCell>
+                              <TableCell className="text-xs sm:text-sm">{formatScore(analysisResults.pitchAccuracy.novice)}</TableCell>
+                              <TableCell className="text-xs sm:text-sm">{formatScore(analysisResults.pitchAccuracy.professional)}</TableCell>
+                              <TableCell className="text-xs sm:text-sm">{formatScore(analysisResults.pitchAccuracy.difference)}</TableCell>
                             </TableRow>
                             <TableRow>
-                              <TableCell className="font-medium">Rhythm Timing</TableCell>
-                              <TableCell>{formatScore(analysisResults.rhythmTiming.novice)}</TableCell>
-                              <TableCell>{formatScore(analysisResults.rhythmTiming.professional)}</TableCell>
-                              <TableCell>{formatScore(analysisResults.rhythmTiming.difference)}</TableCell>
+                              <TableCell className="font-medium text-xs sm:text-sm">Rhythm Timing</TableCell>
+                              <TableCell className="text-xs sm:text-sm">{formatScore(analysisResults.rhythmTiming.novice)}</TableCell>
+                              <TableCell className="text-xs sm:text-sm">{formatScore(analysisResults.rhythmTiming.professional)}</TableCell>
+                              <TableCell className="text-xs sm:text-sm">{formatScore(analysisResults.rhythmTiming.difference)}</TableCell>
                             </TableRow>
                             <TableRow>
-                              <TableCell className="font-medium">MFCC Similarity</TableCell>
-                              <TableCell>{formatScore(analysisResults.mfccDistance.novice)}</TableCell>
-                              <TableCell>{formatScore(analysisResults.mfccDistance.professional)}</TableCell>
-                              <TableCell>{formatScore(analysisResults.mfccDistance.difference)}</TableCell>
+                              <TableCell className="font-medium text-xs sm:text-sm">MFCC Similarity</TableCell>
+                              <TableCell className="text-xs sm:text-sm">{formatScore(analysisResults.mfccDistance.novice)}</TableCell>
+                              <TableCell className="text-xs sm:text-sm">{formatScore(analysisResults.mfccDistance.professional)}</TableCell>
+                              <TableCell className="text-xs sm:text-sm">{formatScore(analysisResults.mfccDistance.difference)}</TableCell>
                             </TableRow>
                             <TableRow>
-                              <TableCell className="font-medium">Emotion Match (Sadness)</TableCell>
-                              <TableCell>{formatScore(analysisResults.emotionMatch.novice)}</TableCell>
-                              <TableCell>{formatScore(analysisResults.emotionMatch.professional)}</TableCell>
-                              <TableCell>{formatScore(analysisResults.emotionMatch.difference)}</TableCell>
+                              <TableCell className="font-medium text-xs sm:text-sm">Emotion Match (Sadness)</TableCell>
+                              <TableCell className="text-xs sm:text-sm">{formatScore(analysisResults.emotionMatch.novice)}</TableCell>
+                              <TableCell className="text-xs sm:text-sm">{formatScore(analysisResults.emotionMatch.professional)}</TableCell>
+                              <TableCell className="text-xs sm:text-sm">{formatScore(analysisResults.emotionMatch.difference)}</TableCell>
                             </TableRow>
                           </TableBody>
                         </Table>
