@@ -508,36 +508,40 @@ const SingerDashboard: React.FC = () => {
                           <div className="border-l-4 border-primary pl-4">
                             <h4 className="font-medium text-foreground">Pitch Accuracy (DTW)</h4>
                             <p className="text-sm text-muted-foreground">
-                              Measures how closely your pitch follows the professional recording. Uses Dynamic Time Warping (DTW) 
-                              to align pitch contours of different lengths and calculate similarity. Higher scores (closer to 1.0) 
-                              indicate better pitch matching.
+                              Measures how closely your pitch follows the professional recording. Uses Dynamic Time Warping (DTW) to align pitch contours of different lengths and calculate similarity. Higher scores (closer to 1.0) indicate better pitch matching.
+                            </p>
+                            <p className="text-sm text-muted-foreground mt-2 italic">
+                              ඔබගේ ගායන ස්වරය මුල් ගීතයේ ස්වරයට කොපමණ ගැලපෙනවාද කියලා මැනන එකයි. DTW කියන ක්‍රමයක් භාවිතා කරලා, ඔබගේ ස්වර රේඛාව සහ ගීතයේ මුල් රේඛාව එකට ගැළපුම් කරනවා. ලකුණු 1.0ට අසළට ගියොත්, ඔබගේ ගායන ස්වරය මුල් ගීතයට හොඳට ගැලපෙනවා කියන එකයි.
                             </p>
                           </div>
                           
                           <div className="border-l-4 border-secondary pl-4">
                             <h4 className="font-medium text-foreground">Rhythm Timing</h4>
                             <p className="text-sm text-muted-foreground">
-                              Evaluates how well your timing matches the professional's rhythm. Uses onset detection to identify 
-                              when notes begin and compares the timing patterns. Higher scores indicate better rhythmic accuracy 
-                              and consistent tempo.
+                              Evaluates how well your timing matches the professional's rhythm. Uses onset detection to identify when notes begin and compares the timing patterns. Higher scores indicate better rhythmic accuracy and consistent tempo.
+                            </p>
+                            <p className="text-sm text-muted-foreground mt-2 italic">
+                              ඔබ ගායන වෙලාව ගීතයේ මුල් රිද්මයට කොච්චර හොඳට ගැලපෙනවාද කියලා මැනන එකයි. ගීතයේ සටහන් (notes) පටන්ගන්න වෙලාව සොයාගෙන, ඔබේ ගායන රටාවත් එක්ක තරග කරනවා. ලකුණු උඩට ගියොත්, ඔබගේ ගායන කාලයත් රිද්මයත් ගීතයට හොඳට ගැලපෙනවා කියන එකයි.
                             </p>
                           </div>
                           
                           <div className="border-l-4 border-accent pl-4">
                             <h4 className="font-medium text-foreground">MFCC Similarity</h4>
                             <p className="text-sm text-muted-foreground">
-                              Mel-Frequency Cepstral Coefficients capture the spectral characteristics of your voice. This metric 
-                              compares the timbral qualities (vocal tone, texture) between recordings. Higher similarity scores 
-                              suggest similar vocal qualities and articulation.
+                              Mel-Frequency Cepstral Coefficients capture the spectral characteristics of your voice. This metric compares the timbral qualities (vocal tone, texture) between recordings. Higher similarity scores suggest similar vocal qualities and articulation.
+                            </p>
+                            <p className="text-sm text-muted-foreground mt-2 italic">
+                              Mel-Frequency Cepstral Coefficients (MFCCs) කියන්නේ ඔබේ හඬේ ශබ්ද විශේෂාංග (spectral characteristics) අල්ලගන්න මැනුමක්. මෙය භාවිතා කරන්නේ ඔබේ හඬේ ස්වර ගුණාංග (tone, texture) මුල් ගීතය සමඟ සමානද කියලා බලන්න. ලකුණු වැඩි ගියොත්, ඔබේ හඬේ ගුණාංගයත් උච්චාරණයත් මුල් ගීතයට වඩාත් සමාන බව පෙන්වයි.
                             </p>
                           </div>
                           
                           <div className="border-l-4 border-muted pl-4">
                             <h4 className="font-medium text-foreground">Emotion Match (Sadness)</h4>
                             <p className="text-sm text-muted-foreground">
-                              Analyzes emotional expression through acoustic features like energy, spectral characteristics, 
-                              and vocal dynamics. Specifically detects sadness levels in both recordings. Higher match scores 
-                              indicate similar emotional delivery and expression.
+                              Analyzes emotional expression through acoustic features like energy, spectral characteristics, and vocal dynamics. Specifically detects sadness levels in both recordings. Higher match scores indicate similar emotional delivery and expression.
+                            </p>
+                            <p className="text-sm text-muted-foreground mt-2 italic">
+                              ඔබේ හඬේ හැඟීම් ප්‍රකාශනය විශ්ලේෂණය කරනවා. ඒකට ශබ්ද ශක්තිය (energy), ස්වර විශේෂාංග (spectral features), හඬේ ගතිය (vocal dynamics) වගේ acoustic ගුණාංග භාවිතා කරනවා. විශේෂයෙන්ම දුක (sadness) ගායන දෙකේම පරීක්ෂා කරනවා. ලකුණු උඩට ගියොත්, ඔබේ හැඟීම් ප්‍රකාශනය මුල් ගීතයට වඩාත් සමාන කියන එකයි.
                             </p>
                           </div>
                         </div>
