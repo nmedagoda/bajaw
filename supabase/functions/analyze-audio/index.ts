@@ -45,31 +45,22 @@ function calculateDTW(seq1: number[], seq2: number[]): number {
   return Math.min(1, dtw[m][n] / maxDistance);
 }
 
-// Improved pitch extraction using autocorrelation with better detection
+// Optimized pitch extraction with CPU efficiency
 function extractPitch(audioBuffer: Float32Array, sampleRate: number): number[] {
-  const windowSize = 2048; // Larger window for better frequency resolution
-  const hopSize = 512; // Balanced hop size for good time resolution
+  const windowSize = 1024; // Smaller window for faster processing
+  const hopSize = 1024; // Larger hop size for fewer calculations
   const pitches: number[] = [];
+  const maxPitches = 200; // Limit pitch points for performance
   
   console.log(`Extracting pitch from ${audioBuffer.length} samples at ${sampleRate}Hz`);
   
-  // Pre-emphasize the signal to boost higher frequencies
-  const emphasized = new Float32Array(audioBuffer.length);
-  emphasized[0] = audioBuffer[0];
-  for (let i = 1; i < audioBuffer.length; i++) {
-    emphasized[i] = audioBuffer[i] - 0.97 * audioBuffer[i - 1];
-  }
+  // Skip pre-emphasis for performance
+  const stepSize = Math.max(1, Math.floor(audioBuffer.length / (maxPitches * hopSize)));
   
-  for (let i = 0; i < emphasized.length - windowSize; i += hopSize) {
-    const window = emphasized.slice(i, i + windowSize);
+  for (let i = 0; i < audioBuffer.length - windowSize; i += hopSize * stepSize) {
+    const window = audioBuffer.slice(i, i + windowSize);
     
-    // Apply Hamming window
-    for (let j = 0; j < windowSize; j++) {
-      const hammingValue = 0.54 - 0.46 * Math.cos(2 * Math.PI * j / (windowSize - 1));
-      window[j] *= hammingValue;
-    }
-    
-    // Calculate RMS energy with better threshold
+    // Quick energy check first
     let energy = 0;
     for (let j = 0; j < windowSize; j++) {
       energy += window[j] * window[j];
@@ -78,106 +69,102 @@ function extractPitch(audioBuffer: Float32Array, sampleRate: number): number[] {
     
     let bestFreq = 0;
     
-    if (energy > 0.001) { // Lower threshold for voice activity detection
-      bestFreq = autocorrelationPitch(window, sampleRate);
+    if (energy > 0.01) { // Higher threshold for performance
+      bestFreq = fastPitchDetection(window, sampleRate);
     }
     
     pitches.push(Math.round(bestFreq));
     
-    if (pitches.length >= 1000) break; // More data points for better analysis
+    if (pitches.length >= maxPitches) break;
   }
   
   console.log(`Extracted ${pitches.length} pitch points, non-zero: ${pitches.filter(p => p > 0).length}`);
   return pitches;
 }
 
-// Enhanced autocorrelation-based pitch detection
-function autocorrelationPitch(window: Float32Array, sampleRate: number): number {
-  const minPitch = 60;  // Lower minimum for male voices
-  const maxPitch = 600; // Higher maximum for female voices  
+// Fast pitch detection using simplified autocorrelation
+function fastPitchDetection(window: Float32Array, sampleRate: number): number {
+  const minPitch = 80;   // Reasonable range for human voice
+  const maxPitch = 400; 
   const minPeriod = Math.floor(sampleRate / maxPitch);
   const maxPeriod = Math.floor(sampleRate / minPitch);
   
   let maxCorr = 0;
   let bestFreq = 0;
   
-  // Calculate autocorrelation with normalization
-  for (let period = minPeriod; period <= maxPeriod; period++) {
+  // Simplified autocorrelation - check fewer periods for performance
+  const stepSize = Math.max(1, Math.floor((maxPeriod - minPeriod) / 20)); // Only check 20 periods max
+  
+  for (let period = minPeriod; period <= maxPeriod; period += stepSize) {
     let correlation = 0;
-    let norm1 = 0;
-    let norm2 = 0;
+    const checkLength = Math.min(window.length - period, 100); // Limit calculation length
     
-    const len = window.length - period;
-    for (let j = 0; j < len; j++) {
+    for (let j = 0; j < checkLength; j++) {
       correlation += window[j] * window[j + period];
-      norm1 += window[j] * window[j];
-      norm2 += window[j + period] * window[j + period];
     }
     
-    // Better normalization
-    const normalizedCorr = (norm1 * norm2) > 0 ? correlation / Math.sqrt(norm1 * norm2) : 0;
-    
-    if (normalizedCorr > maxCorr) {
-      maxCorr = normalizedCorr;
+    if (correlation > maxCorr) {
+      maxCorr = correlation;
       bestFreq = sampleRate / period;
     }
   }
   
-  // Lower threshold but add frequency validation
-  if (maxCorr > 0.2 && bestFreq >= minPitch && bestFreq <= maxPitch) {
+  // Simple threshold check
+  if (maxCorr > 0.1 && bestFreq >= minPitch && bestFreq <= maxPitch) {
     return bestFreq;
   }
   
   return 0;
 }
 
-// Simple onset detection
+// Optimized onset detection
 function detectOnsets(audioBuffer: Float32Array, sampleRate: number): number[] {
-  const windowSize = Math.floor(sampleRate * 0.1); // 100ms windows
-  const hopSize = Math.floor(windowSize / 2);
+  const windowSize = Math.floor(sampleRate * 0.2); // 200ms windows for performance
+  const hopSize = windowSize; // No overlap for speed
   const onsets: number[] = [];
+  const maxOnsets = 10; // Limit onsets for performance
   
   let prevEnergy = 0;
   
-  for (let i = 0; i < audioBuffer.length - windowSize; i += hopSize) {
+  for (let i = 0; i < audioBuffer.length - windowSize && onsets.length < maxOnsets; i += hopSize) {
     const window = audioBuffer.slice(i, i + windowSize);
     const energy = window.reduce((sum, sample) => sum + sample * sample, 0) / windowSize;
     
-    if (energy > prevEnergy * 1.5 && energy > 0.01) {
+    if (energy > prevEnergy * 2.0 && energy > 0.05) {
       onsets.push(i / sampleRate);
     }
     
     prevEnergy = energy;
-    
-    if (onsets.length >= 20) break; // Limit onsets
   }
   
   return onsets;
 }
 
-// Simple spectral features
+// Optimized spectral features
 function extractFeatures(audioBuffer: Float32Array, sampleRate: number): number[][] {
-  const windowSize = Math.floor(sampleRate * 0.1); // 100ms
-  const hopSize = Math.floor(windowSize / 2);
+  const windowSize = Math.floor(sampleRate * 0.2); // 200ms for performance
+  const hopSize = windowSize; // No overlap for speed
   const features: number[][] = [];
+  const maxFeatures = 15; // Limit features for performance
   
-  for (let i = 0; i < audioBuffer.length - windowSize; i += hopSize) {
+  for (let i = 0; i < audioBuffer.length - windowSize && features.length < maxFeatures; i += hopSize) {
     const window = audioBuffer.slice(i, i + windowSize);
     
     // RMS Energy
     const rmsEnergy = Math.sqrt(window.reduce((sum, s) => sum + s * s, 0) / window.length);
     
-    // Zero Crossing Rate
+    // Zero Crossing Rate (simplified)
     let zcr = 0;
-    for (let j = 1; j < window.length; j++) {
+    for (let j = 1; j < Math.min(window.length, 1000); j++) { // Limit ZCR calculation
       if ((window[j] >= 0) !== (window[j-1] >= 0)) zcr++;
     }
-    const zcrRate = zcr / window.length;
+    const zcrRate = zcr / Math.min(window.length, 1000);
     
-    // Simple spectral centroid approximation
+    // Simple energy-based spectral centroid approximation
     let centroid = 0;
     let totalEnergy = 0;
-    for (let j = 0; j < window.length; j++) {
+    const step = Math.max(1, Math.floor(window.length / 100)); // Sample fewer points
+    for (let j = 0; j < window.length; j += step) {
       const energy = window[j] * window[j];
       centroid += j * energy;
       totalEnergy += energy;
@@ -185,8 +172,6 @@ function extractFeatures(audioBuffer: Float32Array, sampleRate: number): number[
     const spectralCentroid = totalEnergy > 0 ? (centroid / totalEnergy) * sampleRate / window.length : 0;
     
     features.push([rmsEnergy, zcrRate, spectralCentroid]);
-    
-    if (features.length >= 30) break; // Limit features
   }
   
   return features;
