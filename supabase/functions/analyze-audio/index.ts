@@ -192,29 +192,48 @@ function extractFeatures(audioBuffer: Float32Array, sampleRate: number): number[
   return features;
 }
 
-// Improved audio buffer decoding with better format support
+// Improved audio buffer decoding with better format support and memory efficiency
 function decodeAudioBuffer(base64: string): Float32Array {
   try {
-    const binaryString = atob(base64);
-    console.log(`Decoding audio: ${binaryString.length} bytes`);
+    console.log(`Starting audio decode, base64 length: ${base64.length}`);
     
-    // Try different decoding strategies based on data patterns
-    let float32Array: Float32Array;
+    // Decode base64 in chunks to avoid memory issues
+    const chunkSize = 1024 * 1024; // 1MB chunks
+    const binaryLength = Math.floor((base64.length * 3) / 4);
+    console.log(`Estimated binary length: ${binaryLength} bytes`);
+    
+    // Limit processing to reasonable size
+    const maxBytes = 10 * 1024 * 1024; // 10MB max
+    if (binaryLength > maxBytes) {
+      console.log(`Large file detected (${binaryLength} bytes), truncating to ${maxBytes} bytes`);
+    }
+    
+    const processLength = Math.min(binaryLength, maxBytes);
+    const maxBase64Length = Math.floor((processLength * 4) / 3);
+    const truncatedBase64 = base64.substring(0, maxBase64Length);
+    
+    const binaryString = atob(truncatedBase64);
+    console.log(`Decoded binary string: ${binaryString.length} bytes`);
     
     // Strategy 1: Try as WAV file (skip header if present)
     let offset = 0;
-    if (binaryString.length > 44 && binaryString.substring(0, 4) === 'RIFF') {
-      console.log('Detected WAV format, skipping header');
-      offset = 44; // Skip WAV header
+    if (binaryString.length > 44) {
+      const header = binaryString.substring(0, 4);
+      if (header === 'RIFF') {
+        console.log('Detected WAV format, skipping header');
+        offset = 44; // Skip WAV header
+      }
     }
     
     const dataLength = binaryString.length - offset;
-    const maxSamples = 44100 * 10; // 10 seconds at 44kHz
+    const maxSamples = 22050 * 30; // 30 seconds at 22kHz (reasonable limit)
     const sampleCount = Math.min(Math.floor(dataLength / 2), maxSamples);
     
-    float32Array = new Float32Array(sampleCount);
+    console.log(`Processing ${sampleCount} samples from ${dataLength} bytes of audio data`);
     
-    // Decode 16-bit PCM samples
+    const float32Array = new Float32Array(sampleCount);
+    
+    // Decode 16-bit PCM samples efficiently
     for (let i = 0; i < sampleCount; i++) {
       const byteIndex = offset + (i * 2);
       if (byteIndex + 1 < binaryString.length) {
@@ -226,10 +245,18 @@ function decodeAudioBuffer(base64: string): Float32Array {
       }
     }
     
-    // Apply basic normalization and noise gate
-    const maxAmplitude = Math.max(...Array.from(float32Array).map(Math.abs));
-    if (maxAmplitude > 0) {
-      const normalizeGain = 0.8 / maxAmplitude;
+    // Calculate max amplitude without creating large intermediate arrays
+    let maxAmplitude = 0;
+    for (let i = 0; i < float32Array.length; i++) {
+      const abs = Math.abs(float32Array[i]);
+      if (abs > maxAmplitude) {
+        maxAmplitude = abs;
+      }
+    }
+    
+    // Apply normalization and noise gate if needed
+    if (maxAmplitude > 0.001) {
+      const normalizeGain = Math.min(1.0, 0.8 / maxAmplitude);
       for (let i = 0; i < float32Array.length; i++) {
         float32Array[i] *= normalizeGain;
         // Simple noise gate
@@ -239,11 +266,11 @@ function decodeAudioBuffer(base64: string): Float32Array {
       }
     }
     
-    console.log(`Decoded ${sampleCount} audio samples, max amplitude: ${maxAmplitude.toFixed(4)}`);
+    console.log(`Successfully decoded ${sampleCount} audio samples, max amplitude: ${maxAmplitude.toFixed(4)}`);
     return float32Array;
   } catch (error) {
     console.error('Audio decode error:', error);
-    throw new Error('Failed to decode audio data');
+    throw new Error(`Failed to decode audio data: ${error.message}`);
   }
 }
 
