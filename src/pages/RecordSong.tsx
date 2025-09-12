@@ -84,9 +84,8 @@ const RecordSong = () => {
     const loadKaraokeTracks = async () => {
       try {
         const { data, error } = await supabase
-          .from('uploaded_songs')
+          .from('karaoke_tracks')
           .select('*')
-          .not('original_song_url', 'is', null)
           .order('created_at', { ascending: false });
 
         if (error) {
@@ -642,22 +641,28 @@ const RecordSong = () => {
         .from('audio-uploads')
         .getPublicUrl(karaokeData.path);
 
-      // Save to uploaded_songs table
+      // Save to karaoke_tracks table
       const { error: dbError } = await supabase
-        .from('uploaded_songs')
+        .from('karaoke_tracks')
         .insert({
-          singer_id: user.id,
+          uploader_id: user.id,
           song_title: karaokeSongTitle.trim(),
           original_singer_name: karaokeOriginalSinger.trim(),
-          original_song_url: karaokeUrl.publicUrl,
-          recorded_song_url: null, // No recorded version for karaoke tracks
-          original_file_type: file.type === 'audio/wav' ? 'wav' : 'mp3',
-          recorded_file_type: null
+          karaoke_file_url: karaokeUrl.publicUrl,
+          file_type: file.type === 'audio/wav' ? 'wav' : 'mp3'
         });
 
       if (dbError) throw dbError;
 
       toast.success('Karaoke track saved successfully!');
+      
+      // Refresh the karaoke tracks list
+      const { data: updatedTracks } = await supabase
+        .from('karaoke_tracks')
+        .select('*')
+        .order('created_at', { ascending: false });
+      
+      setDatabaseKaraokeTracks(updatedTracks || []);
     } catch (error) {
       console.error('Save karaoke error:', error);
       toast.error('Failed to save karaoke track');
@@ -1287,7 +1292,7 @@ const RecordSong = () => {
                       <audio
                         ref={karaokeAudioRef}
                         controls
-                        src={selectedDatabaseTrack.original_song_url}
+                        src={selectedDatabaseTrack.karaoke_file_url}
                         className="w-full"
                         onLoadedData={() => setIsKaraokeReady(true)}
                       />

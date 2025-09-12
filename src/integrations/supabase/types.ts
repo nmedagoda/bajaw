@@ -14,6 +14,39 @@ export type Database = {
   }
   public: {
     Tables: {
+      karaoke_tracks: {
+        Row: {
+          created_at: string
+          file_type: string
+          id: string
+          karaoke_file_url: string
+          original_singer_name: string
+          song_title: string
+          updated_at: string
+          uploader_id: string
+        }
+        Insert: {
+          created_at?: string
+          file_type: string
+          id?: string
+          karaoke_file_url: string
+          original_singer_name: string
+          song_title: string
+          updated_at?: string
+          uploader_id: string
+        }
+        Update: {
+          created_at?: string
+          file_type?: string
+          id?: string
+          karaoke_file_url?: string
+          original_singer_name?: string
+          song_title?: string
+          updated_at?: string
+          uploader_id?: string
+        }
+        Relationships: []
+      }
       performances: {
         Row: {
           analysis_data: Json | null
