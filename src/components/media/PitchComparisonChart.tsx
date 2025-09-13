@@ -2,6 +2,8 @@ import React, { useEffect, useState, useMemo } from "react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from '@/integrations/supabase/client';
+import { Button } from "@/components/ui/button";
+import { useToast } from "@/components/ui/use-toast";
 
 interface ChartDataPoint {
   time: number;
@@ -20,6 +22,9 @@ const PitchComparisonChart: React.FC<PitchComparisonChartProps> = ({
 }) => {
   const [chartData, setChartData] = useState<ChartDataPoint[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [analysis, setAnalysis] = useState<string>("");
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const { toast } = useToast();
 
   const colors = useMemo(() => {
     return {
@@ -134,6 +139,41 @@ const PitchComparisonChart: React.FC<PitchComparisonChartProps> = ({
     return null;
   };
 
+  const analyzeWithLLM = async () => {
+    if (chartData.length === 0) {
+      toast({
+        title: "No Data",
+        description: "Please wait for the pitch data to load first.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsAnalyzing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('analyze-pitch', {
+        body: { pitchData: chartData }
+      });
+
+      if (error) throw error;
+
+      setAnalysis(data.analysis);
+      toast({
+        title: "Analysis Complete",
+        description: "Pitch analysis has been generated successfully.",
+      });
+    } catch (error) {
+      console.error('Error analyzing pitch:', error);
+      toast({
+        title: "Analysis Failed",
+        description: "Could not generate pitch analysis. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <Card>
@@ -223,6 +263,34 @@ const PitchComparisonChart: React.FC<PitchComparisonChartProps> = ({
               )}
             </LineChart>
           </ResponsiveContainer>
+        </div>
+        
+        <div className="mt-6 pt-6 border-t border-border">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold">Pitch Analysis</h3>
+            <Button 
+              onClick={analyzeWithLLM}
+              disabled={isAnalyzing || chartData.length === 0}
+              variant="outline"
+              size="sm"
+            >
+              {isAnalyzing ? "Analyzing..." : "Analyze Pitch"}
+            </Button>
+          </div>
+          
+          {analysis && (
+            <div className="prose prose-sm max-w-none">
+              <div className="bg-muted/50 rounded-lg p-4 whitespace-pre-wrap text-sm leading-relaxed">
+                {analysis}
+              </div>
+            </div>
+          )}
+          
+          {!analysis && !isAnalyzing && (
+            <div className="text-sm text-muted-foreground italic">
+              Click "Analyze Pitch" to get AI-powered insights on Stability, Accuracy, Control, and Consistency.
+            </div>
+          )}
         </div>
       </CardContent>
     </Card>
