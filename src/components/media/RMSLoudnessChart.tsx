@@ -28,9 +28,9 @@ const RMSLoudnessChart: React.FC<RMSLoudnessChartProps> = ({
   }, []);
 
   const extractRMSData = async (noviceUrl: string | null, professionalUrl: string | null): Promise<RMSDataPoint[]> => {
-    // Generate simple RMS data for demonstration
-    const duration = 30;
-    const dataPoints = 100;
+    // Generate simple RMS data for demonstration for full song duration
+    const duration = 262; // 4.42 minutes in seconds
+    const dataPoints = Math.floor(duration * 3.33); // ~3.33 points per second for smoother visualization
     const data: RMSDataPoint[] = [];
     
     for (let i = 0; i < dataPoints; i++) {

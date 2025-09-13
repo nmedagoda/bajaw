@@ -64,9 +64,9 @@ const PitchComparisonChart: React.FC<PitchComparisonChartProps> = ({
       console.error('Backend analysis failed, using simple data:', error);
     }
 
-    // Fallback: Generate simple mock pitch data
-    const duration = 30;
-    const dataPoints = 100;
+    // Fallback: Generate simple mock pitch data for full song duration
+    const duration = 262; // 4.42 minutes in seconds
+    const dataPoints = Math.floor(duration * 3.33); // ~3.33 points per second for smoother visualization
     const data: ChartDataPoint[] = [];
     
     for (let i = 0; i < dataPoints; i++) {

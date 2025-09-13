@@ -28,9 +28,9 @@ const SpectrogramChart: React.FC<SpectrogramChartProps> = ({
   }, []);
 
   const extractSpectrogramData = async (noviceUrl: string | null, professionalUrl: string | null): Promise<SpectrogramDataPoint[]> => {
-    // Generate simple mock spectral centroid data
-    const duration = 30;
-    const dataPoints = 100;
+    // Generate simple mock spectral centroid data for full song duration
+    const duration = 262; // 4.42 minutes in seconds
+    const dataPoints = Math.floor(duration * 3.33); // ~3.33 points per second for smoother visualization
     const data: SpectrogramDataPoint[] = [];
     
     for (let i = 0; i < dataPoints; i++) {
