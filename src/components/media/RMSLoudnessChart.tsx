@@ -1,6 +1,9 @@
 import React, { useEffect, useState, useMemo } from "react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { useToast } from "@/components/ui/use-toast";
+import { supabase } from '@/integrations/supabase/client';
 
 interface RMSDataPoint {
   time: number;
@@ -19,6 +22,9 @@ const RMSLoudnessChart: React.FC<RMSLoudnessChartProps> = ({
 }) => {
   const [chartData, setChartData] = useState<RMSDataPoint[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [analysis, setAnalysis] = useState<string>("");
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const { toast } = useToast();
 
   const colors = useMemo(() => {
     return {
@@ -96,6 +102,41 @@ const RMSLoudnessChart: React.FC<RMSLoudnessChartProps> = ({
       );
     }
     return null;
+  };
+
+  const analyzeWithLLM = async () => {
+    if (chartData.length === 0) {
+      toast({
+        title: "No Data",
+        description: "Please wait for the RMS data to load first.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsAnalyzing(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('analyze-rms', {
+        body: { rmsData: chartData }
+      });
+
+      if (error) throw error;
+
+      setAnalysis(data.analysis);
+      toast({
+        title: "Analysis Complete",
+        description: "RMS loudness analysis has been generated successfully.",
+      });
+    } catch (error) {
+      console.error('Error analyzing RMS:', error);
+      toast({
+        title: "Analysis Failed",
+        description: "Could not generate RMS analysis. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsAnalyzing(false);
+    }
   };
 
   if (isLoading) {
@@ -187,6 +228,34 @@ const RMSLoudnessChart: React.FC<RMSLoudnessChartProps> = ({
               )}
             </LineChart>
           </ResponsiveContainer>
+        </div>
+        
+        <div className="mt-6 pt-6 border-t border-border">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold">RMS Loudness Analysis</h3>
+            <Button 
+              onClick={analyzeWithLLM}
+              disabled={isAnalyzing || chartData.length === 0}
+              variant="outline"
+              size="sm"
+            >
+              {isAnalyzing ? "Analyzing..." : "Analyze Loudness"}
+            </Button>
+          </div>
+          
+          {analysis && (
+            <div className="prose prose-sm max-w-none">
+              <div className="bg-muted/50 rounded-lg p-4 whitespace-pre-wrap text-sm leading-relaxed">
+                {analysis}
+              </div>
+            </div>
+          )}
+          
+          {!analysis && !isAnalyzing && (
+            <div className="text-sm text-muted-foreground italic">
+              Click "Analyze Loudness" to get AI-powered insights on Overall Loudness Levels, Consistency, Dynamic Range, and Sustain & Endurance.
+            </div>
+          )}
         </div>
       </CardContent>
     </Card>
