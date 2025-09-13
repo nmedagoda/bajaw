@@ -26,9 +26,9 @@ serve(async (req) => {
     }
 
     const HUGGINGFACE_API_KEY = Deno.env.get('HUGGINGFACE_API_KEY');
-    if (!HUGGINGFACE_API_KEY) {
-      throw new Error('HUGGINGFACE_API_KEY is not set');
-    }
+    // Note: Using the same approach as generate-review - no API key required for free models
+    
+    console.log('Trying free open-source models for pitch analysis...');
 
     // Analyze the pitch data
     const analysis = analyzePitchData(pitchData);
@@ -36,22 +36,23 @@ serve(async (req) => {
     // Create prompt for LLM analysis
     const prompt = createAnalysisPrompt(analysis);
     
-    // Try multiple free models
-    const models = [
-      "microsoft/DialoGPT-medium",
-      "facebook/blenderbot-400M-distill",
-      "HuggingFaceH4/zephyr-7b-beta"
+    // Try multiple free models in order of preference (same as generate-review)
+    const freeModels = [
+      'mistralai/Mistral-7B-Instruct-v0.1',
+      'meta-llama/Llama-2-7b-chat-hf',
+      'microsoft/DialoGPT-large',
+      'google/flan-t5-large'
     ];
 
     let llmResponse = null;
     
-    for (const model of models) {
+    for (const model of freeModels) {
       try {
         console.log(`Trying model: ${model}`);
+        
         const response = await fetch(`https://api-inference.huggingface.co/models/${model}`, {
           method: 'POST',
           headers: {
-            'Authorization': `Bearer ${HUGGINGFACE_API_KEY}`,
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
@@ -59,21 +60,31 @@ serve(async (req) => {
             parameters: {
               max_new_tokens: 500,
               temperature: 0.7,
+              do_sample: true,
               return_full_text: false
             }
-          }),
+          })
         });
 
         if (response.ok) {
-          const data = await response.json();
-          if (data && data[0]?.generated_text) {
-            llmResponse = data[0].generated_text;
-            console.log(`Success with model: ${model}`);
+          const result = await response.json();
+          console.log(`Success with model ${model}:`, result);
+          
+          if (Array.isArray(result) && result[0]?.generated_text) {
+            llmResponse = result[0].generated_text;
+            console.log(`Generated analysis with ${model}: ${llmResponse.substring(0, 100)}...`);
+            break;
+          } else if (result.generated_text) {
+            llmResponse = result.generated_text;
+            console.log(`Generated analysis with ${model}: ${llmResponse.substring(0, 100)}...`);
             break;
           }
+        } else {
+          const errorText = await response.text();
+          console.log(`Model ${model} failed:`, response.status, errorText);
         }
-      } catch (error) {
-        console.error(`Model ${model} failed:`, error);
+      } catch (modelError) {
+        console.log(`Error with model ${model}:`, modelError.message);
         continue;
       }
     }
