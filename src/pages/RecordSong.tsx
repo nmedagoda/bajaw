@@ -713,30 +713,28 @@ const RecordSong = () => {
 
     setIsSearchingSonghub(true);
     try {
-      const response = await fetch(`https://songhub.lk/karoke-song?q=${encodeURIComponent(searchTerm)}`);
-      const html = await response.text();
-      
-      // Parse the HTML to extract song information
-      const parser = new DOMParser();
-      const doc = parser.parseFromString(html, 'text/html');
-      
-      // Extract song cards or list items (this will need to be adjusted based on the actual HTML structure)
-      const songElements = doc.querySelectorAll('.song-item, .card, .song-card, .list-item');
-      const songs = Array.from(songElements).map((element, index) => {
-        const titleElement = element.querySelector('h1, h2, h3, h4, .title, .song-title');
-        const artistElement = element.querySelector('.artist, .singer, .by');
-        const linkElement = element.querySelector('a');
-        
-        return {
-          id: `songhub-${index}`,
-          title: titleElement?.textContent?.trim() || `Song ${index + 1}`,
-          artist: artistElement?.textContent?.trim() || 'Unknown Artist',
-          url: linkElement?.href || '',
+      const { data, error } = await supabase.functions.invoke('search-songhub', {
+        body: { query: searchTerm }
+      });
+
+      if (error) {
+        console.error('Error searching Songhub:', error);
+        setSonghubResults([]);
+        return;
+      }
+
+      if (data?.success && data?.results) {
+        setSonghubResults(data.results.map((song: any) => ({
+          id: song.id,
+          title: song.title,
+          artist: song.artist,
+          url: song.url,
+          imageUrl: song.imageUrl,
           source: 'songhub'
-        };
-      }).filter(song => song.title !== `Song ${Array.from(songElements).indexOf(songElements[0]) + 1}`);
-      
-      setSonghubResults(songs);
+        })));
+      } else {
+        setSonghubResults([]);
+      }
     } catch (error) {
       console.error('Error searching Songhub:', error);
       setSonghubResults([]);
@@ -1235,11 +1233,23 @@ const RecordSong = () => {
                               onClick={() => selectSonghubTrack(song)}
                             >
                               <div className="flex justify-between items-start">
-                                <div>
+                                <div className="flex-1">
                                   <p className="font-medium text-sm">{song.title}</p>
                                   <p className="text-xs text-muted-foreground">by {song.artist}</p>
-                                  <div className="flex items-center gap-1 mt-1">
+                                  <div className="flex items-center gap-2 mt-1">
                                     <Badge variant="outline" className="text-xs">Songhub</Badge>
+                                    {song.url && (
+                                      <a 
+                                        href={song.url} 
+                                        target="_blank" 
+                                        rel="noopener noreferrer"
+                                        className="text-xs text-primary hover:underline flex items-center gap-1"
+                                        onClick={(e) => e.stopPropagation()}
+                                      >
+                                        <ExternalLink className="w-3 h-3" />
+                                        View
+                                      </a>
+                                    )}
                                   </div>
                                 </div>
                                 {selectedKaraokeTrack?.id === song.id && (
