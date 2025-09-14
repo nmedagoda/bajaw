@@ -714,7 +714,7 @@ const RecordSong = () => {
     setIsSearchingSonghub(true);
     try {
       const { data, error } = await supabase.functions.invoke('search-songhub', {
-        body: { query: searchTerm }
+        body: { query: searchTerm.toLowerCase() }
       });
 
       if (error) {
