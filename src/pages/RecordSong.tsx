@@ -31,6 +31,7 @@ interface Song {
   lyrics?: string;
   lyricsImageUrl?: string | null;
   lyricsLanguage?: string;
+  source?: string;
 }
 
 const RecordSong = () => {
@@ -69,6 +70,8 @@ const RecordSong = () => {
   const [karaokeOriginalSinger, setKaraokeOriginalSinger] = useState('');
   const [databaseKaraokeTracks, setDatabaseKaraokeTracks] = useState<any[]>([]);
   const [karaokeSearchTerm, setKaraokeSearchTerm] = useState('');
+  const [songhubResults, setSonghubResults] = useState<any[]>([]);
+  const [isSearchingSonghub, setIsSearchingSonghub] = useState(false);
   const [selectedDatabaseTrack, setSelectedDatabaseTrack] = useState<any>(null);
   const [showUploadOption, setShowUploadOption] = useState(false);
 
@@ -701,6 +704,77 @@ const RecordSong = () => {
     toast.success('Karaoke track selected!');
   };
 
+  // Search Songhub for karaoke songs
+  const searchSonghub = async (searchTerm: string) => {
+    if (!searchTerm.trim()) {
+      setSonghubResults([]);
+      return;
+    }
+
+    setIsSearchingSonghub(true);
+    try {
+      const response = await fetch(`https://songhub.lk/karoke-song?q=${encodeURIComponent(searchTerm)}`);
+      const html = await response.text();
+      
+      // Parse the HTML to extract song information
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(html, 'text/html');
+      
+      // Extract song cards or list items (this will need to be adjusted based on the actual HTML structure)
+      const songElements = doc.querySelectorAll('.song-item, .card, .song-card, .list-item');
+      const songs = Array.from(songElements).map((element, index) => {
+        const titleElement = element.querySelector('h1, h2, h3, h4, .title, .song-title');
+        const artistElement = element.querySelector('.artist, .singer, .by');
+        const linkElement = element.querySelector('a');
+        
+        return {
+          id: `songhub-${index}`,
+          title: titleElement?.textContent?.trim() || `Song ${index + 1}`,
+          artist: artistElement?.textContent?.trim() || 'Unknown Artist',
+          url: linkElement?.href || '',
+          source: 'songhub'
+        };
+      }).filter(song => song.title !== `Song ${Array.from(songElements).indexOf(songElements[0]) + 1}`);
+      
+      setSonghubResults(songs);
+    } catch (error) {
+      console.error('Error searching Songhub:', error);
+      setSonghubResults([]);
+    } finally {
+      setIsSearchingSonghub(false);
+    }
+  };
+
+  // Debounced search for Songhub
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      if (karaokeSearchTerm.trim()) {
+        searchSonghub(karaokeSearchTerm);
+      } else {
+        setSonghubResults([]);
+      }
+    }, 500);
+
+    return () => clearTimeout(timeoutId);
+  }, [karaokeSearchTerm]);
+
+  // Select a song from Songhub results
+  const selectSonghubTrack = (song: any) => {
+    setSelectedKaraokeTrack({
+      id: song.id,
+      title: song.title,
+      artist: song.artist,
+      genre: 'Unknown',
+      duration: '0:00',
+      difficulty: 'Medium' as const,
+      previewUrl: song.url,
+      source: 'songhub'
+    });
+    setKaraokeSource('select');
+    setIsKaraokeReady(true);
+    toast.success(`Selected "${song.title}" from Songhub`);
+  };
+
   // Clear karaoke selection
   const clearKaraokeSelection = () => {
     setKaraokeFile(null);
@@ -711,6 +785,7 @@ const RecordSong = () => {
     setKaraokeSongTitle('');
     setKaraokeOriginalSinger('');
     setShowUploadOption(false);
+    setSonghubResults([]);
   };
 
   return (
@@ -1108,56 +1183,99 @@ const RecordSong = () => {
                     className="w-full"
                   />
                   
-                  <div className="max-h-48 overflow-y-auto space-y-2 bg-muted/20 rounded-lg p-3">
-                    {filteredKaraokeTracks.length > 0 ? (
-                      filteredKaraokeTracks.map((track) => (
-                        <div
-                          key={track.id}
-                          className={`p-3 border rounded-lg cursor-pointer transition-colors hover:bg-muted/50 ${
-                            selectedDatabaseTrack?.id === track.id ? 'border-primary bg-primary/10' : 'border-border'
-                          }`}
-                          onClick={() => selectDatabaseKaraokeTrack(track)}
-                        >
-                          <div className="flex justify-between items-start">
-                            <div>
-                              <p className="font-medium text-sm">{track.song_title}</p>
-                              <p className="text-xs text-muted-foreground">by {track.original_singer_name}</p>
-                              <p className="text-xs text-muted-foreground">
-                                Added {new Date(track.created_at).toLocaleDateString()}
-                              </p>
+                  {/* Local Database Results */}
+                  {filteredKaraokeTracks.length > 0 && (
+                    <div className="space-y-2">
+                      <h4 className="text-sm font-medium text-muted-foreground">From Library</h4>
+                      <div className="max-h-32 overflow-y-auto space-y-2 bg-muted/20 rounded-lg p-3">
+                        {filteredKaraokeTracks.map((track) => (
+                          <div
+                            key={track.id}
+                            className={`p-3 border rounded-lg cursor-pointer transition-colors hover:bg-muted/50 ${
+                              selectedDatabaseTrack?.id === track.id ? 'border-primary bg-primary/10' : 'border-border'
+                            }`}
+                            onClick={() => selectDatabaseKaraokeTrack(track)}
+                          >
+                            <div className="flex justify-between items-start">
+                              <div>
+                                <p className="font-medium text-sm">{track.song_title}</p>
+                                <p className="text-xs text-muted-foreground">by {track.original_singer_name}</p>
+                                <p className="text-xs text-muted-foreground">
+                                  Added {new Date(track.created_at).toLocaleDateString()}
+                                </p>
+                              </div>
+                              {selectedDatabaseTrack?.id === track.id && (
+                                <Badge variant="default" className="text-xs">Selected</Badge>
+                              )}
                             </div>
-                            {selectedDatabaseTrack?.id === track.id && (
-                              <Badge variant="default" className="text-xs">Selected</Badge>
-                            )}
                           </div>
-                        </div>
-                      ))
-                    ) : karaokeSearchTerm ? (
-                      <div className="text-center py-4 text-muted-foreground">
-                        <p className="text-sm">No tracks found for "{karaokeSearchTerm}"</p>
-                        <Button 
-                          variant="link" 
-                          size="sm" 
-                          onClick={() => setShowUploadOption(true)}
-                          className="mt-2"
-                        >
-                          Upload this track instead
-                        </Button>
+                        ))}
                       </div>
-                    ) : (
-                      <div className="text-center py-4 text-muted-foreground">
-                        <p className="text-sm">No karaoke tracks available yet</p>
-                        <Button 
-                          variant="link" 
-                          size="sm" 
-                          onClick={() => setShowUploadOption(true)}
-                          className="mt-2"
-                        >
-                          Be the first to upload
-                        </Button>
+                    </div>
+                  )}
+
+                  {/* Songhub Search Results */}
+                  {karaokeSearchTerm && (
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-2">
+                        <h4 className="text-sm font-medium text-muted-foreground">From Songhub.lk</h4>
+                        {isSearchingSonghub && (
+                          <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-primary"></div>
+                        )}
                       </div>
-                    )}
-                  </div>
+                      
+                      <div className="max-h-48 overflow-y-auto space-y-2 bg-primary/5 rounded-lg p-3 border border-primary/20">
+                        {songhubResults.length > 0 ? (
+                          songhubResults.map((song) => (
+                            <div
+                              key={song.id}
+                              className={`p-3 border rounded-lg cursor-pointer transition-colors hover:bg-primary/10 ${
+                                selectedKaraokeTrack?.id === song.id ? 'border-primary bg-primary/20' : 'border-border'
+                              }`}
+                              onClick={() => selectSonghubTrack(song)}
+                            >
+                              <div className="flex justify-between items-start">
+                                <div>
+                                  <p className="font-medium text-sm">{song.title}</p>
+                                  <p className="text-xs text-muted-foreground">by {song.artist}</p>
+                                  <div className="flex items-center gap-1 mt-1">
+                                    <Badge variant="outline" className="text-xs">Songhub</Badge>
+                                  </div>
+                                </div>
+                                {selectedKaraokeTrack?.id === song.id && (
+                                  <Badge variant="default" className="text-xs">Selected</Badge>
+                                )}
+                              </div>
+                            </div>
+                          ))
+                        ) : isSearchingSonghub ? (
+                          <div className="text-center py-4 text-muted-foreground">
+                            <p className="text-sm">Searching Songhub...</p>
+                          </div>
+                        ) : karaokeSearchTerm ? (
+                          <div className="text-center py-4 text-muted-foreground">
+                            <p className="text-sm">No results found on Songhub for "{karaokeSearchTerm}"</p>
+                          </div>
+                        ) : null}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Default state */}
+                  {!karaokeSearchTerm && filteredKaraokeTracks.length === 0 && (
+                    <div className="text-center py-6 text-muted-foreground bg-muted/20 rounded-lg">
+                      <p className="text-sm">No karaoke tracks available yet</p>
+                      <p className="text-xs mt-1">Search for songs or upload a new track</p>
+                      <Button 
+                        variant="link" 
+                        size="sm" 
+                        onClick={() => setShowUploadOption(true)}
+                        className="mt-2"
+                      >
+                        Upload a track
+                      </Button>
+                    </div>
+                  )}
                 </div>
               </div>
 
