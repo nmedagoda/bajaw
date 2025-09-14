@@ -34,9 +34,9 @@ Deno.serve(async (req) => {
 
     console.log(`Searching Songhub for: ${query}`)
     
-    // Search on songhub.lk - they might have a search endpoint or we'll search through the karaoke page
-    const searchUrl = `https://songhub.lk/karoke-song?q=${encodeURIComponent(query)}`
-    const fallbackUrl = 'https://songhub.lk/karoke-song'
+    // Use the correct search URL format
+    const searchUrl = `https://songhub.lk/search?q=${encodeURIComponent(query)}#gsc.tab=0&gsc.q=${encodeURIComponent(query)}&gsc.page=1`
+    const fallbackUrl = `https://songhub.lk/karoke-song?q=${encodeURIComponent(query)}`
     
     let response
     try {
