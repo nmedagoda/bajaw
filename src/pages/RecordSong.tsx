@@ -13,6 +13,7 @@ import { Music, Mic, Play, Pause, Square, Upload, Search, Timer, Volume2, Loader
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { resolvePlayableUrl } from '@/lib/media';
 
 interface Song {
   id: string;
@@ -111,12 +112,32 @@ const RecordSong = () => {
   );
 
   // Select karaoke track from database
-  const selectDatabaseKaraokeTrack = (track: any) => {
+  const selectDatabaseKaraokeTrack = async (track: any) => {
     setSelectedDatabaseTrack(track);
     setKaraokeSource('database');
     setKaraokeFile(null);
     setSelectedKaraokeTrack(null);
-    setIsKaraokeReady(true);
+    
+    // Resolve the karaoke URL for playback
+    try {
+      const resolvedUrl = await resolvePlayableUrl(track.karaoke_file_url);
+      if (resolvedUrl && karaokeAudioRef.current) {
+        karaokeAudioRef.current.src = resolvedUrl;
+        karaokeAudioRef.current.onloadeddata = () => {
+          setIsKaraokeReady(true);
+        };
+        karaokeAudioRef.current.onerror = () => {
+          console.error('Failed to load karaoke track:', track.karaoke_file_url);
+          toast.error('Failed to load karaoke track. Please try another track.');
+          setIsKaraokeReady(false);
+        };
+      }
+    } catch (error) {
+      console.error('Error resolving karaoke URL:', error);
+      toast.error('Failed to load karaoke track.');
+      setIsKaraokeReady(false);
+    }
+    
     toast.success('Karaoke track selected from library!');
   };
   const searchSongs = async (singer: string, words?: string) => {
@@ -1344,7 +1365,6 @@ const RecordSong = () => {
                       <audio
                         ref={karaokeAudioRef}
                         controls
-                        src={selectedDatabaseTrack.karaoke_file_url}
                         className="w-full"
                         onLoadedData={() => setIsKaraokeReady(true)}
                       />
