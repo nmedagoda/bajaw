@@ -70,8 +70,6 @@ const RecordSong = () => {
   const [karaokeOriginalSinger, setKaraokeOriginalSinger] = useState('');
   const [databaseKaraokeTracks, setDatabaseKaraokeTracks] = useState<any[]>([]);
   const [karaokeSearchTerm, setKaraokeSearchTerm] = useState('');
-  const [songhubResults, setSonghubResults] = useState<any[]>([]);
-  const [isSearchingSonghub, setIsSearchingSonghub] = useState(false);
   const [selectedDatabaseTrack, setSelectedDatabaseTrack] = useState<any>(null);
   const [showUploadOption, setShowUploadOption] = useState(false);
 
@@ -725,74 +723,6 @@ const RecordSong = () => {
     toast.success('Karaoke track selected!');
   };
 
-  // Search Songhub for karaoke songs
-  const searchSonghub = async (searchTerm: string) => {
-    if (!searchTerm.trim()) {
-      setSonghubResults([]);
-      return;
-    }
-
-    setIsSearchingSonghub(true);
-    try {
-      const { data, error } = await supabase.functions.invoke('search-songhub', {
-        body: { query: searchTerm.toLowerCase() }
-      });
-
-      if (error) {
-        console.error('Error searching Songhub:', error);
-        setSonghubResults([]);
-        return;
-      }
-
-      if (data?.success && data?.results) {
-        setSonghubResults(data.results.map((song: any) => ({
-          id: song.id,
-          title: song.title,
-          artist: song.artist,
-          url: song.url,
-          imageUrl: song.imageUrl,
-          source: 'songhub'
-        })));
-      } else {
-        setSonghubResults([]);
-      }
-    } catch (error) {
-      console.error('Error searching Songhub:', error);
-      setSonghubResults([]);
-    } finally {
-      setIsSearchingSonghub(false);
-    }
-  };
-
-  // Debounced search for Songhub
-  useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      if (karaokeSearchTerm.trim()) {
-        searchSonghub(karaokeSearchTerm);
-      } else {
-        setSonghubResults([]);
-      }
-    }, 500);
-
-    return () => clearTimeout(timeoutId);
-  }, [karaokeSearchTerm]);
-
-  // Select a song from Songhub results
-  const selectSonghubTrack = (song: any) => {
-    setSelectedKaraokeTrack({
-      id: song.id,
-      title: song.title,
-      artist: song.artist,
-      genre: 'Unknown',
-      duration: '0:00',
-      difficulty: 'Medium' as const,
-      previewUrl: song.url,
-      source: 'songhub'
-    });
-    setKaraokeSource('select');
-    setIsKaraokeReady(true);
-    toast.success(`Selected "${song.title}" from Songhub`);
-  };
 
   // Clear karaoke selection
   const clearKaraokeSelection = () => {
@@ -804,7 +734,7 @@ const RecordSong = () => {
     setKaraokeSongTitle('');
     setKaraokeOriginalSinger('');
     setShowUploadOption(false);
-    setSonghubResults([]);
+    
   };
 
   return (
@@ -1233,64 +1163,6 @@ const RecordSong = () => {
                     </div>
                   )}
 
-                  {/* Songhub Search Results */}
-                  {karaokeSearchTerm && (
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-2">
-                        <h4 className="text-sm font-medium text-muted-foreground">From Songhub.lk</h4>
-                        {isSearchingSonghub && (
-                          <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-primary"></div>
-                        )}
-                      </div>
-                      
-                      <div className="max-h-48 overflow-y-auto space-y-2 bg-primary/5 rounded-lg p-3 border border-primary/20">
-                        {songhubResults.length > 0 ? (
-                          songhubResults.map((song) => (
-                            <div
-                              key={song.id}
-                              className={`p-3 border rounded-lg cursor-pointer transition-colors hover:bg-primary/10 ${
-                                selectedKaraokeTrack?.id === song.id ? 'border-primary bg-primary/20' : 'border-border'
-                              }`}
-                              onClick={() => selectSonghubTrack(song)}
-                            >
-                              <div className="flex justify-between items-start">
-                                <div className="flex-1">
-                                  <p className="font-medium text-sm">{song.title}</p>
-                                  <p className="text-xs text-muted-foreground">by {song.artist}</p>
-                                  <div className="flex items-center gap-2 mt-1">
-                                    <Badge variant="outline" className="text-xs">Songhub</Badge>
-                                    {song.url && (
-                                      <a 
-                                        href={song.url} 
-                                        target="_blank" 
-                                        rel="noopener noreferrer"
-                                        className="text-xs text-primary hover:underline flex items-center gap-1"
-                                        onClick={(e) => e.stopPropagation()}
-                                      >
-                                        <ExternalLink className="w-3 h-3" />
-                                        View
-                                      </a>
-                                    )}
-                                  </div>
-                                </div>
-                                {selectedKaraokeTrack?.id === song.id && (
-                                  <Badge variant="default" className="text-xs">Selected</Badge>
-                                )}
-                              </div>
-                            </div>
-                          ))
-                        ) : isSearchingSonghub ? (
-                          <div className="text-center py-4 text-muted-foreground">
-                            <p className="text-sm">Searching Songhub...</p>
-                          </div>
-                        ) : karaokeSearchTerm ? (
-                          <div className="text-center py-4 text-muted-foreground">
-                            <p className="text-sm">No results found on Songhub for "{karaokeSearchTerm}"</p>
-                          </div>
-                        ) : null}
-                      </div>
-                    </div>
-                  )}
 
                   {/* Default state */}
                   {!karaokeSearchTerm && filteredKaraokeTracks.length === 0 && (
