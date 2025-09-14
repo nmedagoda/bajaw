@@ -81,6 +81,7 @@ const RecordSong = () => {
   const audioContextRef = useRef<AudioContext | null>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const karaokeSourceRef = useRef<MediaElementAudioSourceNode | null>(null);
 
   // Load karaoke tracks from database on component mount
   useEffect(() => {
@@ -233,6 +234,16 @@ const RecordSong = () => {
 
   const startRecording = async () => {
     try {
+      // Clean up any existing audio context and sources
+      if (audioContextRef.current) {
+        await audioContextRef.current.close();
+        audioContextRef.current = null;
+      }
+      if (karaokeSourceRef.current) {
+        karaokeSourceRef.current.disconnect();
+        karaokeSourceRef.current = null;
+      }
+
       // Get microphone stream
       const micStream = await navigator.mediaDevices.getUserMedia({ 
         audio: {
@@ -258,9 +269,12 @@ const RecordSong = () => {
       
       // If karaoke track is selected, play it and mix with microphone
       if (karaokeAudioRef.current && isKaraokeReady) {
-        const karaokeSource = audioContext.createMediaElementSource(karaokeAudioRef.current);
-        karaokeSource.connect(destination);
-        karaokeSource.connect(audioContext.destination); // Also play through speakers
+        // Only create a new MediaElementSourceNode if one doesn't exist
+        if (!karaokeSourceRef.current) {
+          karaokeSourceRef.current = audioContext.createMediaElementSource(karaokeAudioRef.current);
+        }
+        karaokeSourceRef.current.connect(destination);
+        karaokeSourceRef.current.connect(audioContext.destination); // Also play through speakers
         
         // Start karaoke playback
         karaokeAudioRef.current.currentTime = 0;
@@ -356,9 +370,16 @@ const RecordSong = () => {
         audioStreamRef.current.getTracks().forEach(track => track.stop());
       }
       
+      // Clean up karaoke source
+      if (karaokeSourceRef.current) {
+        karaokeSourceRef.current.disconnect();
+        karaokeSourceRef.current = null;
+      }
+      
       // Clean up audio context
       if (audioContextRef.current) {
         audioContextRef.current.close();
+        audioContextRef.current = null;
       }
       
       setIsRecording(false);
