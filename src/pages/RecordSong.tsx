@@ -288,16 +288,21 @@ const RecordSong = () => {
       
       // If karaoke track is selected, play it and mix with microphone
       if (karaokeAudioRef.current && isKaraokeReady) {
-        // Only create a new MediaElementSourceNode if one doesn't exist
-        if (!karaokeSourceRef.current) {
-          karaokeSourceRef.current = audioContext.createMediaElementSource(karaokeAudioRef.current);
+        try {
+          // Only create a new MediaElementSourceNode if one doesn't exist
+          if (!karaokeSourceRef.current) {
+            karaokeSourceRef.current = audioContext.createMediaElementSource(karaokeAudioRef.current);
+          }
+          karaokeSourceRef.current.connect(destination);
+          karaokeSourceRef.current.connect(audioContext.destination); // Also play through speakers
+          
+          // Start karaoke playback
+          karaokeAudioRef.current.currentTime = 0;
+          await karaokeAudioRef.current.play();
+        } catch (error) {
+          console.error('Error setting up karaoke audio:', error);
+          // Continue with recording even if karaoke fails
         }
-        karaokeSourceRef.current.connect(destination);
-        karaokeSourceRef.current.connect(audioContext.destination); // Also play through speakers
-        
-        // Start karaoke playback
-        karaokeAudioRef.current.currentTime = 0;
-        await karaokeAudioRef.current.play();
       }
       
       audioStreamRef.current = destination.stream;
@@ -748,12 +753,8 @@ const RecordSong = () => {
         setSelectedKaraokeTrack(null);
         setIsKaraokeReady(true);
         
-        // Auto-save if song details are provided
-        if (karaokeSongTitle.trim() && karaokeOriginalSinger.trim()) {
-          await saveKaraokeTrack(file);
-        } else {
-          toast.success('Karaoke track uploaded! Fill in song details to save.');
-        }
+        // Don't auto-save, let user manually save with the button
+        toast.success('Karaoke track uploaded! Fill in song details and click Save to add to library.');
       } else {
         toast.error('Please select a valid .wav or .mp3 file');
       }
