@@ -62,89 +62,54 @@ Deno.serve(async (req) => {
     const songResults: SongResult[] = []
     const queryLower = query.toLowerCase()
     
-    // Try multiple regex patterns to match different HTML structures
-    const patterns = [
-      // Pattern 1: Look for song cards with links and titles
-      /<a[^>]+href="([^"]*karoke-song[^"]*)"[^>]*>.*?<img[^>]+src="([^"]*)"[^>]*alt="([^"]*)"[^>]*>.*?<span[^>]*>([^<]+)<\/span>/gs,
-      // Pattern 2: Alternative structure
-      /<div[^>]*class="[^"]*item[^"]*"[^>]*>.*?<a[^>]+href="([^"]*karoke-song[^"]*)"[^>]*>.*?<img[^>]+src="([^"]*)"[^>]*>.*?<span[^>]*>([^<]+)<\/span>/gs,
-      // Pattern 3: Simple link pattern
-      /<a[^>]+href="([^"]*karoke-song[^"]*)"[^>]*>([^<]*)<\/a>/gs
-    ]
+    // Match the exact HTML structure from songhub.lk
+    const itemRegex = /<div class="item">\s*<a href="([^"]+)">\s*<img[^>]+src="([^"]+)"[^>]+alt="([^"]+)"[^>]*>\s*<span>([^<]+)<\/span>\s*<\/a>\s*<\/div>/gs
     
+    let match
     let index = 0
     
-    for (const pattern of patterns) {
-      let match
-      pattern.lastIndex = 0 // Reset regex
+    while ((match = itemRegex.exec(html)) !== null && songResults.length < 20) {
+      const [, url, imageUrl, alt, spanText] = match
       
-      while ((match = pattern.exec(html)) !== null && songResults.length < 20) {
-        let url, imageUrl, title, artist = 'Unknown Artist'
-        
-        if (match.length === 5) {
-          // Pattern 1: full match with image
-          [, url, imageUrl, , title] = match
-        } else if (match.length === 4) {
-          // Pattern 2: alternative structure
-          [, url, imageUrl, title] = match
-        } else if (match.length === 3) {
-          // Pattern 3: simple link
-          [, url, title] = match
-          imageUrl = undefined
-        } else {
-          continue
-        }
-        
-        if (!url || !title) continue
-        
-        // Clean up the title and extract artist
-        title = title.replace(/\s*karaoke\s*/gi, '').trim()
-        title = title.replace(/\s*mp3\s*/gi, '').trim()
-        
-        // Extract artist from title patterns
-        const artistPatterns = [
-          /^(.+?)\s*[-–]\s*(.+?)$/,  // "Song - Artist"
-          /^(.+?)\s*\(\s*(.+?)\s*\)$/, // "Song (Artist)"
-          /^(.+?)\s*by\s+(.+?)$/i,     // "Song by Artist"
-        ]
-        
-        for (const artistPattern of artistPatterns) {
-          const artistMatch = title.match(artistPattern)
-          if (artistMatch) {
-            title = artistMatch[1].trim()
-            artist = artistMatch[2].trim()
-            break
-          }
-        }
-        
-        // Filter based on search query
-        const titleLower = title.toLowerCase()
-        const artistLower = artist.toLowerCase()
-        
-        if (titleLower.includes(queryLower) || artistLower.includes(queryLower)) {
-          // Ensure full URL
-          if (!url.startsWith('http')) {
-            url = url.startsWith('/') ? `https://songhub.lk${url}` : `https://songhub.lk/${url}`
-          }
-          
-          // Ensure full image URL
-          if (imageUrl && !imageUrl.startsWith('http')) {
-            imageUrl = imageUrl.startsWith('/') ? `https://songhub.lk${imageUrl}` : `https://songhub.lk/${imageUrl}`
-          }
-          
-          songResults.push({
-            id: `songhub-${index}`,
-            title: title,
-            artist: artist,
-            url: url,
-            imageUrl: imageUrl
-          })
-          
-          index++
+      if (!url || !spanText) continue
+      
+      // Use the span text as the title, clean it up
+      let title = spanText.replace(/\s*karaoke\s*/gi, '').trim()
+      title = title.replace(/\s*mp3\s*/gi, '').trim()
+      
+      let artist = 'Unknown Artist'
+      
+      // Extract artist from title patterns
+      const artistPatterns = [
+        /^(.+?)\s*[-–]\s*(.+?)$/,  // "Song - Artist"
+        /^(.+?)\s*\(\s*(.+?)\s*\)$/, // "Song (Artist)"
+        /^(.+?)\s*by\s+(.+?)$/i,     // "Song by Artist"
+      ]
+      
+      for (const artistPattern of artistPatterns) {
+        const artistMatch = title.match(artistPattern)
+        if (artistMatch) {
+          title = artistMatch[1].trim()
+          artist = artistMatch[2].trim()
+          break
         }
       }
       
-      if (songResults.length > 0) break // Stop if we found results with this pattern
+      // Filter based on search query
+      const titleLower = title.toLowerCase()
+      const artistLower = artist.toLowerCase()
+      
+      if (titleLower.includes(queryLower) || artistLower.includes(queryLower)) {
+        songResults.push({
+          id: `songhub-${index}`,
+          title: title,
+          artist: artist,
+          url: url,
+          imageUrl: imageUrl
+        })
+        
+        index++
+      }
     }
 
     console.log(`Found ${songResults.length} results for "${query}"`)
