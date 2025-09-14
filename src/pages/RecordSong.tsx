@@ -320,7 +320,32 @@ const RecordSong = () => {
       toast.success('Recording started with karaoke!');
     } catch (error) {
       console.error('Error starting recording:', error);
-      toast.error('Failed to start recording. Please check microphone permissions.');
+      
+      // Clean up any partially created resources
+      if (audioContextRef.current) {
+        audioContextRef.current.close();
+        audioContextRef.current = null;
+      }
+      if (karaokeSourceRef.current) {
+        karaokeSourceRef.current.disconnect();
+        karaokeSourceRef.current = null;
+      }
+      
+      // Show specific error message
+      let errorMessage = 'Failed to start recording.';
+      if (error instanceof Error) {
+        if (error.name === 'NotAllowedError') {
+          errorMessage = 'Microphone permission denied. Please allow microphone access and try again.';
+        } else if (error.name === 'NotFoundError') {
+          errorMessage = 'No microphone found. Please check your audio devices.';
+        } else if (error.name === 'InvalidStateError') {
+          errorMessage = 'Audio device is already in use. Please close other applications using the microphone.';
+        } else {
+          errorMessage = `Recording error: ${error.message}`;
+        }
+      }
+      
+      toast.error(errorMessage);
     }
   };
 
