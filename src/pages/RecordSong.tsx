@@ -82,6 +82,7 @@ const RecordSong = () => {
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const karaokeSourceRef = useRef<MediaElementAudioSourceNode | null>(null);
   const karaokeGainRef = useRef<GainNode | null>(null);
+  const monitorGainRef = useRef<GainNode | null>(null);
 
   // Initialize karaoke audio element with better configuration
   useEffect(() => {
@@ -420,6 +421,8 @@ const RecordSong = () => {
             console.log('🎵 MediaElementSource created successfully');
           } else {
             console.log('🎵 Reusing existing MediaElementSource');
+            // Disconnect existing connections first
+            karaokeSourceRef.current.disconnect();
           }
           
           // Create gain node for volume control
@@ -429,9 +432,12 @@ const RecordSong = () => {
             console.log('🎵 Gain node created');
           } else {
             console.log('🎵 Reusing existing gain node');
+            // Disconnect existing connections first
+            karaokeGainRef.current.disconnect();
           }
           
-          const gainValue = 0.8;
+          // CRITICAL: Set higher gain values for audible output
+          const gainValue = 1.0; // Full volume for mixing
           karaokeGainRef.current.gain.setValueAtTime(gainValue, audioContext.currentTime);
           console.log('🎵 Gain value set to:', gainValue);
           
@@ -445,6 +451,17 @@ const RecordSong = () => {
           
           karaokeGainRef.current.connect(audioContext.destination);
           console.log('🎵 Connected gain to audio context destination (speakers)');
+          
+          // ADDITIONAL: Create a separate monitoring path for immediate speaker output
+          if (!monitorGainRef.current) {
+            monitorGainRef.current = audioContext.createGain();
+          } else {
+            monitorGainRef.current.disconnect();
+          }
+          monitorGainRef.current.gain.setValueAtTime(0.8, audioContext.currentTime); // Slightly lower for monitoring
+          karaokeSourceRef.current.connect(monitorGainRef.current);
+          monitorGainRef.current.connect(audioContext.destination);
+          console.log('🎵 Created additional monitoring path to speakers');
           
           // Log final state before playing
           console.log('🎵 Final state before play:', {
@@ -645,6 +662,12 @@ const RecordSong = () => {
       if (karaokeGainRef.current) {
         karaokeGainRef.current.disconnect();
         karaokeGainRef.current = null;
+      }
+      
+      if (monitorGainRef.current) {
+        monitorGainRef.current.disconnect();
+        monitorGainRef.current = null;
+        console.log('🎵 Monitor gain cleaned up');
       }
       
       // Clean up audio context
