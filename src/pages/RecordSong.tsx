@@ -74,35 +74,25 @@ const RecordSong = () => {
   const [selectedDatabaseTrack, setSelectedDatabaseTrack] = useState<any>(null);
   const [showUploadOption, setShowUploadOption] = useState(false);
 
+  // Recording refs - SIMPLIFIED APPROACH
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioStreamRef = useRef<MediaStream | null>(null);
-  const karaokeAudioRef = useRef<HTMLAudioElement | null>(null);
-  const audioContextRef = useRef<AudioContext | null>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const karaokeSourceRef = useRef<MediaElementAudioSourceNode | null>(null);
-  const karaokeGainRef = useRef<GainNode | null>(null);
-  const monitorGainRef = useRef<GainNode | null>(null);
+  
+  // NEW APPROACH: Independent karaoke playback (no Web Audio API routing)
+  const karaokeAudioRef = useRef<HTMLAudioElement | null>(null);
+  const isKaraokePlayingRef = useRef(false);
 
-  // Initialize karaoke audio element with better configuration
+  // Initialize karaoke audio element
   useEffect(() => {
     if (!karaokeAudioRef.current) {
       const audio = new Audio();
       audio.volume = 0.8;
-      audio.muted = false;
       audio.preload = 'auto';
       audio.crossOrigin = 'anonymous';
-      
-      // Add event listeners for better debugging
-      audio.addEventListener('loadstart', () => console.log('🎵 Karaoke loading started'));
-      audio.addEventListener('loadeddata', () => console.log('🎵 Karaoke data loaded'));
-      audio.addEventListener('canplay', () => console.log('🎵 Karaoke can play'));
-      audio.addEventListener('play', () => console.log('🎵 Karaoke play event fired'));
-      audio.addEventListener('pause', () => console.log('🎵 Karaoke pause event fired'));
-      audio.addEventListener('error', (e) => console.error('🎵 Karaoke error:', e));
-      
       karaokeAudioRef.current = audio;
-      console.log('Karaoke audio element initialized with enhanced logging');
+      console.log('✅ Karaoke audio element initialized');
     }
   }, []);
 
@@ -138,24 +128,24 @@ const RecordSong = () => {
 
   // Select karaoke track from database
   const selectDatabaseKaraokeTrack = async (track: any) => {
-    console.log('Selecting karaoke track:', track);
+    console.log('🎵 Selecting karaoke track:', track);
     setSelectedDatabaseTrack(track);
     setKaraokeSource('database');
     setKaraokeFile(null);
     setSelectedKaraokeTrack(null);
-    setIsKaraokeReady(true); // Set ready immediately for database tracks
+    setIsKaraokeReady(true);
     
-    // Resolve the karaoke URL for playback
+    // Setup karaoke audio
     try {
       const resolvedUrl = await resolvePlayableUrl(track.karaoke_file_url);
-      console.log('Resolved karaoke URL:', resolvedUrl);
+      console.log('🎵 Resolved karaoke URL:', resolvedUrl);
       if (resolvedUrl && karaokeAudioRef.current) {
         karaokeAudioRef.current.src = resolvedUrl;
         karaokeAudioRef.current.onloadeddata = () => {
-          console.log('Karaoke audio loaded successfully');
+          console.log('✅ Karaoke audio loaded successfully');
         };
         karaokeAudioRef.current.onerror = (e) => {
-          console.error('Failed to load karaoke track:', track.karaoke_file_url, e);
+          console.error('❌ Failed to load karaoke track:', e);
           toast.error('Failed to load karaoke track. Please try another track.');
           setIsKaraokeReady(false);
         };
@@ -168,6 +158,7 @@ const RecordSong = () => {
     
     toast.success('Karaoke track selected from library!');
   };
+
   const searchSongs = async (singer: string, words?: string) => {
     if (!singer.trim()) {
       setSongs([]);
@@ -177,7 +168,6 @@ const RecordSong = () => {
 
     setIsSearching(true);
     try {
-      // Prioritize singer name first, then add song words
       const searchTerm = words?.trim() 
         ? `${singer} ${words}`.trim() 
         : singer;
@@ -231,22 +221,10 @@ const RecordSong = () => {
 
   // Load popular songs on component mount
   useEffect(() => {
-    // Clear any existing search data
     setSingerName('');
     setSongWords('');
     setSongs([]);
     setSearchTotal(0);
-    
-    // Clear any browser storage related to search
-    try {
-      localStorage.removeItem('songSearchHistory');
-      localStorage.removeItem('recentSearches');
-      sessionStorage.removeItem('songSearchHistory');
-      sessionStorage.removeItem('recentSearches');
-    } catch (error) {
-      console.log('Storage clear skipped');
-    }
-    
     searchSongs('popular songs 2024');
   }, []);
 
@@ -256,17 +234,6 @@ const RecordSong = () => {
     setSongWords('');
     setSongs([]);
     setSearchTotal(0);
-    
-    // Clear any browser storage
-    try {
-      localStorage.removeItem('songSearchHistory');
-      localStorage.removeItem('recentSearches');
-      sessionStorage.removeItem('songSearchHistory');
-      sessionStorage.removeItem('recentSearches');
-    } catch (error) {
-      console.log('Storage clear skipped');
-    }
-    
     searchSongs('popular songs 2024');
   };
 
@@ -279,353 +246,146 @@ const RecordSong = () => {
     }
   };
 
+  // NEW SIMPLIFIED RECORDING APPROACH
   const startRecording = async () => {
     try {
-      // Clean up any existing audio context and sources
-      if (audioContextRef.current) {
-        await audioContextRef.current.close();
-        audioContextRef.current = null;
-      }
-      if (karaokeSourceRef.current) {
-        karaokeSourceRef.current.disconnect();
-        karaokeSourceRef.current = null;
-      }
-
-      // Get microphone stream
-      const micStream = await navigator.mediaDevices.getUserMedia({ 
+      console.log('🎙️ Starting recording...');
+      
+      // Get microphone stream (ONLY microphone, no mixing)
+      const stream = await navigator.mediaDevices.getUserMedia({ 
         audio: {
-          echoCancellation: false, // Disable for better mixing
-          noiseSuppression: false,
-          autoGainControl: false,
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
           sampleRate: 44100
         } 
       });
       
-      // Create audio context for mixing
-      const audioContext = new AudioContext();
-      audioContextRef.current = audioContext;
+      audioStreamRef.current = stream;
       
-      // Create microphone source
-      const micSource = audioContext.createMediaStreamSource(micStream);
-      
-      // Create destination for mixed audio
-      const destination = audioContext.createMediaStreamDestination();
-      
-      // Connect microphone to destination
-      micSource.connect(destination);
-      
-      // If karaoke track is selected, set it up and play it synchronized with recording
-      if (karaokeAudioRef.current && isKaraokeReady) {
-        try {
-          console.log('🎵 === KARAOKE SETUP DEBUG START ===');
-          console.log('🎵 Karaoke source:', karaokeSource);
-          console.log('🎵 Audio element exists:', !!karaokeAudioRef.current);
-          console.log('🎵 Audio context state:', audioContext.state);
-          console.log('🎵 Audio context sample rate:', audioContext.sampleRate);
-          
-          // CRITICAL: Resume audio context FIRST (required for autoplay policy)
-          if (audioContext.state === 'suspended') {
-            console.log('🎵 Resuming suspended audio context...');
-            await audioContext.resume();
-            console.log('🎵 Audio context resumed, new state:', audioContext.state);
-          }
-          
-          // Detailed audio element state before setup
-          console.log('🎵 Audio element state BEFORE setup:', {
-            src: karaokeAudioRef.current.src,
-            readyState: karaokeAudioRef.current.readyState,
-            volume: karaokeAudioRef.current.volume,
-            muted: karaokeAudioRef.current.muted,
-            paused: karaokeAudioRef.current.paused,
-            duration: karaokeAudioRef.current.duration,
-            currentTime: karaokeAudioRef.current.currentTime
-          });
-          
-          // Ensure the audio element has the correct source
-          if (!karaokeAudioRef.current.src) {
-            console.log('🎵 Setting up audio source...');
-            if (karaokeSource === 'upload' && karaokeFile) {
-              karaokeAudioRef.current.src = URL.createObjectURL(karaokeFile);
-              console.log('🎵 Set karaoke source from uploaded file');
-            } else if (karaokeSource === 'database' && selectedDatabaseTrack) {
-              const resolvedUrl = await resolvePlayableUrl(selectedDatabaseTrack.karaoke_file_url);
-              if (resolvedUrl) {
-                karaokeAudioRef.current.src = resolvedUrl;
-                console.log('🎵 Set karaoke source from database track');
-              } else {
-                throw new Error('Failed to resolve database track URL');
-              }
-            } else if (karaokeSource === 'select' && selectedKaraokeTrack?.previewUrl) {
-              karaokeAudioRef.current.src = selectedKaraokeTrack.previewUrl;
-              console.log('🎵 Set karaoke source from online track');
-            } else {
-              throw new Error('No valid karaoke source found');
-            }
-          }
-
-          // Configure audio element for optimal playback
-          karaokeAudioRef.current.volume = 1.0; // Max volume on element
-          karaokeAudioRef.current.muted = false;
-          karaokeAudioRef.current.loop = false;
-          karaokeAudioRef.current.currentTime = 0;
-          console.log('🎵 Audio element configured');
-
-          // Wait for audio to be ready with extensive logging
-          if (karaokeAudioRef.current.readyState < 2) {
-            console.log('🎵 Waiting for audio to load, current readyState:', karaokeAudioRef.current.readyState);
-            await new Promise<void>((resolve, reject) => {
-              const timeout = setTimeout(() => {
-                cleanup();
-                reject(new Error('Karaoke audio load timeout'));
-              }, 8000);
-
-              const cleanup = () => {
-                clearTimeout(timeout);
-                karaokeAudioRef.current?.removeEventListener('canplay', handleCanPlay);
-                karaokeAudioRef.current?.removeEventListener('error', handleError);
-                karaokeAudioRef.current?.removeEventListener('loadeddata', handleLoadedData);
-              };
-
-              const handleCanPlay = () => {
-                cleanup();
-                console.log('🎵 Audio can play, readyState:', karaokeAudioRef.current?.readyState);
-                resolve();
-              };
-              
-              const handleLoadedData = () => {
-                console.log('🎵 Audio data loaded, readyState:', karaokeAudioRef.current?.readyState);
-              };
-              
-              const handleError = (e: any) => {
-                cleanup();
-                console.error('🎵 Audio load error:', e);
-                reject(new Error('Failed to load karaoke audio'));
-              };
-              
-              karaokeAudioRef.current?.addEventListener('canplay', handleCanPlay);
-              karaokeAudioRef.current?.addEventListener('error', handleError);
-              karaokeAudioRef.current?.addEventListener('loadeddata', handleLoadedData);
-              
-              // Force reload
-              console.log('🎵 Forcing audio load...');
-              karaokeAudioRef.current?.load();
-            });
-          }
-
-          console.log('🎵 Audio ready, creating Web Audio API connections...');
-          
-          // Create Web Audio API connections for proper mixing
-          if (!karaokeSourceRef.current) {
-            console.log('🎵 Creating MediaElementSource...');
-            karaokeSourceRef.current = audioContext.createMediaElementSource(karaokeAudioRef.current);
-            console.log('🎵 MediaElementSource created successfully');
-          } else {
-            console.log('🎵 Reusing existing MediaElementSource');
-            // Disconnect existing connections first
-            karaokeSourceRef.current.disconnect();
-          }
-          
-          // Create gain node for volume control
-          if (!karaokeGainRef.current) {
-            console.log('🎵 Creating gain node...');
-            karaokeGainRef.current = audioContext.createGain();
-            console.log('🎵 Gain node created');
-          } else {
-            console.log('🎵 Reusing existing gain node');
-            // Disconnect existing connections first
-            karaokeGainRef.current.disconnect();
-          }
-          
-          // CRITICAL: Set higher gain values for audible output
-          const gainValue = 1.0; // Full volume for mixing
-          karaokeGainRef.current.gain.setValueAtTime(gainValue, audioContext.currentTime);
-          console.log('🎵 Gain value set to:', gainValue);
-          
-          // Connect audio graph: karaoke -> gain -> destination & speakers
-          console.log('🎵 Connecting audio graph...');
-          karaokeSourceRef.current.connect(karaokeGainRef.current);
-          console.log('🎵 Connected karaoke source to gain');
-          
-          karaokeGainRef.current.connect(destination);
-          console.log('🎵 Connected gain to recording destination');
-          
-          karaokeGainRef.current.connect(audioContext.destination);
-          console.log('🎵 Connected gain to audio context destination (speakers)');
-          
-          // ADDITIONAL: Create a separate monitoring path for immediate speaker output
-          if (!monitorGainRef.current) {
-            monitorGainRef.current = audioContext.createGain();
-          } else {
-            monitorGainRef.current.disconnect();
-          }
-          monitorGainRef.current.gain.setValueAtTime(0.8, audioContext.currentTime); // Slightly lower for monitoring
-          karaokeSourceRef.current.connect(monitorGainRef.current);
-          monitorGainRef.current.connect(audioContext.destination);
-          console.log('🎵 Created additional monitoring path to speakers');
-          
-          // Log final state before playing
-          console.log('🎵 Final state before play:', {
-            audioContextState: audioContext.state,
-            elementVolume: karaokeAudioRef.current.volume,
-            elementMuted: karaokeAudioRef.current.muted,
-            elementReadyState: karaokeAudioRef.current.readyState,
-            elementDuration: karaokeAudioRef.current.duration,
-            gainValue: karaokeGainRef.current.gain.value,
-            hasSource: !!karaokeAudioRef.current.src,
-            destinationChannels: destination.channelCount
-          });
-          
-          // Start synchronized playback
-          console.log('🎵 Starting karaoke playback...');
-          const playPromise = karaokeAudioRef.current.play();
-          if (playPromise) {
-            await playPromise;
-            console.log('🎵 ✅ KARAOKE PLAYING SUCCESSFULLY!');
-            console.log('🎵 Current time after play:', karaokeAudioRef.current.currentTime);
-            console.log('🎵 Paused state:', karaokeAudioRef.current.paused);
-          }
-          
-          // Test if audio is actually flowing through the Web Audio API
-          setTimeout(() => {
-            if (karaokeAudioRef.current && !karaokeAudioRef.current.paused) {
-              console.log('🎵 Audio check after 1 second:', {
-                currentTime: karaokeAudioRef.current.currentTime,
-                paused: karaokeAudioRef.current.paused,
-                volume: karaokeAudioRef.current.volume,
-                audible: karaokeAudioRef.current.currentTime > 0
-              });
-            }
-          }, 1000);
-          
-          console.log('🎵 === KARAOKE SETUP DEBUG END ===');
-          
-        } catch (error) {
-          console.error('🎵 ❌ KARAOKE SETUP FAILED:', error);
-          console.error('🎵 Error details:', {
-            name: error.name,
-            message: error.message,
-            stack: error.stack
-          });
-          toast.error(`Karaoke failed: ${error.message}`);
-          // Continue with vocal-only recording
-        }
-      } else {
-        console.log('🎵 Karaoke not ready:', {
-          hasAudioRef: !!karaokeAudioRef.current,
-          isKaraokeReady,
-          karaokeSource
-        });
-      }
-      
-      audioStreamRef.current = destination.stream;
-      const mediaRecorder = new MediaRecorder(destination.stream, {
+      // Create MediaRecorder for microphone only
+      const mediaRecorder = new MediaRecorder(stream, {
         mimeType: 'audio/webm;codecs=opus'
       });
       
-      const audioChunks: Blob[] = [];
+      mediaRecorderRef.current = mediaRecorder;
+      const chunks: Blob[] = [];
       
       mediaRecorder.ondataavailable = (event) => {
         if (event.data.size > 0) {
-          audioChunks.push(event.data);
+          chunks.push(event.data);
         }
       };
       
       mediaRecorder.onstop = () => {
-        const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
-        setAudioBlob(audioBlob);
+        const blob = new Blob(chunks, { type: 'audio/webm' });
+        setAudioBlob(blob);
+        console.log('✅ Recording stopped, blob created');
         
-        // Stop karaoke playback and clean up
-        if (karaokeAudioRef.current) {
-          karaokeAudioRef.current.pause();
-          karaokeAudioRef.current.currentTime = 0;
-          console.log('🎵 Karaoke stopped and reset');
+        // Keep karaoke playing after recording stops
+        if (isKaraokePlayingRef.current && karaokeAudioRef.current) {
+          console.log('🎵 Karaoke continues playing after recording');
         }
-        
-        // Disconnect Web Audio API nodes but keep audio element functional
-        if (karaokeGainRef.current) {
-          karaokeGainRef.current.disconnect();
-          karaokeGainRef.current = null;
-          console.log('🎵 Karaoke gain node disconnected');
-        }
-        
-        if (karaokeSourceRef.current) {
-          karaokeSourceRef.current.disconnect();
-          karaokeSourceRef.current = null;
-          console.log('🎵 Karaoke source node disconnected');
-        }
-        
-        // Clean up audio context
-        if (audioContextRef.current) {
-          audioContextRef.current.close();
-          audioContextRef.current = null;
-          console.log('🎵 Audio context closed');
-        }
-        
-        // IMPORTANT: After cleanup, karaoke audio element should still be playable
-        // The test button should continue to work
       };
       
-      mediaRecorderRef.current = mediaRecorder;
+      // Start recording microphone
       mediaRecorder.start();
       setIsRecording(true);
-      setRecordingTime(0);
+      console.log('✅ MediaRecorder started');
+      
+      // Start karaoke playback INDEPENDENTLY (no Web Audio API routing)
+      if (karaokeAudioRef.current && isKaraokeReady) {
+        console.log('🎵 Starting independent karaoke playback...');
+        
+        // Ensure karaoke has the correct source
+        if (!karaokeAudioRef.current.src) {
+          if (karaokeSource === 'upload' && karaokeFile) {
+            karaokeAudioRef.current.src = URL.createObjectURL(karaokeFile);
+          } else if (karaokeSource === 'database' && selectedDatabaseTrack) {
+            const resolvedUrl = await resolvePlayableUrl(selectedDatabaseTrack.karaoke_file_url);
+            if (resolvedUrl) {
+              karaokeAudioRef.current.src = resolvedUrl;
+            }
+          } else if (karaokeSource === 'select' && selectedKaraokeTrack?.previewUrl) {
+            karaokeAudioRef.current.src = selectedKaraokeTrack.previewUrl;
+          }
+        }
+        
+        // Play karaoke independently
+        karaokeAudioRef.current.currentTime = 0;
+        karaokeAudioRef.current.volume = 0.8;
+        
+        try {
+          await karaokeAudioRef.current.play();
+          isKaraokePlayingRef.current = true;
+          console.log('✅ Karaoke playing independently during recording');
+          toast.success('Recording started with karaoke track!');
+        } catch (error) {
+          console.error('❌ Failed to play karaoke:', error);
+          toast.error('Karaoke failed to play, but recording continues');
+        }
+      } else {
+        console.log('🎙️ Recording without karaoke track');
+        toast.success('Recording started!');
+      }
       
       // Start timer
+      let startTime = Date.now();
       intervalRef.current = setInterval(() => {
-        setRecordingTime(prev => prev + 1);
-      }, 1000);
+        setRecordingTime(Date.now() - startTime);
+      }, 100);
       
-      toast.success('Recording started with karaoke!');
     } catch (error) {
-      console.error('Error starting recording:', error);
-      
-      // Clean up any partially created resources
-      if (audioContextRef.current) {
-        audioContextRef.current.close();
-        audioContextRef.current = null;
-      }
-      if (karaokeSourceRef.current) {
-        karaokeSourceRef.current.disconnect();
-        karaokeSourceRef.current = null;
-      }
-      
-      // Show specific error message
-      let errorMessage = 'Failed to start recording.';
-      if (error instanceof Error) {
-        if (error.name === 'NotAllowedError') {
-          errorMessage = 'Microphone permission denied. Please allow microphone access and try again.';
-        } else if (error.name === 'NotFoundError') {
-          errorMessage = 'No microphone found. Please check your audio devices.';
-        } else if (error.name === 'InvalidStateError') {
-          errorMessage = 'Audio device is already in use. Please close other applications using the microphone.';
-        } else {
-          errorMessage = `Recording error: ${error.message}`;
-        }
-      }
-      
-      toast.error(errorMessage);
+      console.error('❌ Failed to start recording:', error);
+      toast.error('Failed to access microphone. Please check permissions.');
     }
+  };
+
+  const stopRecording = () => {
+    console.log('🛑 Stopping recording...');
+    
+    if (mediaRecorderRef.current && isRecording) {
+      mediaRecorderRef.current.stop();
+    }
+    
+    if (audioStreamRef.current) {
+      audioStreamRef.current.getTracks().forEach(track => track.stop());
+      audioStreamRef.current = null;
+    }
+    
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+    
+    // Stop karaoke
+    if (karaokeAudioRef.current && isKaraokePlayingRef.current) {
+      karaokeAudioRef.current.pause();
+      isKaraokePlayingRef.current = false;
+      console.log('🎵 Karaoke stopped');
+    }
+    
+    setIsRecording(false);
+    setIsPaused(false);
+    console.log('✅ Recording stopped completely');
+    toast.success('Recording completed!');
   };
 
   const pauseRecording = () => {
     if (mediaRecorderRef.current && isRecording) {
       if (isPaused) {
         mediaRecorderRef.current.resume();
-        if (karaokeAudioRef.current) {
+        if (karaokeAudioRef.current && isKaraokeReady) {
           karaokeAudioRef.current.play();
+          isKaraokePlayingRef.current = true;
         }
-        intervalRef.current = setInterval(() => {
-          setRecordingTime(prev => prev + 1);
-        }, 1000);
         setIsPaused(false);
         toast.success('Recording resumed');
       } else {
         mediaRecorderRef.current.pause();
         if (karaokeAudioRef.current) {
           karaokeAudioRef.current.pause();
-        }
-        if (intervalRef.current) {
-          clearInterval(intervalRef.current);
+          isKaraokePlayingRef.current = false;
         }
         setIsPaused(true);
         toast.success('Recording paused');
@@ -633,161 +393,104 @@ const RecordSong = () => {
     }
   };
 
-  const stopRecording = () => {
-    if (mediaRecorderRef.current && isRecording) {
-      mediaRecorderRef.current.stop();
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-      }
-      
-      // Stop karaoke playback temporarily
-      if (karaokeAudioRef.current) {
-        karaokeAudioRef.current.pause();
-        karaokeAudioRef.current.currentTime = 0;
-        console.log('🎵 Karaoke paused for recording cleanup');
-      }
-      
-      // Stop all tracks
-      if (audioStreamRef.current) {
-        audioStreamRef.current.getTracks().forEach(track => track.stop());
-      }
-      
-      // Clean up karaoke Web Audio API nodes
-      if (karaokeSourceRef.current) {
-        karaokeSourceRef.current.disconnect();
-        karaokeSourceRef.current = null;
-        console.log('🎵 Web Audio karaoke nodes cleaned up');
-      }
-      
-      if (karaokeGainRef.current) {
-        karaokeGainRef.current.disconnect();
-        karaokeGainRef.current = null;
-      }
-      
-      if (monitorGainRef.current) {
-        monitorGainRef.current.disconnect();
-        monitorGainRef.current = null;
-        console.log('🎵 Monitor gain cleaned up');
-      }
-      
-      // Clean up audio context
-      if (audioContextRef.current) {
-        audioContextRef.current.close();
-        audioContextRef.current = null;
-      }
-      
-      setIsRecording(false);
-      setIsPaused(false);
-      
-      // Offer to restart karaoke playback for user enjoyment
-      if (karaokeAudioRef.current && isKaraokeReady) {
-        setTimeout(() => {
-          if (karaokeAudioRef.current) {
-            console.log('🎵 Restarting karaoke for continued listening');
-            karaokeAudioRef.current.currentTime = 0;
-            karaokeAudioRef.current.play().catch(e => {
-              console.log('🎵 Karaoke auto-restart failed (likely due to autoplay policy):', e);
-            });
-          }
-        }, 500); // Small delay to ensure cleanup is complete
-      }
-      
-      toast.success('Recording completed! Karaoke continues playing.');
-    }
-  };
-
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
-  };
-
-  const uploadPerformance = async () => {
-    if (!audioBlob || !performanceTitle.trim()) {
-      toast.error('Please provide a title and record audio');
+  // Test karaoke audio function
+  const testKaraokeAudio = async () => {
+    if (!karaokeAudioRef.current || !isKaraokeReady) {
+      toast.error('No karaoke track selected');
       return;
     }
 
-    if (!user) {
-      toast.error('Please log in to upload performances');
-      return;
-    }
-
+    console.log('🎵 Test: Playing karaoke directly');
     try {
-      setUploadProgress(10);
+      karaokeAudioRef.current.currentTime = 0;
+      await karaokeAudioRef.current.play();
+      toast.success('Karaoke test playing!');
+    } catch (error) {
+      console.error('❌ Test karaoke failed:', error);
+      toast.error('Failed to play karaoke test');
+    }
+  };
+
+  // Test Web Audio API function (keeping for debugging)
+  const testWebAudio = () => {
+    console.log('🔊 Testing Web Audio API with beep...');
+    const audioContext = new AudioContext();
+    const oscillator = audioContext.createOscillator();
+    const gainNode = audioContext.createGain();
+    
+    oscillator.connect(gainNode);
+    gainNode.connect(audioContext.destination);
+    
+    oscillator.frequency.value = 440; // A4 note
+    gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
+    gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
+    
+    oscillator.start(audioContext.currentTime);
+    oscillator.stop(audioContext.currentTime + 0.5);
+    
+    toast.success('Web Audio API test beep played!');
+  };
+
+  const formatTime = (ms: number) => {
+    const seconds = Math.floor(ms / 1000);
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = seconds % 60;
+    return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+  };
+
+  const uploadRecording = async () => {
+    if (!audioBlob || !user) {
+      toast.error('No recording to upload or user not authenticated');
+      return;
+    }
+
+    if (!performanceTitle.trim()) {
+      toast.error('Please enter a performance title');
+      return;
+    }
+
+    setUploadProgress(0);
+    
+    try {
+      const fileName = `${Date.now()}_${performanceTitle.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.webm`;
+      const filePath = `${user.id}/recorded/${fileName}`;
       
-      // Convert audio blob to file
-      const audioFile = new File([audioBlob], 'performance.webm', { type: 'audio/webm' });
-      
-      // Upload audio file to storage
-      const audioFileName = `${user.id}/performances/${Date.now()}_${audioFile.name}`;
-      setUploadProgress(30);
-      
-      const { data: audioData, error: audioError } = await supabase.storage
+      const { data: uploadData, error: uploadError } = await supabase.storage
         .from('audio-uploads')
-        .upload(audioFileName, audioFile);
-      
-      if (audioError) throw audioError;
-      setUploadProgress(60);
+        .upload(filePath, audioBlob, {
+          contentType: 'audio/webm',
+          upsert: false
+        });
 
-      // Get public URL
-      const { data: audioUrl } = supabase.storage
-        .from('audio-uploads')
-        .getPublicUrl(audioData.path);
-      
-      setUploadProgress(80);
-
-      // Save performance to database
-      const performanceData: any = {
-        singer_id: user.id,
-        title: performanceTitle.trim(),
-        audio_url: audioUrl.publicUrl,
-        analysis_data: {
-          recording_duration: recordingTime,
-          karaoke_used: isKaraokeReady,
-          karaoke_source: karaokeSource,
-          description: performanceDescription.trim() || null
-        }
-      };
-
-      // If there's a selected song, try to link it
-      if (selectedSong) {
-        // First try to find existing song in database
-        const { data: existingSong } = await supabase
-          .from('songs')
-          .select('id')
-          .ilike('title', selectedSong.title)
-          .ilike('artist', selectedSong.artist)
-          .maybeSingle();
-
-        if (existingSong) {
-          performanceData.song_id = existingSong.id;
-        } else {
-          // Create new song entry
-          const { data: newSong, error: songError } = await supabase
-            .from('songs')
-            .insert({
-              title: selectedSong.title,
-              artist: selectedSong.artist,
-              lyrics: selectedSong.lyrics || null
-            })
-            .select('id')
-            .single();
-
-          if (!songError && newSong) {
-            performanceData.song_id = newSong.id;
-          }
-        }
+      if (uploadError) {
+        console.error('Upload error:', uploadError);
+        toast.error('Failed to upload recording');
+        return;
       }
 
-      const { error: dbError } = await supabase
-        .from('performances')
-        .insert(performanceData);
+      setUploadProgress(50);
 
-      if (dbError) throw dbError;
+      const { data: urlData } = supabase.storage
+        .from('audio-uploads')
+        .getPublicUrl(filePath);
+
+      const { data: insertData, error: insertError } = await supabase
+        .from('uploaded_songs')
+        .insert({
+          singer_id: user.id,
+          song_title: performanceTitle,
+          recorded_song_url: urlData.publicUrl,
+          original_song_url: selectedSong?.previewUrl || null
+        });
+
+      if (insertError) {
+        console.error('Database insert error:', insertError);
+        toast.error('Failed to save recording information');
+        return;
+      }
 
       setUploadProgress(100);
-      toast.success('Performance uploaded successfully!');
+      toast.success('Recording uploaded successfully!');
       
       // Reset form
       setAudioBlob(null);
@@ -796,208 +499,166 @@ const RecordSong = () => {
       setRecordingTime(0);
       setUploadProgress(0);
       
-      // Clear karaoke selection if it was uploaded file
-      if (karaokeSource === 'upload') {
-        clearKaraokeSelection();
-      }
-
     } catch (error) {
       console.error('Upload error:', error);
-      toast.error('Failed to upload performance');
-      setUploadProgress(0);
+      toast.error('Failed to upload recording');
     }
   };
 
-  // Upload songs functionality
-  const handleFileUpload = async () => {
-    if (!user) {
-      toast.error('Please log in to upload songs');
-      return;
-    }
-
-    if (!songTitle.trim() || !originalSingerName.trim() || !recordedFile) {
-      toast.error('Please fill in song title, original singer, and your recorded file');
+  const uploadSongs = async () => {
+    if (!recordedFile || !songTitle || !originalSingerName || !user) {
+      toast.error('Please fill in all required fields and select files');
       return;
     }
 
     setIsUploading(true);
+    setUploadProgress(0);
+
     try {
-      const normalizedTitle = songTitle.trim();
-      const normalizedArtist = originalSingerName.trim();
-
-      // 1) Upload recorded song file (always unique per singer)
-      const recordedFileName = `${user.id}/recorded/${Date.now()}_${recordedFile.name}`;
-      const { data: recordedData, error: recordedError } = await supabase.storage
+      const timestamp = Date.now();
+      const sanitizedTitle = songTitle.replace(/[^a-z0-9]/gi, '-').toLowerCase();
+      
+      // Upload recorded file
+      const recordedFileName = `${timestamp}_${sanitizedTitle}.${recordedFileType}`;
+      const recordedFilePath = `${user.id}/recorded/${recordedFileName}`;
+      
+      const { error: recordedUploadError } = await supabase.storage
         .from('audio-uploads')
-        .upload(recordedFileName, recordedFile);
-      if (recordedError) throw recordedError;
+        .upload(recordedFilePath, recordedFile);
 
-      // Get recorded public URL
-      const { data: recordedUrl } = supabase.storage
-        .from('audio-uploads')
-        .getPublicUrl(recordedData.path);
-
-      // 2) Check if an Original Song already exists in canonical songs table
-      let originalPublicUrl: string | null = null;
-      let usedExistingOriginal = false;
-
-      const { data: existingSong, error: findSongError } = await supabase
-        .from('songs')
-        .select('id, professional_audio_url')
-        .ilike('title', normalizedTitle)
-        .ilike('artist', normalizedArtist)
-        .not('professional_audio_url', 'is', null)
-        .maybeSingle();
-
-      if (findSongError) {
-        console.warn('Song lookup warning:', findSongError.message);
+      if (recordedUploadError) {
+        throw new Error('Failed to upload recorded file');
       }
 
-      if (existingSong?.professional_audio_url) {
-        // Reuse existing original without re-uploading
-        originalPublicUrl = existingSong.professional_audio_url as string;
-        usedExistingOriginal = true;
-      } else {
-        // No existing original found. Require a file to be provided once.
-        if (!originalFile) {
-          throw new Error('Original song not found in library. Please upload the original song file once.');
+      setUploadProgress(30);
+
+      // Upload original file (if provided)
+      let originalFileUrl = null;
+      if (originalFile) {
+        const originalFileName = `${timestamp}_${sanitizedTitle}-original.${originalFileType}`;
+        const originalFilePath = `${user.id}/original/${originalFileName}`;
+        
+        const { error: originalUploadError } = await supabase.storage
+          .from('audio-uploads')
+          .upload(originalFilePath, originalFile);
+
+        if (originalUploadError) {
+          throw new Error('Failed to upload original file');
         }
 
-        // Upload original song file only when not already present
-        const originalFileName = `${user.id}/original/${Date.now()}_${originalFile.name}`;
-        const { data: originalData, error: originalError } = await supabase.storage
+        const { data: originalUrlData } = supabase.storage
           .from('audio-uploads')
-          .upload(originalFileName, originalFile);
-        if (originalError) throw originalError;
-
-        const { data: originalUrl } = supabase.storage
-          .from('audio-uploads')
-          .getPublicUrl(originalData.path);
-        originalPublicUrl = originalUrl.publicUrl;
-
-        // Try to seed the canonical songs table so future uploads can reuse it
-        // (INSERT only; we avoid UPDATE due to current RLS restrictions)
-        const { error: seedError } = await supabase
-          .from('songs')
-          .insert({ title: normalizedTitle, artist: normalizedArtist, professional_audio_url: originalPublicUrl });
-        if (seedError) {
-          console.warn('Seeding songs table failed (non-blocking):', seedError.message);
-        }
+          .getPublicUrl(originalFilePath);
+        
+        originalFileUrl = originalUrlData.publicUrl;
       }
 
-      // 3) Save to uploaded_songs (per-singer metadata)
-      const { error: dbError } = await supabase
+      setUploadProgress(60);
+
+      // Get public URLs
+      const { data: recordedUrlData } = supabase.storage
+        .from('audio-uploads')
+        .getPublicUrl(recordedFilePath);
+
+      // Insert into database
+      const { error: insertError } = await supabase
         .from('uploaded_songs')
         .insert({
           singer_id: user.id,
-          song_title: normalizedTitle,
-          original_singer_name: normalizedArtist,
-          recorded_song_url: recordedUrl.publicUrl,
-          original_song_url: originalPublicUrl,
-          recorded_file_type: recordedFileType,
-          original_file_type: originalFileType
+          song_title: songTitle,
+          original_singer_name: originalSingerName,
+          recorded_song_url: recordedUrlData.publicUrl,
+          original_song_url: originalFileUrl,
+          file_type: recordedFileType
         });
-      if (dbError) throw dbError;
 
-      if (usedExistingOriginal) {
-        toast.success('Uploaded recording. Reused existing original song.');
-      } else {
-        toast.success('Songs uploaded successfully!');
+      if (insertError) {
+        throw new Error('Failed to save song information');
       }
 
+      setUploadProgress(100);
+      toast.success('Songs uploaded successfully!');
+      
       // Reset form
       setSongTitle('');
       setOriginalSingerName('');
       setRecordedFile(null);
       setOriginalFile(null);
-      setRecordedFileType('mp3');
-      setOriginalFileType('mp3');
-
+      
     } catch (error) {
       console.error('Upload error:', error);
-      toast.error('Failed to upload songs');
+      toast.error(error instanceof Error ? error.message : 'Failed to upload songs');
     } finally {
       setIsUploading(false);
+      setUploadProgress(0);
     }
   };
 
-  const handleRecordedFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const fileType = file.type;
-      if (fileType === 'audio/wav' || fileType === 'audio/mpeg' || fileType === 'audio/mp3') {
-        setRecordedFile(file);
-        setRecordedFileType(fileType === 'audio/wav' ? 'wav' : 'mp3');
-      } else {
-        toast.error('Please select a valid .wav or .mp3 file');
-      }
-    }
-  };
-
-  const handleOriginalFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const fileType = file.type;
-      if (fileType === 'audio/wav' || fileType === 'audio/mpeg' || fileType === 'audio/mp3') {
-        setOriginalFile(file);
-        setOriginalFileType(fileType === 'audio/wav' ? 'wav' : 'mp3');
-      } else {
-        toast.error('Please select a valid .wav or .mp3 file');
-      }
-    }
-  };
-
-  // Save karaoke track information to database
-  const saveKaraokeTrack = async (file: File) => {
-    if (!user) {
-      toast.error('Please log in to save karaoke tracks');
+  const uploadKaraokeTrack = async () => {
+    if (!karaokeFile || !karaokeSongTitle || !karaokeOriginalSinger || !user) {
+      toast.error('Please fill in all fields and select a karaoke file');
       return;
     }
 
-    if (!karaokeSongTitle.trim() || !karaokeOriginalSinger.trim()) {
-      toast.error('Please fill in song title and original singer name');
-      return;
-    }
+    setIsUploading(true);
+    setUploadProgress(0);
 
     try {
-      // Upload karaoke file to storage
-      const karaokeFileName = `${user.id}/karaoke/${Date.now()}_${file.name}`;
-      const { data: karaokeData, error: karaokeError } = await supabase.storage
-        .from('audio-uploads')
-        .upload(karaokeFileName, file);
+      const timestamp = Date.now();
+      const sanitizedTitle = karaokeSongTitle.replace(/[^a-z0-9]/gi, '-').toLowerCase();
+      const fileName = `${timestamp}_${sanitizedTitle}-karaoke.mp3`;
+      const filePath = `${user.id}/karaoke/${fileName}`;
       
-      if (karaokeError) throw karaokeError;
-
-      // Get public URL
-      const { data: karaokeUrl } = supabase.storage
+      const { error: uploadError } = await supabase.storage
         .from('audio-uploads')
-        .getPublicUrl(karaokeData.path);
+        .upload(filePath, karaokeFile);
 
-      // Save to karaoke_tracks table
-      const { error: dbError } = await supabase
+      if (uploadError) {
+        throw new Error('Failed to upload karaoke file');
+      }
+
+      setUploadProgress(50);
+
+      const { data: urlData } = supabase.storage
+        .from('audio-uploads')
+        .getPublicUrl(filePath);
+
+      const { error: insertError } = await supabase
         .from('karaoke_tracks')
         .insert({
           uploader_id: user.id,
-          song_title: karaokeSongTitle.trim(),
-          original_singer_name: karaokeOriginalSinger.trim(),
-          karaoke_file_url: karaokeUrl.publicUrl,
-          file_type: file.type === 'audio/wav' ? 'wav' : 'mp3'
+          song_title: karaokeSongTitle,
+          original_singer_name: karaokeOriginalSinger,
+          karaoke_file_url: urlData.publicUrl,
+          file_type: 'mp3'
         });
 
-      if (dbError) throw dbError;
+      if (insertError) {
+        throw new Error('Failed to save karaoke track information');
+      }
 
-      toast.success('Karaoke track saved successfully!');
+      setUploadProgress(100);
+      toast.success('Karaoke track uploaded successfully!');
       
-      // Refresh the karaoke tracks list
-      const { data: updatedTracks } = await supabase
+      // Reset form and reload tracks
+      setKaraokeSongTitle('');
+      setKaraokeOriginalSinger('');
+      setKaraokeFile(null);
+      setShowUploadOption(false);
+      
+      // Reload karaoke tracks
+      const { data } = await supabase
         .from('karaoke_tracks')
         .select('*')
         .order('created_at', { ascending: false });
+      setDatabaseKaraokeTracks(data || []);
       
-      setDatabaseKaraokeTracks(updatedTracks || []);
     } catch (error) {
-      console.error('Save karaoke error:', error);
-      toast.error('Failed to save karaoke track');
+      console.error('Upload error:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to upload karaoke track');
+    } finally {
+      setIsUploading(false);
+      setUploadProgress(0);
     }
   };
 
@@ -1012,7 +673,11 @@ const RecordSong = () => {
         setSelectedKaraokeTrack(null);
         setIsKaraokeReady(true);
         
-        // Don't auto-save, let user manually save with the button
+        // Setup karaoke audio element
+        if (karaokeAudioRef.current) {
+          karaokeAudioRef.current.src = URL.createObjectURL(file);
+        }
+        
         toast.success('Karaoke track uploaded! Fill in song details and click Save to add to library.');
       } else {
         toast.error('Please select a valid .wav or .mp3 file');
@@ -1026,9 +691,14 @@ const RecordSong = () => {
     setKaraokeSource('select');
     setKaraokeFile(null);
     setIsKaraokeReady(true);
+    
+    // Setup karaoke audio element
+    if (karaokeAudioRef.current && song.previewUrl) {
+      karaokeAudioRef.current.src = song.previewUrl;
+    }
+    
     toast.success('Karaoke track selected!');
   };
-
 
   // Clear karaoke selection
   const clearKaraokeSelection = () => {
@@ -1041,936 +711,545 @@ const RecordSong = () => {
     setKaraokeOriginalSinger('');
     setShowUploadOption(false);
     
+    if (karaokeAudioRef.current) {
+      karaokeAudioRef.current.src = '';
+    }
+  };
+
+  // Handle recorded file change
+  const handleRecordedFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const fileType = file.type;
+      if (fileType === 'audio/wav' || fileType === 'audio/mpeg' || fileType === 'audio/mp3') {
+        setRecordedFile(file);
+        setRecordedFileType(fileType === 'audio/wav' ? 'wav' : 'mp3');
+      } else {
+        toast.error('Please select a valid .wav or .mp3 file');
+      }
+    }
+  };
+
+  // Handle original file change
+  const handleOriginalFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const fileType = file.type;
+      if (fileType === 'audio/wav' || fileType === 'audio/mpeg' || fileType === 'audio/mp3') {
+        setOriginalFile(file);
+        setOriginalFileType(fileType === 'audio/wav' ? 'wav' : 'mp3');
+      } else {
+        toast.error('Please select a valid .wav or .mp3 file');
+      }
+    }
   };
 
   return (
-    <div className="container mx-auto px-2 sm:px-4 py-4 sm:py-8 max-w-6xl">
-      <div className="mb-6 sm:mb-8">
-        <h1 className="text-2xl sm:text-4xl font-bold mb-2 bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-          Record New Song
-        </h1>
-        <p className="text-muted-foreground text-sm sm:text-base">
-          Choose a song and record your performance to get AI-powered vocal analysis
-        </p>
+    <div className="container mx-auto p-6 space-y-8">
+      <div className="flex items-center gap-3 mb-8">
+        <div className="h-12 w-12 rounded-full bg-gradient-to-br from-primary to-primary/70 flex items-center justify-center">
+          <Music className="h-6 w-6 text-primary-foreground" />
+        </div>
+        <div>
+          <h1 className="text-3xl font-bold text-foreground">Record Song</h1>
+          <p className="text-muted-foreground">Record performances with or without karaoke tracks</p>
+        </div>
       </div>
 
-      <Tabs defaultValue={defaultTab} className="space-y-4 sm:space-y-6">
-        <TabsList className="grid w-full grid-cols-3 h-auto p-1">
-          <TabsTrigger value="upload" className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2 text-xs sm:text-sm p-2 sm:p-3">
-            <FileAudio className="w-3 h-3 sm:w-4 sm:h-4" />
-            <span className="hidden sm:inline">Upload Songs</span>
-            <span className="sm:hidden">Upload</span>
+      <Tabs defaultValue={defaultTab} className="w-full">
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="record" className="flex items-center gap-2">
+            <Mic className="h-4 w-4" />
+            Recording Studio
           </TabsTrigger>
-          <TabsTrigger value="search" className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2 text-xs sm:text-sm p-2 sm:p-3">
-            <Search className="w-3 h-3 sm:w-4 sm:h-4" />
-            <span className="hidden sm:inline">Song Library</span>
-            <span className="sm:hidden">Library</span>
+          <TabsTrigger value="search" className="flex items-center gap-2">
+            <Search className="h-4 w-4" />
+            Song Search
           </TabsTrigger>
-          <TabsTrigger value="record" className="flex flex-col sm:flex-row items-center gap-1 sm:gap-2 text-xs sm:text-sm p-2 sm:p-3">
-            <Mic className="w-3 h-3 sm:w-4 sm:h-4" />
-            <span className="hidden sm:inline">Recording Studio</span>
-            <span className="sm:hidden">Record</span>
+          <TabsTrigger value="upload" className="flex items-center gap-2">
+            <Upload className="h-4 w-4" />
+            Upload Songs
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="upload" className="space-y-4 sm:space-y-6">
-          {/* Upload Songs */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-lg sm:text-xl">
-                <FileAudio className="w-4 h-4 sm:w-5 sm:h-5" />
-                Upload Songs
-              </CardTitle>
-              <CardDescription className="text-sm">
-                Upload both your recorded version and the original song for comparison
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4 sm:space-y-6">
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
-                {/* Song Information */}
-                <div className="space-y-4">
-                  <h3 className="text-base sm:text-lg font-semibold">Song Information</h3>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="songTitle" className="text-sm">Song Title *</Label>
-                    <Input
-                      id="songTitle"
-                      placeholder="Enter song title..."
-                      value={songTitle}
-                      onChange={(e) => setSongTitle(e.target.value)}
-                      className="text-sm"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="originalSinger" className="text-sm">Original Singer's Name *</Label>
-                    <Input
-                      id="originalSinger"
-                      placeholder="Enter original singer's name..."
-                      value={originalSingerName}
-                      onChange={(e) => setOriginalSingerName(e.target.value)}
-                      className="text-sm"
-                    />
-                  </div>
-                </div>
-
-                {/* File Uploads */}
-                <div className="space-y-4">
-                  <h3 className="text-base sm:text-lg font-semibold">Audio Files</h3>
-                  
-                  {/* Recorded Song Upload */}
-                  <div className="space-y-2">
-                    <Label htmlFor="recordedFile" className="text-sm">Your Recorded Version *</Label>
-                    <div className="space-y-2">
-                      <Input
-                        id="recordedFile"
-                        type="file"
-                        accept=".wav,.mp3,audio/wav,audio/mpeg,audio/mp3"
-                        onChange={handleRecordedFileChange}
-                        className="text-sm"
-                      />
-                      <div className="flex items-center gap-2">
-                        <Label htmlFor="recordedType" className="text-xs sm:text-sm">File Type:</Label>
-                        <Select value={recordedFileType} onValueChange={(value: 'wav' | 'mp3') => setRecordedFileType(value)}>
-                          <SelectTrigger className="w-16 sm:w-20 text-xs">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="mp3">MP3</SelectItem>
-                            <SelectItem value="wav">WAV</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      {recordedFile && (
-                        <p className="text-sm text-muted-foreground">
-                          Selected: {recordedFile.name} ({(recordedFile.size / 1024 / 1024).toFixed(2)} MB)
-                        </p>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Original Song Upload */}
-                  <div className="space-y-2">
-                    <Label htmlFor="originalFile">Original Song (auto-skipped if already exists)</Label>
-                    <div className="space-y-2">
-                      <Input
-                        id="originalFile"
-                        type="file"
-                        accept=".wav,.mp3,audio/wav,audio/mpeg,audio/mp3"
-                        onChange={handleOriginalFileChange}
-                      />
-                      <div className="flex items-center gap-2">
-                        <Label htmlFor="originalType" className="text-sm">File Type:</Label>
-                        <Select value={originalFileType} onValueChange={(value: 'wav' | 'mp3') => setOriginalFileType(value)}>
-                          <SelectTrigger className="w-20">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="mp3">MP3</SelectItem>
-                            <SelectItem value="wav">WAV</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      {originalFile && (
-                        <p className="text-sm text-muted-foreground">
-                          Selected: {originalFile.name} ({(originalFile.size / 1024 / 1024).toFixed(2)} MB)
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Upload Button */}
-              <div className="flex justify-center pt-4 border-t">
-                <Button 
-                  onClick={handleFileUpload}
-                  disabled={isUploading || !songTitle.trim() || !originalSingerName.trim() || !recordedFile}
-                  className="px-8"
-                >
-                  {isUploading ? (
-                    <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Uploading...
-                    </>
-                  ) : (
-                    <>
-                      <Upload className="w-4 h-4 mr-2" />
-                      Upload Songs
-                    </>
-                  )}
-                </Button>
-              </div>
-
-              {/* Help Text */}
-              <div className="bg-muted/50 rounded-lg p-4 text-sm text-muted-foreground">
-                <h4 className="font-medium mb-2">Upload Guidelines:</h4>
-                <ul className="space-y-1 text-xs">
-                  <li>• Supported formats: .wav and .mp3</li>
-                  <li>• Maximum file size: 50MB per file</li>
-                  <li>• Your recorded version is required; the original will be reused automatically if it already exists</li>
-                  <li>• Files will be stored securely and linked to your account</li>
-                </ul>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="search" className="space-y-6">
-          {/* Song Search */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Music className="w-5 h-5" />
-                Choose Your Song
-              </CardTitle>
-              <CardDescription>
-                Search the internet for any song and select a track to perform
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-4">
-                <div className="flex gap-2">
-                  <div className="relative flex-1">
-                    <Input
-                      placeholder="Enter original singer's name..."
-                      value={singerName}
-                      onChange={(e) => setSingerName(e.target.value)}
-                      className="pr-8"
-                    />
-                    {(singerName || songWords) && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="absolute right-1 top-1/2 -translate-y-1/2 h-6 w-6 p-0"
-                        onClick={clearSearch}
-                      >
-                        <X className="w-3 h-3" />
-                      </Button>
-                    )}
-                  </div>
-                  <Button variant="outline" size="icon" disabled={isSearching}>
-                    {isSearching ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
-                  </Button>
-                </div>
-
-                <div className="flex gap-2">
-                  <Input
-                    placeholder="Add some song words or lyrics (optional)..."
-                    value={songWords}
-                    onChange={(e) => setSongWords(e.target.value)}
-                    className="flex-1"
-                  />
-                </div>
-              </div>
-
-              {searchTotal > 0 && (
-                <p className="text-sm text-muted-foreground">
-                  Found {searchTotal} songs {singerName && `for "${singerName}"`} {songWords && `with words "${songWords}"`}
-                </p>
-              )}
-
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                <div className="grid grid-cols-1 gap-4 max-h-96 overflow-y-auto">
-                  {isSearching && songs.length === 0 ? (
-                    <div className="text-center py-8">
-                      <Loader2 className="w-8 h-8 animate-spin mx-auto mb-2" />
-                      <p className="text-muted-foreground">Searching for songs...</p>
-                    </div>
-                  ) : songs.length === 0 ? (
-                    <div className="text-center py-8">
-                      <Music className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
-                      <p className="text-muted-foreground">
-                        {singerName || songWords ? 'No songs found. Try a different singer or song words.' : 'Enter a singer\'s name to search for songs with lyrics...'}
-                      </p>
-                    </div>
-                  ) : (
-                    songs.map((song) => (
-                      <Card 
-                        key={song.id}
-                        className={`cursor-pointer transition-all hover:shadow-md ${
-                          selectedSong?.id === song.id ? 'ring-2 ring-primary' : ''
-                        }`}
-                        onClick={() => setSelectedSong(song)}
-                      >
-                        <CardContent className="p-4">
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-start gap-3 flex-1">
-                              {song.imageUrl && (
-                                <img 
-                                  src={song.imageUrl} 
-                                  alt={`${song.title} cover`}
-                                  className="w-12 h-12 rounded object-cover"
-                                />
-                              )}
-                              <div className="flex-1">
-                                <h3 className="font-semibold">{song.title}</h3>
-                                <p className="text-sm text-muted-foreground">{song.artist}</p>
-                                {song.album && (
-                                  <p className="text-xs text-muted-foreground">{song.album}</p>
-                                )}
-                                <div className="flex items-center gap-2 mt-2">
-                                  <Badge variant="secondary">{song.genre}</Badge>
-                                  <Badge 
-                                    className={`text-white ${getDifficultyColor(song.difficulty)}`}
-                                  >
-                                    {song.difficulty}
-                                  </Badge>
-                                  <span className="text-sm text-muted-foreground flex items-center gap-1">
-                                    <Timer className="w-3 h-3" />
-                                    {song.duration}
-                                  </span>
-                                   {song.originalUrl && (
-                                     <a 
-                                       href={song.originalUrl} 
-                                       target="_blank" 
-                                       rel="noopener noreferrer"
-                                       className="text-blue-600 hover:text-blue-700"
-                                       onClick={(e) => e.stopPropagation()}
-                                     >
-                                       <ExternalLink className="w-3 h-3" />
-                                     </a>
-                                   )}
-                                </div>
-                              </div>
-                            </div>
-                            <Button 
-                              variant={selectedSong?.id === song.id ? "default" : "outline"}
-                              size="sm"
-                            >
-                              {selectedSong?.id === song.id ? 'Selected' : 'Select'}
-                            </Button>
-                          </div>
-                        </CardContent>
-                      </Card>
-                    ))
-                  )}
-                </div>
-
-                {/* Lyrics Display */}
-                {selectedSong && (selectedSong.lyrics || selectedSong.lyricsImageUrl) && (
-                  <Card className="lg:sticky lg:top-4">
-                    <CardHeader>
-                      <CardTitle className="flex items-center gap-2 text-base">
-                        <Music className="w-4 h-4" />
-                        Lyrics - {selectedSong.title}
-                      </CardTitle>
-                      <CardDescription className="text-sm">
-                        by {selectedSong.artist}
-                        {selectedSong.lyricsLanguage && (
-                          <Badge variant="outline" className="ml-2 text-xs">
-                            {selectedSong.lyricsLanguage}
-                          </Badge>
-                        )}
-                      </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="border border-border rounded-lg p-4 bg-muted/20 max-h-80 overflow-y-auto">
-                        {selectedSong.lyricsImageUrl ? (
-                          <div className="space-y-3">
-                            <img 
-                              src={selectedSong.lyricsImageUrl} 
-                              alt={`Lyrics for ${selectedSong.title}`}
-                              className="w-full rounded border object-contain max-h-64"
-                              onError={(e) => {
-                                console.error('Failed to load lyrics image:', selectedSong.lyricsImageUrl);
-                                const target = e.target as HTMLImageElement;
-                                target.style.display = 'none';
-                                const parent = target.parentElement;
-                                if (parent) {
-                                  parent.innerHTML = `
-                                    <div class="text-center py-8 text-muted-foreground">
-                                      <p>Unable to load lyrics image</p>
-                                      <p class="text-xs mt-2">URL: ${selectedSong.lyricsImageUrl}</p>
-                                    </div>
-                                  `;
-                                }
-                              }}
-                              crossOrigin="anonymous"
-                            />
-                            <p className="text-xs text-muted-foreground">
-                              Lyrics image in {selectedSong.lyricsLanguage || 'original language'}
-                            </p>
-                          </div>
-                        ) : (
-                          <pre className="text-sm leading-relaxed whitespace-pre-wrap font-mono text-muted-foreground">
-                            {selectedSong.lyrics}
-                          </pre>
-                        )}
-                      </div>
-                      <p className="text-xs text-muted-foreground mt-2">
-                        Note: This is sample lyrics structure. Real implementation would require proper licensing for copyrighted content.
-                      </p>
-                    </CardContent>
-                  </Card>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
         <TabsContent value="record" className="space-y-6">
-          {/* Karaoke Track Selection */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Music className="w-5 h-5" />
-                Choose Karaoke Track
-              </CardTitle>
-              <CardDescription>
-                Select or upload a karaoke track to record with background music
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              {/* Step 1: Browse Existing Karaoke Tracks */}
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="font-semibold text-lg">1. Browse Karaoke Library</h3>
-                  <Badge variant="secondary">{databaseKaraokeTracks.length} tracks available</Badge>
-                </div>
-                
-                {/* Search existing tracks */}
+          <div className="grid gap-6 lg:grid-cols-2">
+            {/* Karaoke Track Selection */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Music className="h-5 w-5" />
+                  Karaoke Track (Optional)
+                </CardTitle>
+                <CardDescription>
+                  Select a karaoke track to sing along with
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {/* Search Database Tracks */}
                 <div className="space-y-3">
-                  <Input
-                    placeholder="Search by song title or artist name..."
-                    value={karaokeSearchTerm}
-                    onChange={(e) => setKaraokeSearchTerm(e.target.value)}
-                    className="w-full"
-                  />
-                  
-                  {/* Local Database Results */}
-                  {filteredKaraokeTracks.length > 0 && (
-                    <div className="space-y-2">
-                      <h4 className="text-sm font-medium text-muted-foreground">From Library</h4>
-                      <div className="max-h-32 overflow-y-auto space-y-2 bg-muted/20 rounded-lg p-3">
-                        {filteredKaraokeTracks.map((track) => (
-                          <div
-                            key={track.id}
-                            className={`p-3 border rounded-lg cursor-pointer transition-colors hover:bg-muted/50 ${
-                              selectedDatabaseTrack?.id === track.id ? 'border-primary bg-primary/10' : 'border-border'
-                            }`}
-                            onClick={() => selectDatabaseKaraokeTrack(track)}
-                          >
-                            <div className="flex justify-between items-start">
-                              <div>
-                                <p className="font-medium text-sm">{track.song_title}</p>
-                                <p className="text-xs text-muted-foreground">by {track.original_singer_name}</p>
-                                <p className="text-xs text-muted-foreground">
-                                  Added {new Date(track.created_at).toLocaleDateString()}
-                                </p>
-                              </div>
-                              {selectedDatabaseTrack?.id === track.id && (
-                                <Badge variant="default" className="text-xs">Selected</Badge>
-                              )}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-
-                  {/* Default state */}
-                  {!karaokeSearchTerm && filteredKaraokeTracks.length === 0 && (
-                    <div className="text-center py-6 text-muted-foreground bg-muted/20 rounded-lg">
-                      <p className="text-sm">No karaoke tracks available yet</p>
-                      <p className="text-xs mt-1">Search for songs or upload a new track</p>
-                      <Button 
-                        variant="link" 
-                        size="sm" 
-                        onClick={() => setShowUploadOption(true)}
-                        className="mt-2"
-                      >
-                        Upload a track
-                      </Button>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Step 2: Search Online Songs (fallback) */}
-              {!selectedDatabaseTrack && (
-                <div className="space-y-4 border-t pt-4">
-                  <h3 className="font-semibold text-lg">2. Search Online Songs</h3>
-                  <div className="max-h-40 overflow-y-auto space-y-2">
-                    {songs.slice(0, 3).map((song) => (
-                      <div
-                        key={song.id}
-                        className={`p-3 border rounded-lg cursor-pointer transition-colors hover:bg-muted/50 ${
-                          selectedKaraokeTrack?.id === song.id ? 'border-primary bg-primary/10' : 'border-border'
-                        }`}
-                        onClick={() => selectKaraokeTrack(song)}
-                      >
-                        <p className="text-sm font-medium">{song.title}</p>
-                        <p className="text-xs text-muted-foreground">{song.artist}</p>
-                      </div>
-                    ))}
-                    {songs.length === 0 && (
-                      <p className="text-sm text-muted-foreground text-center py-2">
-                        Go to Song Library tab to search for songs
-                      </p>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* Step 3: Upload New Track (fallback) */}
-              {(showUploadOption || (!selectedDatabaseTrack && songs.length === 0)) && (
-                <div className="space-y-4 border-t pt-4">
-                  <div className="flex items-center justify-between">
-                    <h3 className="font-semibold text-lg">3. Upload New Karaoke Track</h3>
-                    {showUploadOption && (
-                      <Button 
-                        variant="ghost" 
-                        size="sm" 
-                        onClick={() => setShowUploadOption(false)}
-                      >
-                        <X className="w-4 h-4" />
-                      </Button>
-                    )}
-                  </div>
-                  
-                  {/* Song Information */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="karaokeSongTitle">Song Title *</Label>
-                      <Input
-                        id="karaokeSongTitle"
-                        placeholder="Enter song title..."
-                        value={karaokeSongTitle}
-                        onChange={(e) => setKaraokeSongTitle(e.target.value)}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="karaokeOriginalSinger">Original Singer *</Label>
-                      <Input
-                        id="karaokeOriginalSinger"
-                        placeholder="Enter original singer name..."
-                        value={karaokeOriginalSinger}
-                        onChange={(e) => setKaraokeOriginalSinger(e.target.value)}
-                      />
-                    </div>
-                  </div>
-
-                  {/* File Upload */}
-                  <div className="space-y-3">
-                    <Label>Karaoke Audio File</Label>
+                  <Label>Search Karaoke Library</Label>
+                  <div className="flex gap-2">
                     <Input
-                      type="file"
-                      accept=".wav,.mp3,audio/wav,audio/mpeg,audio/mp3"
-                      onChange={handleKaraokeFileChange}
-                      className="file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-primary file:text-primary-foreground hover:file:bg-primary/90"
+                      placeholder="Search songs or artists..."
+                      value={karaokeSearchTerm}
+                      onChange={(e) => setKaraokeSearchTerm(e.target.value)}
+                      className="flex-1"
                     />
-                    {karaokeFile && karaokeSource === 'upload' && (
-                      <div className="p-3 bg-muted/50 rounded-lg">
-                        <p className="text-sm font-medium">Selected: {karaokeFile.name}</p>
-                        <p className="text-xs text-muted-foreground">
-                          Size: {(karaokeFile.size / 1024 / 1024).toFixed(2)} MB
-                        </p>
-                      </div>
-                    )}
                   </div>
+                  
+                  {filteredKaraokeTracks.length > 0 && (
+                    <div className="max-h-48 overflow-y-auto space-y-2 border rounded-lg p-2">
+                      {filteredKaraokeTracks.map((track) => (
+                        <div
+                          key={track.id}
+                          className={`p-3 rounded border cursor-pointer transition-colors ${
+                            selectedDatabaseTrack?.id === track.id
+                              ? 'bg-primary/10 border-primary'
+                              : 'hover:bg-muted'
+                          }`}
+                          onClick={() => selectDatabaseKaraokeTrack(track)}
+                        >
+                          <div className="font-medium">{track.song_title}</div>
+                          <div className="text-sm text-muted-foreground">
+                            by {track.original_singer_name}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
 
-                  {/* Manual Save Button */}
-                  {karaokeFile && karaokeSource === 'upload' && karaokeSongTitle.trim() && karaokeOriginalSinger.trim() && (
-                    <Button 
-                      onClick={() => saveKaraokeTrack(karaokeFile)}
+                {/* Upload New Karaoke Track */}
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <Label>Or Upload New Karaoke Track</Label>
+                    <Button
                       variant="outline"
                       size="sm"
+                      onClick={() => setShowUploadOption(!showUploadOption)}
                     >
-                      <Upload className="w-4 h-4 mr-2" />
-                      Save Karaoke Track
-                    </Button>
-                  )}
-                </div>
-              )}
-
-              {/* Current Selection Display */}
-              {isKaraokeReady && (
-                <div className="border border-dashed border-border rounded-lg p-4 bg-primary/5">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-2">
-                      <Music className="w-4 h-4 text-primary" />
-                      <span className="font-medium">
-                        {karaokeSource === 'upload' ? 'Uploaded Track' : 
-                         karaokeSource === 'database' ? 'Library Track' : 'Selected Track'}
-                      </span>
-                    </div>
-                    <Button variant="outline" size="sm" onClick={clearKaraokeSelection}>
-                      <X className="w-3 h-3 mr-1" />
-                      Clear
+                      {showUploadOption ? 'Cancel' : 'Upload New'}
                     </Button>
                   </div>
                   
-                  {karaokeSource === 'upload' && karaokeFile && (
-                    <div>
-                      <p className="text-sm mb-2 font-medium">{karaokeSongTitle || karaokeFile.name}</p>
-                      {karaokeOriginalSinger && (
-                        <p className="text-xs text-muted-foreground mb-2">by {karaokeOriginalSinger}</p>
-                      )}
-                      <audio
-                        ref={karaokeAudioRef}
-                        controls
-                        src={URL.createObjectURL(karaokeFile)}
+                  {showUploadOption && (
+                    <div className="space-y-3 p-4 border rounded-lg bg-muted/50">
+                      <div className="grid gap-3">
+                        <div>
+                          <Label htmlFor="karaoke-title">Song Title</Label>
+                          <Input
+                            id="karaoke-title"
+                            value={karaokeSongTitle}
+                            onChange={(e) => setKaraokeSongTitle(e.target.value)}
+                            placeholder="Enter song title"
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="karaoke-singer">Original Singer</Label>
+                          <Input
+                            id="karaoke-singer"
+                            value={karaokeOriginalSinger}
+                            onChange={(e) => setKaraokeOriginalSinger(e.target.value)}
+                            placeholder="Enter original singer name"
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="karaoke-file">Karaoke File (MP3)</Label>
+                          <Input
+                            id="karaoke-file"
+                            type="file"
+                            accept="audio/mp3,audio/mpeg"
+                            onChange={handleKaraokeFileChange}
+                          />
+                        </div>
+                      </div>
+                      <Button
+                        onClick={uploadKaraokeTrack}
+                        disabled={isUploading || !karaokeFile || !karaokeSongTitle || !karaokeOriginalSinger}
                         className="w-full"
-                        onLoadedData={() => setIsKaraokeReady(true)}
-                      />
-                    </div>
-                  )}
-                  
-                  {karaokeSource === 'database' && selectedDatabaseTrack && (
-                    <div>
-                      <p className="text-sm mb-1 font-medium">{selectedDatabaseTrack.song_title}</p>
-                      <p className="text-xs text-muted-foreground mb-2">by {selectedDatabaseTrack.original_singer_name}</p>
-                      <audio
-                        ref={karaokeAudioRef}
-                        controls
-                        className="w-full"
-                        onLoadedData={() => setIsKaraokeReady(true)}
-                      />
-                    </div>
-                  )}
-                  
-                  {karaokeSource === 'select' && selectedKaraokeTrack && (
-                    <div>
-                      <p className="text-sm mb-2 font-medium">
-                        {selectedKaraokeTrack.title} by {selectedKaraokeTrack.artist}
-                      </p>
-                      {selectedKaraokeTrack.previewUrl && (
-                        <audio
-                          ref={karaokeAudioRef}
-                          controls
-                          src={selectedKaraokeTrack.previewUrl}
-                          className="w-full"
-                          onLoadedData={() => setIsKaraokeReady(true)}
-                        />
-                      )}
+                      >
+                        {isUploading ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Uploading... {uploadProgress}%
+                          </>
+                        ) : (
+                          'Upload Karaoke Track'
+                        )}
+                      </Button>
                     </div>
                   )}
                 </div>
-              )}
 
-              {!isKaraokeReady && !showUploadOption && (
-                <div className="text-center py-6 text-muted-foreground">
-                  <Music className="w-8 h-8 mx-auto mb-2" />
-                  <p>Select a karaoke track from the library above to get started</p>
-                  <Button 
-                    variant="link" 
-                    onClick={() => setShowUploadOption(true)}
-                    className="mt-2"
-                  >
-                    Or upload a new track
-                  </Button>
-                </div>
-              )}
-
-              {/* Current Karaoke Track */}
-              {isKaraokeReady && (
-                <div className="border border-dashed border-border rounded-lg p-4">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-2">
-                      <Music className="w-4 h-4 text-primary" />
-                      <span className="font-medium">
-                        {karaokeSource === 'upload' ? 'Uploaded Track' : 'Selected Track'}
-                      </span>
+                {/* Karaoke Status */}
+                {isKaraokeReady && (
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2 text-green-600">
+                      <div className="h-2 w-2 bg-green-500 rounded-full"></div>
+                      <span className="text-sm font-medium">Karaoke track ready</span>
                     </div>
-                    <Button variant="outline" size="sm" onClick={clearKaraokeSelection}>
-                      <X className="w-3 h-3" />
-                    </Button>
+                    
+                    {/* Test Karaoke Button */}
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={testKaraokeAudio}
+                        className="flex items-center gap-2"
+                      >
+                        <Volume2 className="h-4 w-4" />
+                        Test Karaoke Audio
+                      </Button>
+                      
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={testWebAudio}
+                        className="flex items-center gap-2"
+                      >
+                        <Volume2 className="h-4 w-4" />
+                        Test Web Audio API
+                      </Button>
+                    </div>
                   </div>
-                  
-                  {karaokeSource === 'upload' && karaokeFile && (
-                    <div>
-                      <p className="text-sm mb-2">{karaokeFile.name}</p>
-                      <audio
-                        ref={karaokeAudioRef}
-                        controls
-                        src={URL.createObjectURL(karaokeFile)}
-                        className="w-full"
-                        onLoadedData={() => setIsKaraokeReady(true)}
-                      />
-                    </div>
-                  )}
-                  
-                  {karaokeSource === 'select' && selectedKaraokeTrack && (
-                    <div>
-                      <p className="text-sm mb-2">
-                        {selectedKaraokeTrack.title} by {selectedKaraokeTrack.artist}
-                      </p>
-                      {selectedKaraokeTrack.previewUrl && (
-                        <audio
-                          ref={karaokeAudioRef}
-                          controls
-                          src={selectedKaraokeTrack.previewUrl}
-                          className="w-full"
-                          onLoadedData={() => setIsKaraokeReady(true)}
-                        />
-                      )}
-                    </div>
-                  )}
-                </div>
-              )}
+                )}
+              </CardContent>
+            </Card>
 
-              {!isKaraokeReady && (
-                <div className="text-center py-6 text-muted-foreground">
-                  <Music className="w-8 h-8 mx-auto mb-2" />
-                  <p>Upload a karaoke track or select a song to get started</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Recording Studio */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* Recording Controls */}
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <Mic className="w-5 h-5" />
+                  <Mic className="h-5 w-5" />
                   Recording Controls
                 </CardTitle>
                 <CardDescription>
-                  Record your vocals with karaoke background music
+                  Record your performance
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                {/* Karaoke Track Status */}
-                {isKaraokeReady ? (
-                  <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-4">
-                    <div className="flex items-center gap-2 mb-1">
-                      <div className="w-2 h-2 bg-green-500 rounded-full" />
-                      <span className="text-sm font-medium text-green-700 dark:text-green-400">
-                        Karaoke Track Ready
-                      </span>
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      {karaokeSource === 'upload' && karaokeFile ? karaokeFile.name : 
-                       karaokeSource === 'database' && selectedDatabaseTrack ? `${selectedDatabaseTrack.song_title} by ${selectedDatabaseTrack.original_singer_name}` :
-                       selectedKaraokeTrack ? `${selectedKaraokeTrack.title} by ${selectedKaraokeTrack.artist}` : ''}
-                    </p>
-                  </div>
-                ) : (
-                  <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-4">
-                    <div className="flex items-center gap-2 mb-1">
-                      <div className="w-2 h-2 bg-amber-500 rounded-full" />
-                      <span className="text-sm font-medium text-amber-700 dark:text-amber-400">
-                        No Karaoke Track
-                      </span>
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      Recording will capture vocals only without background music
-                    </p>
-                  </div>
-                )}
-
-                {/* Recording Timer */}
-                <div className="text-center py-6">
-                  <div className="text-4xl font-mono font-bold mb-2">
+                <div className="text-center">
+                  <div className="text-4xl font-mono font-bold text-primary mb-4">
                     {formatTime(recordingTime)}
                   </div>
-                  <div className="flex items-center justify-center gap-1 mb-4">
-                    <Timer className="w-4 h-4" />
-                    <span className="text-sm text-muted-foreground">Recording Time</span>
-                  </div>
-                  
-                  {/* Recording Status */}
-                  <div className="flex items-center justify-center gap-2 mb-4">
-                    {isRecording && (
-                      <>
-                        <div className={`w-3 h-3 rounded-full ${isPaused ? 'bg-yellow-500' : 'bg-red-500 animate-pulse'}`} />
-                        <span className="text-sm font-medium">
-                          {isPaused ? 'Paused' : 'Recording'}
-                        </span>
-                      </>
-                    )}
-                  </div>
-
-                  {/* Test Karaoke Button */}
-                  {isKaraokeReady && !isRecording && (
-                    <div className="flex items-center justify-center mb-4 gap-2">
-                      <Button 
-                        onClick={async () => {
-                          try {
-                            if (karaokeAudioRef.current) {
-                              if (karaokeAudioRef.current.paused) {
-                                console.log('🎵 Test: Playing karaoke directly');
-                                await karaokeAudioRef.current.play();
-                                toast.success('Karaoke test started - check if you can hear it!');
-                              } else {
-                                console.log('🎵 Test: Pausing karaoke');
-                                karaokeAudioRef.current.pause();
-                                toast.info('Karaoke test paused');
-                              }
-                            }
-                          } catch (error) {
-                            console.error('🎵 Test failed:', error);
-                            toast.error(`Test failed: ${error.message}`);
-                          }
-                        }}
-                        variant="outline" 
-                        size="sm"
-                      >
-                        <Music className="w-4 h-4 mr-2" />
-                        {karaokeAudioRef.current?.paused !== false ? 'Test Karaoke Audio' : 'Stop Test'}
-                      </Button>
-                      
-                      <Button 
-                        onClick={async () => {
-                          try {
-                            // Test Web Audio API routing
-                            const audioContext = new AudioContext();
-                            await audioContext.resume();
-                            
-                            // Create a test oscillator
-                            const oscillator = audioContext.createOscillator();
-                            const gainNode = audioContext.createGain();
-                            
-                            oscillator.connect(gainNode);
-                            gainNode.connect(audioContext.destination);
-                            
-                            oscillator.frequency.value = 440; // A4 note
-                            gainNode.gain.value = 0.1; // Low volume
-                            
-                            oscillator.start();
-                            setTimeout(() => {
-                              oscillator.stop();
-                              audioContext.close();
-                            }, 500);
-                            
-                            console.log('🎵 Web Audio API test: 440Hz tone played');
-                            toast.success('Web Audio API test completed - did you hear a beep?');
-                          } catch (error) {
-                            console.error('🎵 Web Audio API test failed:', error);
-                            toast.error(`Web Audio API test failed: ${error.message}`);
-                          }
-                        }}
-                        variant="outline" 
-                        size="sm"
-                      >
-                        <Volume2 className="w-4 h-4 mr-2" />
-                        Test Web Audio API
-                      </Button>
-                    </div>
-                  )}
-
-                  {/* Control Buttons */}
-                  <div className="flex items-center justify-center gap-3">
+                  <div className="flex justify-center gap-2">
                     {!isRecording ? (
-                      <Button 
-                        onClick={startRecording} 
-                        size="lg" 
-                        className="px-8"
+                      <Button
+                        onClick={startRecording}
+                        className="bg-red-500 hover:bg-red-600 text-white px-8"
                       >
-                        <Mic className="w-4 h-4 mr-2" />
+                        <Mic className="mr-2 h-4 w-4" />
                         {isKaraokeReady ? 'Start Recording with Karaoke' : 'Start Recording'}
                       </Button>
                     ) : (
                       <>
-                        <Button 
-                          onClick={pauseRecording} 
-                          variant="outline" 
-                          size="lg"
+                        <Button
+                          onClick={pauseRecording}
+                          variant="outline"
                         >
-                          {isPaused ? <Play className="w-4 h-4" /> : <Pause className="w-4 h-4" />}
+                          {isPaused ? <Play className="mr-2 h-4 w-4" /> : <Pause className="mr-2 h-4 w-4" />}
+                          {isPaused ? 'Resume' : 'Pause'}
                         </Button>
-                        <Button 
-                          onClick={stopRecording} 
-                          variant="destructive" 
-                          size="lg"
+                        <Button
+                          onClick={stopRecording}
+                          className="bg-gray-500 hover:bg-gray-600 text-white"
                         >
-                          <Square className="w-4 h-4" />
+                          <Square className="mr-2 h-4 w-4" />
+                          Stop
                         </Button>
                       </>
                     )}
                   </div>
-
-                  {!isKaraokeReady && (
-                    <p className="text-center text-sm text-muted-foreground mt-2">
-                      Select a karaoke track above to record with background music
-                    </p>
-                  )}
                 </div>
 
-                {/* Audio Preview */}
                 {audioBlob && (
-                  <div className="border border-dashed border-border rounded-lg p-4">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Volume2 className="w-4 h-4" />
-                      <span className="font-medium">Recording Preview</span>
-                    </div>
-                    <audio 
-                      controls 
+                  <div className="space-y-4 pt-4 border-t">
+                    <h4 className="font-medium">Recording Ready</h4>
+                    <audio
+                      controls
                       src={URL.createObjectURL(audioBlob)}
                       className="w-full"
                     />
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            {/* Upload Form */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Upload className="w-5 h-5" />
-                  Upload Performance
-                </CardTitle>
-                <CardDescription>
-                  Add details about your performance and upload to get analysis
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="title">Performance Title *</Label>
-                  <Input
-                    id="title"
-                    placeholder="Give your performance a title..."
-                    value={performanceTitle}
-                    onChange={(e) => setPerformanceTitle(e.target.value)}
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label htmlFor="description">Description (Optional)</Label>
-                  <Textarea
-                    id="description"
-                    placeholder="Add any notes about your performance..."
-                    value={performanceDescription}
-                    onChange={(e) => setPerformanceDescription(e.target.value)}
-                    rows={3}
-                  />
-                </div>
-
-                {uploadProgress > 0 && (
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span>Uploading...</span>
-                      <span>{uploadProgress}%</span>
+                    
+                    <div className="space-y-3">
+                      <div>
+                        <Label htmlFor="performance-title">Performance Title *</Label>
+                        <Input
+                          id="performance-title"
+                          value={performanceTitle}
+                          onChange={(e) => setPerformanceTitle(e.target.value)}
+                          placeholder="Enter performance title"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="performance-description">Description (Optional)</Label>
+                        <Textarea
+                          id="performance-description"
+                          value={performanceDescription}
+                          onChange={(e) => setPerformanceDescription(e.target.value)}
+                          placeholder="Add notes about your performance"
+                          rows={3}
+                        />
+                      </div>
+                      
+                      {uploadProgress > 0 && (
+                        <Progress value={uploadProgress} className="w-full" />
+                      )}
+                      
+                      <Button
+                        onClick={uploadRecording}
+                        disabled={!performanceTitle.trim() || uploadProgress > 0}
+                        className="w-full"
+                      >
+                        {uploadProgress > 0 ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Uploading... {uploadProgress}%
+                          </>
+                        ) : (
+                          <>
+                            <Upload className="mr-2 h-4 w-4" />
+                            Upload Recording
+                          </>
+                        )}
+                      </Button>
                     </div>
-                    <Progress value={uploadProgress} />
                   </div>
                 )}
-
-                <Button 
-                  onClick={uploadPerformance}
-                  className="w-full"
-                  disabled={uploadProgress > 0 && uploadProgress < 100}
-                >
-                  {uploadProgress > 0 && uploadProgress < 100 ? (
-                    <>
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                      Uploading...
-                    </>
-                  ) : (
-                    <>
-                      <Upload className="w-4 h-4 mr-2" />
-                      Upload & Analyze
-                    </>
-                  )}
-                </Button>
               </CardContent>
             </Card>
           </div>
+        </TabsContent>
+
+        <TabsContent value="search" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Search className="h-5 w-5" />
+                Song Search
+              </CardTitle>
+              <CardDescription>
+                Search for songs to record
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid gap-4 md:grid-cols-2">
+                <div>
+                  <Label htmlFor="singer-name">Singer/Artist Name *</Label>
+                  <Input
+                    id="singer-name"
+                    value={singerName}
+                    onChange={(e) => setSingerName(e.target.value)}
+                    placeholder="e.g., Taylor Swift, Ed Sheeran"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="song-words">Song Title/Keywords (Optional)</Label>
+                  <Input
+                    id="song-words"
+                    value={songWords}
+                    onChange={(e) => setSongWords(e.target.value)}
+                    placeholder="e.g., Love Story, Perfect"
+                  />
+                </div>
+              </div>
+              
+              <div className="flex justify-between items-center">
+                <div className="text-sm text-muted-foreground">
+                  {isSearching ? 'Searching...' : `${searchTotal} results found`}
+                </div>
+                <Button variant="outline" size="sm" onClick={clearSearch}>
+                  <X className="mr-2 h-4 w-4" />
+                  Clear Search
+                </Button>
+              </div>
+
+              {isSearching && (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-8 w-8 animate-spin" />
+                </div>
+              )}
+
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {songs.map((song) => (
+                  <Card
+                    key={song.id}
+                    className={`cursor-pointer transition-colors ${
+                      selectedSong?.id === song.id
+                        ? 'ring-2 ring-primary'
+                        : 'hover:shadow-md'
+                    }`}
+                    onClick={() => setSelectedSong(song)}
+                  >
+                    <CardContent className="p-4">
+                      <div className="space-y-2">
+                        <h3 className="font-semibold line-clamp-1">{song.title}</h3>
+                        <p className="text-sm text-muted-foreground line-clamp-1">{song.artist}</p>
+                        {song.album && (
+                          <p className="text-xs text-muted-foreground line-clamp-1">{song.album}</p>
+                        )}
+                        <div className="flex items-center gap-2">
+                          <Badge
+                            variant="secondary"
+                            className={getDifficultyColor(song.difficulty)}
+                          >
+                            {song.difficulty}
+                          </Badge>
+                          <span className="text-xs text-muted-foreground">{song.duration}</span>
+                        </div>
+                        {song.previewUrl && (
+                          <audio
+                            controls
+                            className="w-full h-8"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <source src={song.previewUrl} type="audio/mpeg" />
+                          </audio>
+                        )}
+                        {song.spotifyUrl && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="w-full"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              window.open(song.spotifyUrl, '_blank');
+                            }}
+                          >
+                            <ExternalLink className="mr-2 h-3 w-3" />
+                            Open in Spotify
+                          </Button>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="upload" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Upload className="h-5 w-5" />
+                Upload Songs
+              </CardTitle>
+              <CardDescription>
+                Upload your recorded and original songs
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="grid gap-4 md:grid-cols-2">
+                <div>
+                  <Label htmlFor="song-title">Song Title *</Label>
+                  <Input
+                    id="song-title"
+                    value={songTitle}
+                    onChange={(e) => setSongTitle(e.target.value)}
+                    placeholder="Enter song title"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="original-singer">Original Singer *</Label>
+                  <Input
+                    id="original-singer"
+                    value={originalSingerName}
+                    onChange={(e) => setOriginalSingerName(e.target.value)}
+                    placeholder="Enter original singer name"
+                  />
+                </div>
+              </div>
+
+              <div className="grid gap-6 md:grid-cols-2">
+                <div className="space-y-4">
+                  <h3 className="font-medium flex items-center gap-2">
+                    <FileAudio className="h-4 w-4" />
+                    Recorded Version *
+                  </h3>
+                  <div>
+                    <Label htmlFor="recorded-file">Upload Recorded File</Label>
+                    <Input
+                      id="recorded-file"
+                      type="file"
+                      accept="audio/*"
+                      onChange={handleRecordedFileChange}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="recorded-file-type">File Type</Label>
+                    <Select
+                      value={recordedFileType}
+                      onValueChange={(value: 'wav' | 'mp3') => setRecordedFileType(value)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="mp3">MP3</SelectItem>
+                        <SelectItem value="wav">WAV</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div className="space-y-4">
+                  <h3 className="font-medium flex items-center gap-2">
+                    <Music className="h-4 w-4" />
+                    Original Version (Optional)
+                  </h3>
+                  <div>
+                    <Label htmlFor="original-file">Upload Original File</Label>
+                    <Input
+                      id="original-file"
+                      type="file"
+                      accept="audio/*"
+                      onChange={handleOriginalFileChange}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="original-file-type">File Type</Label>
+                    <Select
+                      value={originalFileType}
+                      onValueChange={(value: 'wav' | 'mp3') => setOriginalFileType(value)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="mp3">MP3</SelectItem>
+                        <SelectItem value="wav">WAV</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </div>
+
+              {uploadProgress > 0 && (
+                <Progress value={uploadProgress} className="w-full" />
+              )}
+
+              <Button
+                onClick={uploadSongs}
+                disabled={isUploading || !recordedFile || !songTitle || !originalSingerName}
+                className="w-full"
+              >
+                {isUploading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Uploading... {uploadProgress}%
+                  </>
+                ) : (
+                  <>
+                    <Upload className="mr-2 h-4 w-4" />
+                    Upload Songs
+                  </>
+                )}
+              </Button>
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
     </div>
