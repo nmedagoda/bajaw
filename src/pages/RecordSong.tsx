@@ -117,15 +117,13 @@ const RecordSong = () => {
     setKaraokeSource('database');
     setKaraokeFile(null);
     setSelectedKaraokeTrack(null);
+    setIsKaraokeReady(true); // Set ready immediately for database tracks
     
     // Resolve the karaoke URL for playback
     try {
       const resolvedUrl = await resolvePlayableUrl(track.karaoke_file_url);
       if (resolvedUrl && karaokeAudioRef.current) {
         karaokeAudioRef.current.src = resolvedUrl;
-        karaokeAudioRef.current.onloadeddata = () => {
-          setIsKaraokeReady(true);
-        };
         karaokeAudioRef.current.onerror = () => {
           console.error('Failed to load karaoke track:', track.karaoke_file_url);
           toast.error('Failed to load karaoke track. Please try another track.');
