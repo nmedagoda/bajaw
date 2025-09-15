@@ -1174,6 +1174,31 @@ const RecordSong = () => {
                         Test Web Audio API
                       </Button>
                     </div>
+
+                    {/* Original Song Player */}
+                    {((selectedDatabaseTrack?.original_song_url) || karaokeOriginalFile) && (
+                      <div className="space-y-2 pt-3 border-t">
+                        <Label className="text-sm font-medium flex items-center gap-2">
+                          <FileAudio className="h-4 w-4" />
+                          Original Song
+                        </Label>
+                        <audio
+                          controls
+                          className="w-full"
+                          src={
+                            selectedDatabaseTrack?.original_song_url 
+                              ? selectedDatabaseTrack.original_song_url
+                              : karaokeOriginalFile 
+                                ? URL.createObjectURL(karaokeOriginalFile)
+                                : undefined
+                          }
+                          preload="metadata"
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Listen to the original song for reference
+                        </p>
+                      </div>
+                    )}
                   </div>
                 )}
               </CardContent>
