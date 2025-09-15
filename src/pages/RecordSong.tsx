@@ -289,6 +289,38 @@ const RecordSong = () => {
       // If karaoke track is selected, play it and mix with microphone
       if (karaokeAudioRef.current && isKaraokeReady) {
         try {
+          // Ensure the audio element has a source
+          if (!karaokeAudioRef.current.src) {
+            if (karaokeSource === 'upload' && karaokeFile) {
+              karaokeAudioRef.current.src = URL.createObjectURL(karaokeFile);
+            } else if (karaokeSource === 'database' && selectedDatabaseTrack) {
+              const resolvedUrl = await resolvePlayableUrl(selectedDatabaseTrack.karaoke_file_url);
+              if (resolvedUrl) {
+                karaokeAudioRef.current.src = resolvedUrl;
+              }
+            } else if (karaokeSource === 'select' && selectedKaraokeTrack?.previewUrl) {
+              karaokeAudioRef.current.src = selectedKaraokeTrack.previewUrl;
+            }
+          }
+
+          // Wait for the audio to be ready
+          if (karaokeAudioRef.current.readyState < 2) {
+            await new Promise((resolve, reject) => {
+              const handleCanPlay = () => {
+                karaokeAudioRef.current?.removeEventListener('canplay', handleCanPlay);
+                karaokeAudioRef.current?.removeEventListener('error', handleError);
+                resolve(null);
+              };
+              const handleError = () => {
+                karaokeAudioRef.current?.removeEventListener('canplay', handleCanPlay);
+                karaokeAudioRef.current?.removeEventListener('error', handleError);
+                reject(new Error('Failed to load karaoke audio'));
+              };
+              karaokeAudioRef.current?.addEventListener('canplay', handleCanPlay);
+              karaokeAudioRef.current?.addEventListener('error', handleError);
+            });
+          }
+
           // Only create a new MediaElementSourceNode if one doesn't exist
           if (!karaokeSourceRef.current) {
             karaokeSourceRef.current = audioContext.createMediaElementSource(karaokeAudioRef.current);
@@ -301,6 +333,7 @@ const RecordSong = () => {
           await karaokeAudioRef.current.play();
         } catch (error) {
           console.error('Error setting up karaoke audio:', error);
+          toast.error('Karaoke playback failed, continuing with vocal-only recording');
           // Continue with recording even if karaoke fails
         }
       }
@@ -1486,6 +1519,7 @@ const RecordSong = () => {
                     </div>
                     <p className="text-xs text-muted-foreground">
                       {karaokeSource === 'upload' && karaokeFile ? karaokeFile.name : 
+                       karaokeSource === 'database' && selectedDatabaseTrack ? `${selectedDatabaseTrack.song_title} by ${selectedDatabaseTrack.original_singer_name}` :
                        selectedKaraokeTrack ? `${selectedKaraokeTrack.title} by ${selectedKaraokeTrack.artist}` : ''}
                     </p>
                   </div>
@@ -1532,7 +1566,6 @@ const RecordSong = () => {
                         onClick={startRecording} 
                         size="lg" 
                         className="px-8"
-                        disabled={!isKaraokeReady}
                       >
                         <Mic className="w-4 h-4 mr-2" />
                         {isKaraokeReady ? 'Start Recording with Karaoke' : 'Start Recording'}
