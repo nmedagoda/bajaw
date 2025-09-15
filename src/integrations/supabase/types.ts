@@ -53,6 +53,10 @@ export type Database = {
           audio_url: string | null
           created_at: string | null
           id: string
+          original_file_type: string | null
+          original_singer_name: string | null
+          original_song_url: string | null
+          recorded_file_type: string | null
           similarity_score: number | null
           singer_id: string
           song_id: string
@@ -65,6 +69,10 @@ export type Database = {
           audio_url?: string | null
           created_at?: string | null
           id?: string
+          original_file_type?: string | null
+          original_singer_name?: string | null
+          original_song_url?: string | null
+          recorded_file_type?: string | null
           similarity_score?: number | null
           singer_id: string
           song_id: string
@@ -77,6 +85,10 @@ export type Database = {
           audio_url?: string | null
           created_at?: string | null
           id?: string
+          original_file_type?: string | null
+          original_singer_name?: string | null
+          original_song_url?: string | null
+          recorded_file_type?: string | null
           similarity_score?: number | null
           singer_id?: string
           song_id?: string

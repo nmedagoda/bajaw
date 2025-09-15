@@ -64,6 +64,7 @@ const RecordSong = () => {
 
   // Karaoke track state for Recording Studio
   const [karaokeFile, setKaraokeFile] = useState<File | null>(null);
+  const [karaokeOriginalFile, setKaraokeOriginalFile] = useState<File | null>(null);
   const [selectedKaraokeTrack, setSelectedKaraokeTrack] = useState<Song | null>(null);
   const [karaokeSource, setKaraokeSource] = useState<'upload' | 'select' | 'database' | null>(null);
   const [isKaraokeReady, setIsKaraokeReady] = useState(false);
@@ -560,14 +561,36 @@ const RecordSong = () => {
         .from('audio-uploads')
         .getPublicUrl(filePath);
 
+      // Determine karaoke source information
+      let originalSingerName = 'Unknown Artist';
+      let originalSongUrl = null;
+      let originalFileType = null;
+
+      if (selectedDatabaseTrack) {
+        originalSingerName = selectedDatabaseTrack.original_singer_name;
+        originalSongUrl = selectedDatabaseTrack.karaoke_file_url;
+        originalFileType = selectedDatabaseTrack.file_type;
+      } else if (selectedKaraokeTrack) {
+        originalSingerName = selectedKaraokeTrack.artist;
+        originalSongUrl = selectedKaraokeTrack.previewUrl;
+        originalFileType = 'mp3';
+      } else if (selectedSong) {
+        originalSingerName = selectedSong.artist;
+        originalSongUrl = selectedSong.previewUrl;
+        originalFileType = 'mp3';
+      }
+
       const { data: insertData, error: insertError } = await supabase
-        .from('uploaded_songs')
+        .from('performances')
         .insert({
           singer_id: user.id,
-          song_title: performanceTitle,
-          original_singer_name: selectedSong?.artist || 'Unknown Artist',
-          recorded_song_url: urlData.publicUrl,
-          original_song_url: selectedSong?.previewUrl || null
+          song_id: null, // Could be linked to songs table if needed
+          title: performanceTitle,
+          audio_url: urlData.publicUrl,
+          original_singer_name: originalSingerName,
+          original_song_url: originalSongUrl,
+          recorded_file_type: 'webm',
+          original_file_type: originalFileType
         });
 
       if (insertError) {
@@ -693,22 +716,47 @@ const RecordSong = () => {
     try {
       const timestamp = Date.now();
       const sanitizedTitle = karaokeSongTitle.replace(/[^a-z0-9]/gi, '-').toLowerCase();
-      const fileName = `${timestamp}_${sanitizedTitle}-karaoke.mp3`;
-      const filePath = `${user.id}/karaoke/${fileName}`;
       
-      const { error: uploadError } = await supabase.storage
+      // Upload karaoke file
+      const karaokeFileName = `${timestamp}_${sanitizedTitle}-karaoke.mp3`;
+      const karaokeFilePath = `${user.id}/karaoke/${karaokeFileName}`;
+      
+      const { error: karaokeUploadError } = await supabase.storage
         .from('audio-uploads')
-        .upload(filePath, karaokeFile);
+        .upload(karaokeFilePath, karaokeFile);
 
-      if (uploadError) {
+      if (karaokeUploadError) {
         throw new Error('Failed to upload karaoke file');
       }
 
-      setUploadProgress(50);
+      setUploadProgress(30);
 
-      const { data: urlData } = supabase.storage
+      // Upload original song file if provided
+      let originalSongUrl = null;
+      if (karaokeOriginalFile) {
+        const originalFileName = `${timestamp}_${sanitizedTitle}-original.mp3`;
+        const originalFilePath = `${user.id}/original/${originalFileName}`;
+        
+        const { error: originalUploadError } = await supabase.storage
+          .from('audio-uploads')
+          .upload(originalFilePath, karaokeOriginalFile);
+
+        if (originalUploadError) {
+          throw new Error('Failed to upload original song file');
+        }
+
+        const { data: originalUrlData } = supabase.storage
+          .from('audio-uploads')
+          .getPublicUrl(originalFilePath);
+        
+        originalSongUrl = originalUrlData.publicUrl;
+      }
+
+      setUploadProgress(70);
+
+      const { data: karaokeUrlData } = supabase.storage
         .from('audio-uploads')
-        .getPublicUrl(filePath);
+        .getPublicUrl(karaokeFilePath);
 
       const { error: insertError } = await supabase
         .from('karaoke_tracks')
@@ -716,7 +764,7 @@ const RecordSong = () => {
           uploader_id: user.id,
           song_title: karaokeSongTitle,
           original_singer_name: karaokeOriginalSinger,
-          karaoke_file_url: urlData.publicUrl,
+          karaoke_file_url: karaokeUrlData.publicUrl,
           file_type: 'mp3'
         });
 
@@ -731,6 +779,7 @@ const RecordSong = () => {
       setKaraokeSongTitle('');
       setKaraokeOriginalSinger('');
       setKaraokeFile(null);
+      setKaraokeOriginalFile(null);
       setShowUploadOption(false);
       
       // Reload karaoke tracks
@@ -790,6 +839,7 @@ const RecordSong = () => {
   // Clear karaoke selection
   const clearKaraokeSelection = () => {
     setKaraokeFile(null);
+    setKaraokeOriginalFile(null);
     setSelectedKaraokeTrack(null);
     setSelectedDatabaseTrack(null);
     setKaraokeSource(null);
@@ -921,7 +971,7 @@ const RecordSong = () => {
                   </div>
                   
                   {showUploadOption && (
-                    <div className="space-y-3 p-4 border rounded-lg bg-muted/50">
+                     <div className="space-y-3 p-4 border rounded-lg bg-muted/50">
                       <div className="grid gap-3">
                         <div>
                           <Label htmlFor="karaoke-title">Song Title</Label>
@@ -942,13 +992,31 @@ const RecordSong = () => {
                           />
                         </div>
                         <div>
-                          <Label htmlFor="karaoke-file">Karaoke File (MP3)</Label>
+                          <Label htmlFor="karaoke-file">Karaoke File (MP3) *</Label>
                           <Input
                             id="karaoke-file"
                             type="file"
                             accept="audio/mp3,audio/mpeg"
                             onChange={handleKaraokeFileChange}
                           />
+                        </div>
+                        <div>
+                          <Label htmlFor="karaoke-original-file">Original Song File (MP3) - Optional</Label>
+                          <Input
+                            id="karaoke-original-file"
+                            type="file"
+                            accept="audio/mp3,audio/mpeg"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) {
+                                setKaraokeOriginalFile(file);
+                                toast.success('Original song file added');
+                              }
+                            }}
+                          />
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Upload the original song with vocals for reference
+                          </p>
                         </div>
                       </div>
                       <Button
