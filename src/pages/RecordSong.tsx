@@ -81,15 +81,27 @@ const RecordSong = () => {
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const karaokeSourceRef = useRef<MediaElementAudioSourceNode | null>(null);
+  const karaokeGainRef = useRef<GainNode | null>(null);
 
-  // Initialize karaoke audio element
+  // Initialize karaoke audio element with better configuration
   useEffect(() => {
     if (!karaokeAudioRef.current) {
-      karaokeAudioRef.current = new Audio();
-      karaokeAudioRef.current.volume = 0.7;
-      karaokeAudioRef.current.muted = false;
-      karaokeAudioRef.current.preload = 'auto';
-      console.log('Karaoke audio element initialized');
+      const audio = new Audio();
+      audio.volume = 0.8;
+      audio.muted = false;
+      audio.preload = 'auto';
+      audio.crossOrigin = 'anonymous';
+      
+      // Add event listeners for better debugging
+      audio.addEventListener('loadstart', () => console.log('🎵 Karaoke loading started'));
+      audio.addEventListener('loadeddata', () => console.log('🎵 Karaoke data loaded'));
+      audio.addEventListener('canplay', () => console.log('🎵 Karaoke can play'));
+      audio.addEventListener('play', () => console.log('🎵 Karaoke play event fired'));
+      audio.addEventListener('pause', () => console.log('🎵 Karaoke pause event fired'));
+      audio.addEventListener('error', (e) => console.error('🎵 Karaoke error:', e));
+      
+      karaokeAudioRef.current = audio;
+      console.log('Karaoke audio element initialized with enhanced logging');
     }
   }, []);
 
@@ -301,109 +313,123 @@ const RecordSong = () => {
       // Connect microphone to destination
       micSource.connect(destination);
       
-      // If karaoke track is selected, play it and mix with microphone
+      // If karaoke track is selected, set it up and play it synchronized with recording
       if (karaokeAudioRef.current && isKaraokeReady) {
         try {
-          console.log('Setting up karaoke playback, source:', karaokeSource);
+          console.log('🎵 Setting up synchronized karaoke playback, source:', karaokeSource);
           
-          // Ensure audio context is resumed (required for autoplay policy)
+          // CRITICAL: Resume audio context FIRST (required for autoplay policy)
           if (audioContext.state === 'suspended') {
             await audioContext.resume();
-            console.log('Audio context resumed');
+            console.log('🎵 Audio context resumed from suspended state');
           }
           
-          // Configure karaoke audio element
-          karaokeAudioRef.current.volume = 0.8; // Increase volume slightly
-          karaokeAudioRef.current.muted = false; // Ensure not muted
-          karaokeAudioRef.current.loop = false; // Don't loop
-          karaokeAudioRef.current.crossOrigin = 'anonymous'; // For CORS
-          
-          // Ensure the audio element has a source
+          // Ensure the audio element has the correct source
           if (!karaokeAudioRef.current.src) {
             if (karaokeSource === 'upload' && karaokeFile) {
               karaokeAudioRef.current.src = URL.createObjectURL(karaokeFile);
-              console.log('Set karaoke source from uploaded file');
+              console.log('🎵 Set karaoke source from uploaded file');
             } else if (karaokeSource === 'database' && selectedDatabaseTrack) {
               const resolvedUrl = await resolvePlayableUrl(selectedDatabaseTrack.karaoke_file_url);
               if (resolvedUrl) {
                 karaokeAudioRef.current.src = resolvedUrl;
-                console.log('Set karaoke source from database track:', resolvedUrl);
+                console.log('🎵 Set karaoke source from database track');
               }
             } else if (karaokeSource === 'select' && selectedKaraokeTrack?.previewUrl) {
               karaokeAudioRef.current.src = selectedKaraokeTrack.previewUrl;
-              console.log('Set karaoke source from online track');
+              console.log('🎵 Set karaoke source from online track');
             }
           }
 
-          // Wait for the audio to be ready
-          if (karaokeAudioRef.current.readyState < 2) {
-            console.log('Waiting for karaoke audio to load...');
-            await new Promise((resolve, reject) => {
-              const timeout = setTimeout(() => {
-                karaokeAudioRef.current?.removeEventListener('canplay', handleCanPlay);
-                karaokeAudioRef.current?.removeEventListener('error', handleError);
-                reject(new Error('Karaoke audio load timeout'));
-              }, 10000); // 10 second timeout
+          // Configure audio element for optimal playback
+          karaokeAudioRef.current.volume = 1.0; // Max volume on element
+          karaokeAudioRef.current.muted = false;
+          karaokeAudioRef.current.loop = false;
+          karaokeAudioRef.current.currentTime = 0;
 
-              const handleCanPlay = () => {
+          // Wait for audio to be ready with better error handling
+          if (karaokeAudioRef.current.readyState < 2) {
+            console.log('🎵 Loading karaoke audio...');
+            await new Promise<void>((resolve, reject) => {
+              const timeout = setTimeout(() => {
+                cleanup();
+                reject(new Error('Karaoke audio load timeout'));
+              }, 8000);
+
+              const cleanup = () => {
                 clearTimeout(timeout);
                 karaokeAudioRef.current?.removeEventListener('canplay', handleCanPlay);
                 karaokeAudioRef.current?.removeEventListener('error', handleError);
-                console.log('Karaoke audio can play now');
-                resolve(null);
+                karaokeAudioRef.current?.removeEventListener('loadeddata', handleLoadedData);
+              };
+
+              const handleCanPlay = () => {
+                cleanup();
+                console.log('🎵 Karaoke audio ready to play');
+                resolve();
+              };
+              
+              const handleLoadedData = () => {
+                console.log('🎵 Karaoke audio data loaded');
               };
               
               const handleError = (e: any) => {
-                clearTimeout(timeout);
-                karaokeAudioRef.current?.removeEventListener('canplay', handleCanPlay);
-                karaokeAudioRef.current?.removeEventListener('error', handleError);
-                console.error('Karaoke audio error:', e);
+                cleanup();
+                console.error('🎵 Karaoke audio load error:', e);
                 reject(new Error('Failed to load karaoke audio'));
               };
               
               karaokeAudioRef.current?.addEventListener('canplay', handleCanPlay);
               karaokeAudioRef.current?.addEventListener('error', handleError);
+              karaokeAudioRef.current?.addEventListener('loadeddata', handleLoadedData);
               
-              // Force load if not already loading
+              // Force reload
               karaokeAudioRef.current?.load();
             });
           }
 
-          // Create MediaElementSourceNode if it doesn't exist or reconnect if disconnected
+          // Create Web Audio API connections for proper mixing
           if (!karaokeSourceRef.current) {
-            console.log('Creating karaoke audio source node');
+            console.log('🎵 Creating MediaElementSource for karaoke');
             karaokeSourceRef.current = audioContext.createMediaElementSource(karaokeAudioRef.current);
           }
           
-          // Create a gain node to control karaoke volume in the mix
-          const karaokeGain = audioContext.createGain();
-          karaokeGain.gain.value = 0.7; // Mix level for karaoke in recording
+          // Create gain node for volume control
+          if (!karaokeGainRef.current) {
+            karaokeGainRef.current = audioContext.createGain();
+          }
+          karaokeGainRef.current.gain.setValueAtTime(0.8, audioContext.currentTime); // Karaoke volume
           
-          // Connect karaoke to both recording and speakers
-          karaokeSourceRef.current.connect(karaokeGain);
-          karaokeGain.connect(destination); // Include in recording
-          karaokeSourceRef.current.connect(audioContext.destination); // Play through speakers
+          // Connect audio graph: karaoke -> gain -> destination & speakers
+          karaokeSourceRef.current.connect(karaokeGainRef.current);
+          karaokeGainRef.current.connect(destination); // Mix into recording
+          karaokeGainRef.current.connect(audioContext.destination); // Output to speakers
           
-          console.log('Karaoke audio connections established');
+          console.log('🎵 Karaoke audio graph connected');
           
-          // Start karaoke playback
-          karaokeAudioRef.current.currentTime = 0;
-          console.log('Starting karaoke playback...', {
-            volume: karaokeAudioRef.current.volume,
-            muted: karaokeAudioRef.current.muted,
-            duration: karaokeAudioRef.current.duration,
-            readyState: karaokeAudioRef.current.readyState,
-            src: karaokeAudioRef.current.src
+          // Log detailed state before playing
+          console.log('🎵 Pre-play state:', {
+            audioContextState: audioContext.state,
+            elementVolume: karaokeAudioRef.current.volume,
+            elementMuted: karaokeAudioRef.current.muted,
+            elementReadyState: karaokeAudioRef.current.readyState,
+            elementDuration: karaokeAudioRef.current.duration,
+            gainValue: karaokeGainRef.current.gain.value,
+            hasSource: karaokeAudioRef.current.src ? 'YES' : 'NO'
           });
           
+          // Start synchronized playback
           const playPromise = karaokeAudioRef.current.play();
-          await playPromise;
-          console.log('🎵 Karaoke playback started successfully - you should hear the music now!');
+          if (playPromise) {
+            await playPromise;
+          }
+          
+          console.log('🎵 KARAOKE PLAYING - You should hear the music now!');
           
         } catch (error) {
-          console.error('Error setting up karaoke audio:', error);
-          toast.error('Karaoke playback failed, continuing with vocal-only recording');
-          // Continue with recording even if karaoke fails
+          console.error('🎵 Karaoke setup failed:', error);
+          toast.error(`Karaoke failed: ${error.message}`);
+          // Continue with vocal-only recording
         }
       }
       
@@ -424,14 +450,27 @@ const RecordSong = () => {
         const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
         setAudioBlob(audioBlob);
         
-        // Stop karaoke playback
+        // Stop karaoke playback and clean up
         if (karaokeAudioRef.current) {
           karaokeAudioRef.current.pause();
+          karaokeAudioRef.current.currentTime = 0;
+        }
+        
+        // Disconnect audio nodes
+        if (karaokeGainRef.current) {
+          karaokeGainRef.current.disconnect();
+          karaokeGainRef.current = null;
+        }
+        
+        if (karaokeSourceRef.current) {
+          karaokeSourceRef.current.disconnect();
+          karaokeSourceRef.current = null;
         }
         
         // Clean up audio context
         if (audioContextRef.current) {
           audioContextRef.current.close();
+          audioContextRef.current = null;
         }
       };
       
@@ -1627,6 +1666,37 @@ const RecordSong = () => {
                       </>
                     )}
                   </div>
+
+                  {/* Test Karaoke Button */}
+                  {isKaraokeReady && !isRecording && (
+                    <div className="flex items-center justify-center mb-4">
+                      <Button 
+                        onClick={async () => {
+                          try {
+                            if (karaokeAudioRef.current) {
+                              if (karaokeAudioRef.current.paused) {
+                                console.log('🎵 Test: Playing karaoke directly');
+                                await karaokeAudioRef.current.play();
+                                toast.success('Karaoke test started - check if you can hear it!');
+                              } else {
+                                console.log('🎵 Test: Pausing karaoke');
+                                karaokeAudioRef.current.pause();
+                                toast.info('Karaoke test paused');
+                              }
+                            }
+                          } catch (error) {
+                            console.error('🎵 Test failed:', error);
+                            toast.error(`Test failed: ${error.message}`);
+                          }
+                        }}
+                        variant="outline" 
+                        size="sm"
+                      >
+                        <Music className="w-4 h-4 mr-2" />
+                        {karaokeAudioRef.current?.paused !== false ? 'Test Karaoke Audio' : 'Stop Test'}
+                      </Button>
+                    </div>
+                  )}
 
                   {/* Control Buttons */}
                   <div className="flex items-center justify-center gap-3">
