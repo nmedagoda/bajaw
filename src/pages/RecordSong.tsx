@@ -82,6 +82,17 @@ const RecordSong = () => {
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const karaokeSourceRef = useRef<MediaElementAudioSourceNode | null>(null);
 
+  // Initialize karaoke audio element
+  useEffect(() => {
+    if (!karaokeAudioRef.current) {
+      karaokeAudioRef.current = new Audio();
+      karaokeAudioRef.current.volume = 0.7;
+      karaokeAudioRef.current.muted = false;
+      karaokeAudioRef.current.preload = 'auto';
+      console.log('Karaoke audio element initialized');
+    }
+  }, []);
+
   // Load karaoke tracks from database on component mount
   useEffect(() => {
     const loadKaraokeTracks = async () => {
@@ -294,6 +305,12 @@ const RecordSong = () => {
       if (karaokeAudioRef.current && isKaraokeReady) {
         try {
           console.log('Setting up karaoke playback, source:', karaokeSource);
+          
+          // Configure karaoke audio element
+          karaokeAudioRef.current.volume = 0.7; // Set audible volume
+          karaokeAudioRef.current.muted = false; // Ensure not muted
+          karaokeAudioRef.current.loop = false; // Don't loop
+          
           // Ensure the audio element has a source
           if (!karaokeAudioRef.current.src) {
             if (karaokeSource === 'upload' && karaokeFile) {
@@ -338,9 +355,14 @@ const RecordSong = () => {
           
           // Start karaoke playback
           karaokeAudioRef.current.currentTime = 0;
-          console.log('Starting karaoke playback...');
+          console.log('Starting karaoke playback...', {
+            volume: karaokeAudioRef.current.volume,
+            muted: karaokeAudioRef.current.muted,
+            duration: karaokeAudioRef.current.duration,
+            readyState: karaokeAudioRef.current.readyState
+          });
           await karaokeAudioRef.current.play();
-          console.log('Karaoke playback started successfully');
+          console.log('Karaoke playback started successfully - you should hear the music now!');
         } catch (error) {
           console.error('Error setting up karaoke audio:', error);
           toast.error('Karaoke playback failed, continuing with vocal-only recording');
