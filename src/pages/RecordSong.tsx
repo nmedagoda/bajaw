@@ -74,6 +74,7 @@ const RecordSong = () => {
   const [karaokeSearchTerm, setKaraokeSearchTerm] = useState('');
   const [selectedDatabaseTrack, setSelectedDatabaseTrack] = useState<any>(null);
   const [showUploadOption, setShowUploadOption] = useState(false);
+  const [isKaraokeTestPlaying, setIsKaraokeTestPlaying] = useState(false);
 
   // Recording refs - SIMPLIFIED APPROACH
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -491,10 +492,29 @@ const RecordSong = () => {
     try {
       karaokeAudioRef.current.currentTime = 0;
       await karaokeAudioRef.current.play();
+      setIsKaraokeTestPlaying(true);
       toast.success('Karaoke test playing!');
+      
+      // Add event listener to detect when audio ends
+      const handleEnded = () => {
+        setIsKaraokeTestPlaying(false);
+        karaokeAudioRef.current?.removeEventListener('ended', handleEnded);
+      };
+      karaokeAudioRef.current.addEventListener('ended', handleEnded);
     } catch (error) {
       console.error('❌ Test karaoke failed:', error);
       toast.error('Failed to play karaoke test');
+    }
+  };
+
+  // Stop karaoke test function
+  const stopKaraokeTest = () => {
+    if (karaokeAudioRef.current) {
+      karaokeAudioRef.current.pause();
+      karaokeAudioRef.current.currentTime = 0;
+      setIsKaraokeTestPlaying(false);
+      toast.success('Karaoke test stopped!');
+      console.log('🛑 Karaoke test stopped');
     }
   };
 
@@ -1050,11 +1070,11 @@ const RecordSong = () => {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={testKaraokeAudio}
+                        onClick={isKaraokeTestPlaying ? stopKaraokeTest : testKaraokeAudio}
                         className="flex items-center gap-2"
                       >
                         <Volume2 className="h-4 w-4" />
-                        Test Karaoke Audio
+                        {isKaraokeTestPlaying ? 'Stop Karaoke Test' : 'Test Karaoke Audio'}
                       </Button>
                       
                       <Button
