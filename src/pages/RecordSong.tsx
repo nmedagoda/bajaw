@@ -246,13 +246,13 @@ const RecordSong = () => {
     }
   };
 
-  // NEW SIMPLIFIED RECORDING APPROACH
+  // AUDIO MIXING APPROACH - Record both microphone and karaoke
   const startRecording = async () => {
     try {
-      console.log('🎙️ Starting recording...');
+      console.log('🎙️ Starting recording with audio mixing...');
       
-      // Get microphone stream (ONLY microphone, no mixing)
-      const stream = await navigator.mediaDevices.getUserMedia({ 
+      // Get microphone stream
+      const micStream = await navigator.mediaDevices.getUserMedia({ 
         audio: {
           echoCancellation: true,
           noiseSuppression: true,
@@ -261,41 +261,24 @@ const RecordSong = () => {
         } 
       });
       
-      audioStreamRef.current = stream;
+      audioStreamRef.current = micStream;
       
-      // Create MediaRecorder for microphone only
-      const mediaRecorder = new MediaRecorder(stream, {
-        mimeType: 'audio/webm;codecs=opus'
-      });
+      // Create audio context for mixing
+      const audioContext = new AudioContext();
+      const mixedDestination = audioContext.createMediaStreamDestination();
       
-      mediaRecorderRef.current = mediaRecorder;
-      const chunks: Blob[] = [];
+      // Connect microphone
+      const micSource = audioContext.createMediaStreamSource(micStream);
+      const micGain = audioContext.createGain();
+      micGain.gain.value = 1.0; // Full mic volume
+      micSource.connect(micGain);
+      micGain.connect(mixedDestination);
       
-      mediaRecorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          chunks.push(event.data);
-        }
-      };
+      console.log('🎤 Microphone connected to mixer');
       
-      mediaRecorder.onstop = () => {
-        const blob = new Blob(chunks, { type: 'audio/webm' });
-        setAudioBlob(blob);
-        console.log('✅ Recording stopped, blob created');
-        
-        // Keep karaoke playing after recording stops
-        if (isKaraokePlayingRef.current && karaokeAudioRef.current) {
-          console.log('🎵 Karaoke continues playing after recording');
-        }
-      };
-      
-      // Start recording microphone
-      mediaRecorder.start();
-      setIsRecording(true);
-      console.log('✅ MediaRecorder started');
-      
-      // Start karaoke playback INDEPENDENTLY (no Web Audio API routing)
+      // Handle karaoke audio if available
       if (karaokeAudioRef.current && isKaraokeReady) {
-        console.log('🎵 Starting independent karaoke playback...');
+        console.log('🎵 Setting up karaoke for mixing...');
         
         // Ensure karaoke has the correct source
         if (!karaokeAudioRef.current.src) {
@@ -311,23 +294,62 @@ const RecordSong = () => {
           }
         }
         
-        // Play karaoke independently
+        // Connect karaoke to mixer
+        const karaokeAudioSource = audioContext.createMediaElementSource(karaokeAudioRef.current);
+        const karaokeGain = audioContext.createGain();
+        karaokeGain.gain.value = 0.6; // Lower karaoke volume for better voice clarity
+        karaokeAudioSource.connect(karaokeGain);
+        karaokeGain.connect(mixedDestination);
+        
+        // Also connect to speakers for monitoring
+        karaokeGain.connect(audioContext.destination);
+        
+        console.log('🎵 Karaoke connected to mixer and speakers');
+        
+        // Start karaoke playback
         karaokeAudioRef.current.currentTime = 0;
-        karaokeAudioRef.current.volume = 0.8;
         
         try {
           await karaokeAudioRef.current.play();
           isKaraokePlayingRef.current = true;
-          console.log('✅ Karaoke playing independently during recording');
-          toast.success('Recording started with karaoke track!');
+          console.log('✅ Karaoke playing and mixing');
+          toast.success('Recording started with karaoke mixing!');
         } catch (error) {
           console.error('❌ Failed to play karaoke:', error);
-          toast.error('Karaoke failed to play, but recording continues');
+          toast.error('Karaoke failed to play, recording microphone only');
         }
       } else {
-        console.log('🎙️ Recording without karaoke track');
+        console.log('🎙️ Recording microphone only');
         toast.success('Recording started!');
       }
+      
+      // Create MediaRecorder with the mixed stream
+      const mediaRecorder = new MediaRecorder(mixedDestination.stream, {
+        mimeType: 'audio/webm;codecs=opus'
+      });
+      
+      mediaRecorderRef.current = mediaRecorder;
+      const chunks: Blob[] = [];
+      
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          chunks.push(event.data);
+        }
+      };
+      
+      mediaRecorder.onstop = () => {
+        const blob = new Blob(chunks, { type: 'audio/webm' });
+        setAudioBlob(blob);
+        console.log('✅ Mixed recording stopped, blob created');
+        
+        // Clean up audio context
+        audioContext.close();
+      };
+      
+      // Start recording the mixed stream
+      mediaRecorder.start();
+      setIsRecording(true);
+      console.log('✅ Mixed MediaRecorder started');
       
       // Start timer
       let startTime = Date.now();
