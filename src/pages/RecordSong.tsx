@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Music, Mic, Play, Pause, Square, Upload, Search, Timer, Volume2, Loader2, ExternalLink, X, FileAudio } from 'lucide-react';
+import { Music, Mic, Play, Pause, Square, Upload, Search, Timer, Volume2, Loader2, ExternalLink, X, FileAudio, RotateCcw, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -594,6 +594,22 @@ const RecordSong = () => {
     const minutes = Math.floor(seconds / 60);
     const remainingSeconds = seconds % 60;
     return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+  };
+
+  // Clear/delete current recording
+  const clearRecording = () => {
+    setAudioBlob(null);
+    setRecordingTime(0);
+    setPerformanceTitle('');
+    setPerformanceDescription('');
+    setUploadProgress(0);
+    toast.success('Recording cleared');
+  };
+
+  // Start new recording (re-record)
+  const startNewRecording = () => {
+    clearRecording();
+    startRecording();
   };
 
   const uploadRecording = async () => {
@@ -1211,7 +1227,29 @@ const RecordSong = () => {
 
                 {audioBlob && (
                   <div className="space-y-4 pt-4 border-t">
-                    <h4 className="font-medium">Recording Ready</h4>
+                    <div className="flex items-center justify-between">
+                      <h4 className="font-medium">Recording Ready</h4>
+                      <div className="flex gap-2">
+                        <Button
+                          onClick={startNewRecording}
+                          variant="outline"
+                          size="sm"
+                          className="text-blue-600 border-blue-600 hover:bg-blue-50"
+                        >
+                          <RotateCcw className="mr-1 h-4 w-4" />
+                          Re-record
+                        </Button>
+                        <Button
+                          onClick={clearRecording}
+                          variant="outline"
+                          size="sm"
+                          className="text-red-600 border-red-600 hover:bg-red-50"
+                        >
+                          <Trash2 className="mr-1 h-4 w-4" />
+                          Delete
+                        </Button>
+                      </div>
+                    </div>
                     <audio
                       controls
                       src={URL.createObjectURL(audioBlob)}
