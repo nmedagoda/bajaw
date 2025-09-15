@@ -479,6 +479,7 @@ const RecordSong = () => {
         .insert({
           singer_id: user.id,
           song_title: performanceTitle,
+          original_singer_name: selectedSong?.artist || 'Unknown Artist',
           recorded_song_url: urlData.publicUrl,
           original_song_url: selectedSong?.previewUrl || null
         });
