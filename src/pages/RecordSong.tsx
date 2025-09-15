@@ -294,12 +294,18 @@ const RecordSong = () => {
       audioContextRef.current = audioContext;
       const mixedDestination = audioContext.createMediaStreamDestination();
       
-      // Connect microphone
+      // Connect microphone with higher gain
       const micSource = audioContext.createMediaStreamSource(micStream);
       const micGain = audioContext.createGain();
-      micGain.gain.value = 1.0; // Full mic volume
+      micGain.gain.value = 2.0; // Boost mic volume significantly
       micSource.connect(micGain);
       micGain.connect(mixedDestination);
+      
+      // Also connect mic to speakers for monitoring (optional)
+      const monitorGain = audioContext.createGain();
+      monitorGain.gain.value = 0.2; // Low volume for monitoring to avoid feedback
+      micGain.connect(monitorGain);
+      monitorGain.connect(audioContext.destination);
       
       console.log('🎤 Microphone connected to mixer');
       
@@ -327,14 +333,17 @@ const RecordSong = () => {
             karaokeSourceNodeRef.current = audioContext.createMediaElementSource(karaokeAudioRef.current);
           }
           
-          // Connect karaoke to mixer
+          // Connect karaoke to mixer with balanced volume
           const karaokeGain = audioContext.createGain();
-          karaokeGain.gain.value = 0.6; // Lower karaoke volume for better voice clarity
+          karaokeGain.gain.value = 0.8; // Slightly higher karaoke volume
           karaokeSourceNodeRef.current.connect(karaokeGain);
           karaokeGain.connect(mixedDestination);
           
           // Also connect to speakers for monitoring
-          karaokeGain.connect(audioContext.destination);
+          const speakerGain = audioContext.createGain();
+          speakerGain.gain.value = 0.7; // Separate speaker volume control
+          karaokeGain.connect(speakerGain);
+          speakerGain.connect(audioContext.destination);
           
           console.log('🎵 Karaoke connected to mixer and speakers');
           
@@ -359,10 +368,14 @@ const RecordSong = () => {
         toast.success('Recording started!');
       }
       
-      // Create MediaRecorder with the mixed stream
+      // Create MediaRecorder with the mixed stream and better settings
       const mediaRecorder = new MediaRecorder(mixedDestination.stream, {
-        mimeType: 'audio/webm;codecs=opus'
+        mimeType: 'audio/webm;codecs=opus',
+        audioBitsPerSecond: 128000 // Higher quality audio
       });
+      
+      console.log('🎤 Mixed stream tracks:', mixedDestination.stream.getAudioTracks().length);
+      console.log('🎤 Mixed stream active:', mixedDestination.stream.active);
       
       mediaRecorderRef.current = mediaRecorder;
       const chunks: Blob[] = [];
