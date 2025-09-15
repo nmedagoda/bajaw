@@ -306,10 +306,17 @@ const RecordSong = () => {
         try {
           console.log('Setting up karaoke playback, source:', karaokeSource);
           
+          // Ensure audio context is resumed (required for autoplay policy)
+          if (audioContext.state === 'suspended') {
+            await audioContext.resume();
+            console.log('Audio context resumed');
+          }
+          
           // Configure karaoke audio element
-          karaokeAudioRef.current.volume = 0.7; // Set audible volume
+          karaokeAudioRef.current.volume = 0.8; // Increase volume slightly
           karaokeAudioRef.current.muted = false; // Ensure not muted
           karaokeAudioRef.current.loop = false; // Don't loop
+          karaokeAudioRef.current.crossOrigin = 'anonymous'; // For CORS
           
           // Ensure the audio element has a source
           if (!karaokeAudioRef.current.src) {
@@ -330,28 +337,54 @@ const RecordSong = () => {
 
           // Wait for the audio to be ready
           if (karaokeAudioRef.current.readyState < 2) {
+            console.log('Waiting for karaoke audio to load...');
             await new Promise((resolve, reject) => {
-              const handleCanPlay = () => {
+              const timeout = setTimeout(() => {
                 karaokeAudioRef.current?.removeEventListener('canplay', handleCanPlay);
                 karaokeAudioRef.current?.removeEventListener('error', handleError);
+                reject(new Error('Karaoke audio load timeout'));
+              }, 10000); // 10 second timeout
+
+              const handleCanPlay = () => {
+                clearTimeout(timeout);
+                karaokeAudioRef.current?.removeEventListener('canplay', handleCanPlay);
+                karaokeAudioRef.current?.removeEventListener('error', handleError);
+                console.log('Karaoke audio can play now');
                 resolve(null);
               };
-              const handleError = () => {
+              
+              const handleError = (e: any) => {
+                clearTimeout(timeout);
                 karaokeAudioRef.current?.removeEventListener('canplay', handleCanPlay);
                 karaokeAudioRef.current?.removeEventListener('error', handleError);
+                console.error('Karaoke audio error:', e);
                 reject(new Error('Failed to load karaoke audio'));
               };
+              
               karaokeAudioRef.current?.addEventListener('canplay', handleCanPlay);
               karaokeAudioRef.current?.addEventListener('error', handleError);
+              
+              // Force load if not already loading
+              karaokeAudioRef.current?.load();
             });
           }
 
-          // Only create a new MediaElementSourceNode if one doesn't exist
+          // Create MediaElementSourceNode if it doesn't exist or reconnect if disconnected
           if (!karaokeSourceRef.current) {
+            console.log('Creating karaoke audio source node');
             karaokeSourceRef.current = audioContext.createMediaElementSource(karaokeAudioRef.current);
           }
-          karaokeSourceRef.current.connect(destination);
-          karaokeSourceRef.current.connect(audioContext.destination); // Also play through speakers
+          
+          // Create a gain node to control karaoke volume in the mix
+          const karaokeGain = audioContext.createGain();
+          karaokeGain.gain.value = 0.7; // Mix level for karaoke in recording
+          
+          // Connect karaoke to both recording and speakers
+          karaokeSourceRef.current.connect(karaokeGain);
+          karaokeGain.connect(destination); // Include in recording
+          karaokeSourceRef.current.connect(audioContext.destination); // Play through speakers
+          
+          console.log('Karaoke audio connections established');
           
           // Start karaoke playback
           karaokeAudioRef.current.currentTime = 0;
@@ -359,10 +392,14 @@ const RecordSong = () => {
             volume: karaokeAudioRef.current.volume,
             muted: karaokeAudioRef.current.muted,
             duration: karaokeAudioRef.current.duration,
-            readyState: karaokeAudioRef.current.readyState
+            readyState: karaokeAudioRef.current.readyState,
+            src: karaokeAudioRef.current.src
           });
-          await karaokeAudioRef.current.play();
-          console.log('Karaoke playback started successfully - you should hear the music now!');
+          
+          const playPromise = karaokeAudioRef.current.play();
+          await playPromise;
+          console.log('🎵 Karaoke playback started successfully - you should hear the music now!');
+          
         } catch (error) {
           console.error('Error setting up karaoke audio:', error);
           toast.error('Karaoke playback failed, continuing with vocal-only recording');
