@@ -14,6 +14,7 @@ import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { resolvePlayableUrl } from '@/lib/media';
+import { OriginalSongPlayer } from '@/components/media/OriginalSongPlayer';
 import { FFmpeg } from '@ffmpeg/ffmpeg';
 import { fetchFile, toBlobURL } from '@ffmpeg/util';
 
@@ -110,7 +111,7 @@ const RecordSong = () => {
       try {
         const { data, error } = await supabase
           .from('karaoke_tracks')
-          .select('*')
+          .select('*, original_song_url')
           .order('created_at', { ascending: false });
 
         if (error) {
@@ -872,6 +873,7 @@ const RecordSong = () => {
           song_title: karaokeSongTitle,
           original_singer_name: karaokeOriginalSinger,
           karaoke_file_url: karaokeUrlData.publicUrl,
+          original_song_url: originalSongUrl,
           file_type: 'mp3'
         });
 
@@ -892,7 +894,7 @@ const RecordSong = () => {
       // Reload karaoke tracks
       const { data } = await supabase
         .from('karaoke_tracks')
-        .select('*')
+        .select('*, original_song_url')
         .order('created_at', { ascending: false });
       setDatabaseKaraokeTracks(data || []);
       
@@ -1182,17 +1184,9 @@ const RecordSong = () => {
                           <FileAudio className="h-4 w-4" />
                           Original Song
                         </Label>
-                        <audio
-                          controls
-                          className="w-full"
-                          src={
-                            selectedDatabaseTrack?.original_song_url 
-                              ? selectedDatabaseTrack.original_song_url
-                              : karaokeOriginalFile 
-                                ? URL.createObjectURL(karaokeOriginalFile)
-                                : undefined
-                          }
-                          preload="metadata"
+                        <OriginalSongPlayer 
+                          originalSongUrl={selectedDatabaseTrack?.original_song_url}
+                          karaokeOriginalFile={karaokeOriginalFile}
                         />
                         <p className="text-xs text-muted-foreground">
                           Listen to the original song for reference

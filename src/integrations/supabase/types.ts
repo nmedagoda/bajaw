@@ -21,6 +21,7 @@ export type Database = {
           id: string
           karaoke_file_url: string
           original_singer_name: string
+          original_song_url: string | null
           song_title: string
           updated_at: string
           uploader_id: string
@@ -31,6 +32,7 @@ export type Database = {
           id?: string
           karaoke_file_url: string
           original_singer_name: string
+          original_song_url?: string | null
           song_title: string
           updated_at?: string
           uploader_id: string
@@ -41,6 +43,7 @@ export type Database = {
           id?: string
           karaoke_file_url?: string
           original_singer_name?: string
+          original_song_url?: string | null
           song_title?: string
           updated_at?: string
           uploader_id?: string
