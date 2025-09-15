@@ -96,6 +96,7 @@ const RecordSong = () => {
           return;
         }
 
+        console.log('Loaded karaoke tracks:', data);
         setDatabaseKaraokeTracks(data || []);
       } catch (error) {
         console.error('Error loading karaoke tracks:', error);
@@ -113,6 +114,7 @@ const RecordSong = () => {
 
   // Select karaoke track from database
   const selectDatabaseKaraokeTrack = async (track: any) => {
+    console.log('Selecting karaoke track:', track);
     setSelectedDatabaseTrack(track);
     setKaraokeSource('database');
     setKaraokeFile(null);
@@ -122,10 +124,14 @@ const RecordSong = () => {
     // Resolve the karaoke URL for playback
     try {
       const resolvedUrl = await resolvePlayableUrl(track.karaoke_file_url);
+      console.log('Resolved karaoke URL:', resolvedUrl);
       if (resolvedUrl && karaokeAudioRef.current) {
         karaokeAudioRef.current.src = resolvedUrl;
-        karaokeAudioRef.current.onerror = () => {
-          console.error('Failed to load karaoke track:', track.karaoke_file_url);
+        karaokeAudioRef.current.onloadeddata = () => {
+          console.log('Karaoke audio loaded successfully');
+        };
+        karaokeAudioRef.current.onerror = (e) => {
+          console.error('Failed to load karaoke track:', track.karaoke_file_url, e);
           toast.error('Failed to load karaoke track. Please try another track.');
           setIsKaraokeReady(false);
         };
@@ -287,17 +293,21 @@ const RecordSong = () => {
       // If karaoke track is selected, play it and mix with microphone
       if (karaokeAudioRef.current && isKaraokeReady) {
         try {
+          console.log('Setting up karaoke playback, source:', karaokeSource);
           // Ensure the audio element has a source
           if (!karaokeAudioRef.current.src) {
             if (karaokeSource === 'upload' && karaokeFile) {
               karaokeAudioRef.current.src = URL.createObjectURL(karaokeFile);
+              console.log('Set karaoke source from uploaded file');
             } else if (karaokeSource === 'database' && selectedDatabaseTrack) {
               const resolvedUrl = await resolvePlayableUrl(selectedDatabaseTrack.karaoke_file_url);
               if (resolvedUrl) {
                 karaokeAudioRef.current.src = resolvedUrl;
+                console.log('Set karaoke source from database track:', resolvedUrl);
               }
             } else if (karaokeSource === 'select' && selectedKaraokeTrack?.previewUrl) {
               karaokeAudioRef.current.src = selectedKaraokeTrack.previewUrl;
+              console.log('Set karaoke source from online track');
             }
           }
 
@@ -328,7 +338,9 @@ const RecordSong = () => {
           
           // Start karaoke playback
           karaokeAudioRef.current.currentTime = 0;
+          console.log('Starting karaoke playback...');
           await karaokeAudioRef.current.play();
+          console.log('Karaoke playback started successfully');
         } catch (error) {
           console.error('Error setting up karaoke audio:', error);
           toast.error('Karaoke playback failed, continuing with vocal-only recording');
