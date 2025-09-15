@@ -610,16 +610,33 @@ const RecordSong = () => {
     setUploadProgress(0);
     
     try {
-      const fileName = `${Date.now()}_${performanceTitle.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.mp3`;
-      const filePath = `${user.id}/recorded/${fileName}`;
+      let finalBlob = audioBlob;
+      let fileExtension = 'webm';
+      let contentType = 'audio/webm';
+
+      // Try to convert to MP3 if FFmpeg is ready, otherwise use webm
+      if (ffmpeg && ffmpegReady) {
+        try {
+          console.log('🔄 Converting webm to mp3...');
+          finalBlob = await convertWebmToMp3(audioBlob);
+          fileExtension = 'mp3';
+          contentType = 'audio/mp3';
+          console.log('✅ Converted to MP3 successfully');
+        } catch (conversionError) {
+          console.warn('⚠️ MP3 conversion failed, uploading as webm:', conversionError);
+          // Keep using webm format as fallback
+        }
+      } else {
+        console.log('⚠️ FFmpeg not ready, uploading as webm');
+      }
       
-      // Convert webm to mp3 format for storage
-      const mp3Blob = await convertWebmToMp3(audioBlob);
+      const fileName = `${Date.now()}_${performanceTitle.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.${fileExtension}`;
+      const filePath = `${user.id}/recorded/${fileName}`;
       
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from('audio-uploads')
-        .upload(filePath, mp3Blob, {
-          contentType: 'audio/mp3',
+        .upload(filePath, finalBlob, {
+          contentType: contentType,
           upsert: false
         });
 
@@ -662,7 +679,7 @@ const RecordSong = () => {
           original_singer_name: originalSingerName,
           recorded_song_url: urlData.publicUrl,
           original_song_url: originalSongUrl,
-          recorded_file_type: 'mp3',
+          recorded_file_type: fileExtension,
           original_file_type: originalFileType
         });
 
