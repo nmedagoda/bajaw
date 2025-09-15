@@ -14,6 +14,8 @@ import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { resolvePlayableUrl } from '@/lib/media';
+import { FFmpeg } from '@ffmpeg/ffmpeg';
+import { fetchFile, toBlobURL } from '@ffmpeg/util';
 
 interface Song {
   id: string;
@@ -61,6 +63,8 @@ const RecordSong = () => {
   const [recordedFileType, setRecordedFileType] = useState<'wav' | 'mp3'>('mp3');
   const [originalFileType, setOriginalFileType] = useState<'wav' | 'mp3'>('mp3');
   const [isUploading, setIsUploading] = useState(false);
+  const [ffmpeg, setFFmpeg] = useState<FFmpeg | null>(null);
+  const [ffmpegReady, setFfmpegReady] = useState(false);
 
   // Karaoke track state for Recording Studio
   const [karaokeFile, setKaraokeFile] = useState<File | null>(null);
@@ -161,6 +165,53 @@ const RecordSong = () => {
     }
     
     toast.success('Karaoke track selected from library!');
+  };
+
+  // Initialize FFmpeg
+  useEffect(() => {
+    const initFFmpeg = async () => {
+      try {
+        const ffmpegInstance = new FFmpeg();
+        const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd';
+        
+        ffmpegInstance.on('log', ({ message }) => {
+          console.log('[FFmpeg]', message);
+        });
+        
+        await ffmpegInstance.load({
+          coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, 'text/javascript'),
+          wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, 'application/wasm'),
+        });
+        
+        setFFmpeg(ffmpegInstance);
+        setFfmpegReady(true);
+      } catch (error) {
+        console.error('Failed to load FFmpeg:', error);
+        toast.error('Failed to initialize audio converter');
+      }
+    };
+    
+    initFFmpeg();
+  }, []);
+
+  // Convert webm audio to mp3 using FFmpeg
+  const convertWebmToMp3 = async (webmBlob: Blob): Promise<Blob> => {
+    if (!ffmpeg || !ffmpegReady) {
+      throw new Error('FFmpeg not ready for conversion');
+    }
+
+    try {
+      const webmData = await fetchFile(webmBlob);
+      await ffmpeg.writeFile('input.webm', webmData);
+      
+      await ffmpeg.exec(['-i', 'input.webm', '-acodec', 'mp3', '-ab', '128k', 'output.mp3']);
+      
+      const mp3Data = await ffmpeg.readFile('output.mp3');
+      return new Blob([mp3Data], { type: 'audio/mp3' });
+    } catch (error) {
+      console.error('Failed to convert webm to mp3:', error);
+      throw error;
+    }
   };
 
   const searchSongs = async (singer: string, words?: string) => {
@@ -559,13 +610,16 @@ const RecordSong = () => {
     setUploadProgress(0);
     
     try {
-      const fileName = `${Date.now()}_${performanceTitle.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.webm`;
+      const fileName = `${Date.now()}_${performanceTitle.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.mp3`;
       const filePath = `${user.id}/recorded/${fileName}`;
+      
+      // Convert webm to mp3 format for storage
+      const mp3Blob = await convertWebmToMp3(audioBlob);
       
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from('audio-uploads')
-        .upload(filePath, audioBlob, {
-          contentType: 'audio/webm',
+        .upload(filePath, mp3Blob, {
+          contentType: 'audio/mp3',
           upsert: false
         });
 
@@ -608,7 +662,7 @@ const RecordSong = () => {
           original_singer_name: originalSingerName,
           recorded_song_url: urlData.publicUrl,
           original_song_url: originalSongUrl,
-          recorded_file_type: 'webm',
+          recorded_file_type: 'mp3',
           original_file_type: originalFileType
         });
 
