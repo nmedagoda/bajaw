@@ -454,24 +454,31 @@ const RecordSong = () => {
         if (karaokeAudioRef.current) {
           karaokeAudioRef.current.pause();
           karaokeAudioRef.current.currentTime = 0;
+          console.log('🎵 Karaoke stopped and reset');
         }
         
-        // Disconnect audio nodes
+        // Disconnect Web Audio API nodes but keep audio element functional
         if (karaokeGainRef.current) {
           karaokeGainRef.current.disconnect();
           karaokeGainRef.current = null;
+          console.log('🎵 Karaoke gain node disconnected');
         }
         
         if (karaokeSourceRef.current) {
           karaokeSourceRef.current.disconnect();
           karaokeSourceRef.current = null;
+          console.log('🎵 Karaoke source node disconnected');
         }
         
         // Clean up audio context
         if (audioContextRef.current) {
           audioContextRef.current.close();
           audioContextRef.current = null;
+          console.log('🎵 Audio context closed');
         }
+        
+        // IMPORTANT: After cleanup, karaoke audio element should still be playable
+        // The test button should continue to work
       };
       
       mediaRecorderRef.current = mediaRecorder;
@@ -549,10 +556,11 @@ const RecordSong = () => {
         clearInterval(intervalRef.current);
       }
       
-      // Stop karaoke playback
+      // Stop karaoke playback temporarily
       if (karaokeAudioRef.current) {
         karaokeAudioRef.current.pause();
         karaokeAudioRef.current.currentTime = 0;
+        console.log('🎵 Karaoke paused for recording cleanup');
       }
       
       // Stop all tracks
@@ -560,10 +568,16 @@ const RecordSong = () => {
         audioStreamRef.current.getTracks().forEach(track => track.stop());
       }
       
-      // Clean up karaoke source
+      // Clean up karaoke Web Audio API nodes
       if (karaokeSourceRef.current) {
         karaokeSourceRef.current.disconnect();
         karaokeSourceRef.current = null;
+        console.log('🎵 Web Audio karaoke nodes cleaned up');
+      }
+      
+      if (karaokeGainRef.current) {
+        karaokeGainRef.current.disconnect();
+        karaokeGainRef.current = null;
       }
       
       // Clean up audio context
@@ -574,7 +588,21 @@ const RecordSong = () => {
       
       setIsRecording(false);
       setIsPaused(false);
-      toast.success('Recording completed!');
+      
+      // Offer to restart karaoke playback for user enjoyment
+      if (karaokeAudioRef.current && isKaraokeReady) {
+        setTimeout(() => {
+          if (karaokeAudioRef.current) {
+            console.log('🎵 Restarting karaoke for continued listening');
+            karaokeAudioRef.current.currentTime = 0;
+            karaokeAudioRef.current.play().catch(e => {
+              console.log('🎵 Karaoke auto-restart failed (likely due to autoplay policy):', e);
+            });
+          }
+        }, 500); // Small delay to ensure cleanup is complete
+      }
+      
+      toast.success('Recording completed! Karaoke continues playing.');
     }
   };
 
