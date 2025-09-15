@@ -79,6 +79,8 @@ const RecordSong = () => {
   const audioStreamRef = useRef<MediaStream | null>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const karaokeSourceNodeRef = useRef<MediaElementAudioSourceNode | null>(null);
   
   // NEW APPROACH: Independent karaoke playback (no Web Audio API routing)
   const karaokeAudioRef = useRef<HTMLAudioElement | null>(null);
@@ -251,20 +253,45 @@ const RecordSong = () => {
     try {
       console.log('🎙️ Starting recording with audio mixing...');
       
-      // Get microphone stream
-      const micStream = await navigator.mediaDevices.getUserMedia({ 
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true,
-          sampleRate: 44100
-        } 
-      });
+      // Clean up any existing audio context and sources
+      if (audioContextRef.current) {
+        await audioContextRef.current.close();
+        audioContextRef.current = null;
+      }
+      if (karaokeSourceNodeRef.current) {
+        karaokeSourceNodeRef.current = null;
+      }
+      
+      // Get microphone stream with better error handling
+      let micStream: MediaStream;
+      try {
+        micStream = await navigator.mediaDevices.getUserMedia({ 
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
+            sampleRate: 44100
+          } 
+        });
+      } catch (micError) {
+        console.error('❌ Microphone access denied:', micError);
+        if (micError instanceof Error) {
+          if (micError.name === 'NotAllowedError') {
+            toast.error('Microphone permission denied. Please allow microphone access and try again.');
+          } else if (micError.name === 'NotFoundError') {
+            toast.error('No microphone found. Please connect a microphone and try again.');
+          } else {
+            toast.error('Failed to access microphone. Please check your microphone settings.');
+          }
+        }
+        return;
+      }
       
       audioStreamRef.current = micStream;
       
       // Create audio context for mixing
       const audioContext = new AudioContext();
+      audioContextRef.current = audioContext;
       const mixedDestination = audioContext.createMediaStreamDestination();
       
       // Connect microphone
@@ -280,43 +307,52 @@ const RecordSong = () => {
       if (karaokeAudioRef.current && isKaraokeReady) {
         console.log('🎵 Setting up karaoke for mixing...');
         
-        // Ensure karaoke has the correct source
-        if (!karaokeAudioRef.current.src) {
-          if (karaokeSource === 'upload' && karaokeFile) {
-            karaokeAudioRef.current.src = URL.createObjectURL(karaokeFile);
-          } else if (karaokeSource === 'database' && selectedDatabaseTrack) {
-            const resolvedUrl = await resolvePlayableUrl(selectedDatabaseTrack.karaoke_file_url);
-            if (resolvedUrl) {
-              karaokeAudioRef.current.src = resolvedUrl;
-            }
-          } else if (karaokeSource === 'select' && selectedKaraokeTrack?.previewUrl) {
-            karaokeAudioRef.current.src = selectedKaraokeTrack.previewUrl;
-          }
-        }
-        
-        // Connect karaoke to mixer
-        const karaokeAudioSource = audioContext.createMediaElementSource(karaokeAudioRef.current);
-        const karaokeGain = audioContext.createGain();
-        karaokeGain.gain.value = 0.6; // Lower karaoke volume for better voice clarity
-        karaokeAudioSource.connect(karaokeGain);
-        karaokeGain.connect(mixedDestination);
-        
-        // Also connect to speakers for monitoring
-        karaokeGain.connect(audioContext.destination);
-        
-        console.log('🎵 Karaoke connected to mixer and speakers');
-        
-        // Start karaoke playback
-        karaokeAudioRef.current.currentTime = 0;
-        
         try {
-          await karaokeAudioRef.current.play();
-          isKaraokePlayingRef.current = true;
-          console.log('✅ Karaoke playing and mixing');
-          toast.success('Recording started with karaoke mixing!');
-        } catch (error) {
-          console.error('❌ Failed to play karaoke:', error);
-          toast.error('Karaoke failed to play, recording microphone only');
+          // Ensure karaoke has the correct source
+          if (!karaokeAudioRef.current.src) {
+            if (karaokeSource === 'upload' && karaokeFile) {
+              karaokeAudioRef.current.src = URL.createObjectURL(karaokeFile);
+            } else if (karaokeSource === 'database' && selectedDatabaseTrack) {
+              const resolvedUrl = await resolvePlayableUrl(selectedDatabaseTrack.karaoke_file_url);
+              if (resolvedUrl) {
+                karaokeAudioRef.current.src = resolvedUrl;
+              }
+            } else if (karaokeSource === 'select' && selectedKaraokeTrack?.previewUrl) {
+              karaokeAudioRef.current.src = selectedKaraokeTrack.previewUrl;
+            }
+          }
+          
+          // Only create source node if we don't have one already
+          if (!karaokeSourceNodeRef.current) {
+            karaokeSourceNodeRef.current = audioContext.createMediaElementSource(karaokeAudioRef.current);
+          }
+          
+          // Connect karaoke to mixer
+          const karaokeGain = audioContext.createGain();
+          karaokeGain.gain.value = 0.6; // Lower karaoke volume for better voice clarity
+          karaokeSourceNodeRef.current.connect(karaokeGain);
+          karaokeGain.connect(mixedDestination);
+          
+          // Also connect to speakers for monitoring
+          karaokeGain.connect(audioContext.destination);
+          
+          console.log('🎵 Karaoke connected to mixer and speakers');
+          
+          // Start karaoke playback
+          karaokeAudioRef.current.currentTime = 0;
+          
+          try {
+            await karaokeAudioRef.current.play();
+            isKaraokePlayingRef.current = true;
+            console.log('✅ Karaoke playing and mixing');
+            toast.success('Recording started with karaoke mixing!');
+          } catch (playError) {
+            console.error('❌ Failed to play karaoke:', playError);
+            toast.error('Karaoke failed to play, recording microphone only');
+          }
+        } catch (karaokeError) {
+          console.error('❌ Failed to setup karaoke mixing:', karaokeError);
+          toast.error('Karaoke mixing failed, recording microphone only');
         }
       } else {
         console.log('🎙️ Recording microphone only');
@@ -343,7 +379,11 @@ const RecordSong = () => {
         console.log('✅ Mixed recording stopped, blob created');
         
         // Clean up audio context
-        audioContext.close();
+        if (audioContextRef.current) {
+          audioContextRef.current.close();
+          audioContextRef.current = null;
+        }
+        karaokeSourceNodeRef.current = null;
       };
       
       // Start recording the mixed stream
@@ -359,7 +399,11 @@ const RecordSong = () => {
       
     } catch (error) {
       console.error('❌ Failed to start recording:', error);
-      toast.error('Failed to access microphone. Please check permissions.');
+      if (error instanceof Error) {
+        toast.error(`Recording failed: ${error.message}`);
+      } else {
+        toast.error('Failed to start recording. Please try again.');
+      }
     }
   };
 
@@ -386,6 +430,13 @@ const RecordSong = () => {
       isKaraokePlayingRef.current = false;
       console.log('🎵 Karaoke stopped');
     }
+    
+    // Clean up audio context and source nodes
+    if (audioContextRef.current) {
+      audioContextRef.current.close();
+      audioContextRef.current = null;
+    }
+    karaokeSourceNodeRef.current = null;
     
     setIsRecording(false);
     setIsPaused(false);
