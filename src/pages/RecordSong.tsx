@@ -581,13 +581,12 @@ const RecordSong = () => {
       }
 
       const { data: insertData, error: insertError } = await supabase
-        .from('performances')
+        .from('uploaded_songs')
         .insert({
           singer_id: user.id,
-          song_id: null, // Could be linked to songs table if needed
-          title: performanceTitle,
-          audio_url: urlData.publicUrl,
+          song_title: performanceTitle,
           original_singer_name: originalSingerName,
+          recorded_song_url: urlData.publicUrl,
           original_song_url: originalSongUrl,
           recorded_file_type: 'webm',
           original_file_type: originalFileType
@@ -679,7 +678,8 @@ const RecordSong = () => {
           original_singer_name: originalSingerName,
           recorded_song_url: recordedUrlData.publicUrl,
           original_song_url: originalFileUrl,
-          file_type: recordedFileType
+          recorded_file_type: recordedFileType,
+          original_file_type: originalFileType
         });
 
       if (insertError) {
