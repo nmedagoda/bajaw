@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Music, Mic, Play, Pause, Square, Upload, Search, Timer, Volume2, Loader2, ExternalLink, X, FileAudio, RotateCcw, Trash2 } from 'lucide-react';
+import { Music, Mic, Play, Pause, Square, Upload, Search, Timer, Volume2, Loader2, ExternalLink, X, FileAudio, RotateCcw, Trash2, Plus } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -962,6 +962,29 @@ const RecordSong = () => {
     }
   };
 
+  // Clear all upload controls and reset form
+  const clearUploadControls = () => {
+    // Clear upload form fields
+    setSongTitle('');
+    setOriginalSingerName('');
+    setRecordedFile(null);
+    setOriginalFile(null);
+    setRecordedFileType('mp3');
+    setOriginalFileType('mp3');
+    setUploadProgress(0);
+    
+    // Clear karaoke selection
+    clearKaraokeSelection();
+    
+    // Reset file inputs
+    const recordedInput = document.getElementById('recorded-file') as HTMLInputElement;
+    const originalInput = document.getElementById('original-file') as HTMLInputElement;
+    if (recordedInput) recordedInput.value = '';
+    if (originalInput) originalInput.value = '';
+    
+    toast.success('Upload form cleared');
+  };
+
   // Handle recorded file change
   const handleRecordedFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -1445,6 +1468,21 @@ const RecordSong = () => {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
+              <div className="flex justify-between items-center">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <FileAudio className="h-4 w-4" />
+                  Upload your recorded and original songs
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={clearUploadControls}
+                  className="flex items-center gap-2"
+                >
+                  <Plus className="h-4 w-4" />
+                  New Upload
+                </Button>
+              </div>
               <div className="grid gap-4 md:grid-cols-2">
                 <div>
                   <Label htmlFor="song-title">Song Title *</Label>
