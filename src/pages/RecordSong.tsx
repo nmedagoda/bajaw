@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Music, Mic, Play, Pause, Square, Upload, Search, Timer, Volume2, Loader2, ExternalLink, X, FileAudio, RotateCcw, Trash2, Plus } from 'lucide-react';
+import { Music, Mic, Play, Pause, Square, Upload, Search, Timer, Volume2, Loader2, ExternalLink, X, FileAudio, RotateCcw, Trash2, Plus, Download } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -614,6 +614,24 @@ const RecordSong = () => {
     setPerformanceDescription('');
     setUploadProgress(0);
     toast.success('Recording cleared');
+  };
+
+  // Download current recording
+  const downloadRecording = () => {
+    if (!audioBlob) {
+      toast.error('No recording to download');
+      return;
+    }
+
+    const url = URL.createObjectURL(audioBlob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${performanceTitle || 'recording'}-${Date.now()}.webm`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast.success('Recording downloaded successfully!');
   };
 
   // Start new recording (re-record)
@@ -1281,6 +1299,15 @@ const RecordSong = () => {
                     <div className="flex items-center justify-between">
                       <h4 className="font-medium">Recording Ready</h4>
                       <div className="flex gap-2">
+                        <Button
+                          onClick={downloadRecording}
+                          variant="outline"
+                          size="sm"
+                          className="text-green-600 border-green-600 hover:bg-green-50"
+                        >
+                          <Download className="mr-1 h-4 w-4" />
+                          Download
+                        </Button>
                         <Button
                           onClick={startNewRecording}
                           variant="outline"
