@@ -316,6 +316,15 @@ const RecordSong = () => {
         karaokeSourceNodeRef.current = null;
       }
       
+      // Reset karaoke audio element to prevent "already connected" error
+      if (karaokeAudioRef.current) {
+        const currentSrc = karaokeAudioRef.current.src;
+        const currentTime = karaokeAudioRef.current.currentTime;
+        karaokeAudioRef.current.load(); // This disconnects any existing MediaElementSource
+        karaokeAudioRef.current.src = currentSrc;
+        karaokeAudioRef.current.currentTime = currentTime;
+      }
+      
       // Get microphone stream with better error handling
       let micStream: MediaStream;
       try {
