@@ -795,7 +795,7 @@ const RecordSong = () => {
 
       if (selectedDatabaseTrack) {
         originalSingerName = selectedDatabaseTrack.original_singer_name;
-        originalSongUrl = selectedDatabaseTrack.karaoke_file_url;
+        originalSongUrl = selectedDatabaseTrack.original_song_url;
         originalFileType = selectedDatabaseTrack.file_type;
       } else if (selectedKaraokeTrack) {
         originalSingerName = selectedKaraokeTrack.artist;
