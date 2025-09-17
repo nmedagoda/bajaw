@@ -801,11 +801,11 @@ const RecordSong = () => {
         console.log('⏳ Waiting for FFmpeg to initialize...');
         toast.info('Preparing audio conversion...');
         
-        // Wait up to 10 seconds for FFmpeg to be ready
+        // Wait up to 30 seconds for FFmpeg to be ready (increased timeout)
         let waitTime = 0;
-        while (!ffmpegReady && waitTime < 10000) {
-          await new Promise(resolve => setTimeout(resolve, 500));
-          waitTime += 500;
+        while (!ffmpegReady && waitTime < 30000) {
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          waitTime += 1000;
         }
         
         if (ffmpegReady && ffmpeg) {
@@ -821,7 +821,7 @@ const RecordSong = () => {
             return;
           }
         } else {
-          console.error('❌ FFmpeg failed to initialize within 10 seconds');
+          console.error('❌ FFmpeg failed to initialize within 30 seconds');
           toast.error('Audio conversion system not ready. Please refresh the page and try again.');
           return;
         }
