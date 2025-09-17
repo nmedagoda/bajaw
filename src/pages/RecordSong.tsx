@@ -682,6 +682,24 @@ const RecordSong = () => {
 
   // Clear/delete current recording
   const clearRecording = () => {
+    // Clean up audio context and source nodes to prevent "already connected" error
+    if (audioContextRef.current) {
+      audioContextRef.current.close();
+      audioContextRef.current = null;
+    }
+    if (karaokeSourceNodeRef.current) {
+      karaokeSourceNodeRef.current = null;
+    }
+    
+    // Reset karaoke audio element
+    if (karaokeAudioRef.current) {
+      karaokeAudioRef.current.pause();
+      karaokeAudioRef.current.currentTime = 0;
+      const currentSrc = karaokeAudioRef.current.src;
+      karaokeAudioRef.current.load(); // This disconnects any existing MediaElementSource
+      karaokeAudioRef.current.src = currentSrc; // Restore the source
+    }
+    
     setAudioBlob(null);
     setRecordingTime(0);
     setPerformanceTitle('');
