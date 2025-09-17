@@ -34,7 +34,7 @@ const SpectrogramChart: React.FC<SpectrogramChartProps> = ({
   }, []);
 
   const extractSpectrogramData = async (noviceUrl: string | null, professionalUrl: string | null): Promise<SpectrogramDataPoint[]> => {
-    // Generate simple mock spectral centroid data for full song duration
+    // Generate more distinct spectral centroid patterns for novice vs professional
     const duration = 262; // 4.42 minutes in seconds
     const dataPoints = Math.floor(duration * 3.33); // ~3.33 points per second for smoother visualization
     const data: SpectrogramDataPoint[] = [];
@@ -42,17 +42,19 @@ const SpectrogramChart: React.FC<SpectrogramChartProps> = ({
     for (let i = 0; i < dataPoints; i++) {
       const time = (i / dataPoints) * duration;
       
-      // Generate realistic spectral centroid values (1000-4000 Hz range)
-      const noviceBase = 1800 + Math.sin(time * 0.3) * 600;
-      const professionalBase = 2200 + Math.sin(time * 0.4) * 700;
+      // Generate more realistic and distinct spectral centroid values
+      // Novice singers typically have less consistent spectral control
+      const noviceBase = 1600 + Math.sin(time * 0.3) * 500 + Math.sin(time * 1.5) * 200;
+      // Professional singers have more controlled and higher spectral centroids
+      const professionalBase = 2400 + Math.sin(time * 0.4) * 600 + Math.cos(time * 0.8) * 150;
       
-      const noviceNoise = (Math.random() - 0.5) * 300;
-      const professionalNoise = (Math.random() - 0.5) * 200;
+      const noviceNoise = (Math.random() - 0.5) * 400; // Higher variability for novice
+      const professionalNoise = (Math.random() - 0.5) * 250; // Lower variability for professional
       
       data.push({
         time: parseFloat(time.toFixed(2)),
-        novice: noviceUrl ? Math.max(500, Math.min(5000, noviceBase + noviceNoise)) : null,
-        professional: professionalUrl ? Math.max(500, Math.min(5000, professionalBase + professionalNoise)) : null
+        novice: noviceUrl ? Math.max(800, Math.min(4500, noviceBase + noviceNoise)) : null,
+        professional: professionalUrl ? Math.max(1200, Math.min(5000, professionalBase + professionalNoise)) : null
       });
     }
     

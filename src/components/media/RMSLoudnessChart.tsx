@@ -34,7 +34,7 @@ const RMSLoudnessChart: React.FC<RMSLoudnessChartProps> = ({
   }, []);
 
   const extractRMSData = async (noviceUrl: string | null, professionalUrl: string | null): Promise<RMSDataPoint[]> => {
-    // Generate simple RMS data for demonstration for full song duration
+    // Generate more realistic and distinct RMS patterns for novice vs professional
     const duration = 262; // 4.42 minutes in seconds
     const dataPoints = Math.floor(duration * 3.33); // ~3.33 points per second for smoother visualization
     const data: RMSDataPoint[] = [];
@@ -42,17 +42,18 @@ const RMSLoudnessChart: React.FC<RMSLoudnessChartProps> = ({
     for (let i = 0; i < dataPoints; i++) {
       const time = (i / dataPoints) * duration;
       
-      // Generate realistic RMS values (0.0 to 0.8 range)
-      const noviceBase = 0.3 + Math.sin(time * 0.5) * 0.2;
-      const professionalBase = 0.4 + Math.sin(time * 0.6) * 0.25;
+      // Novice singers typically have less consistent volume control
+      const noviceBase = 0.25 + Math.sin(time * 0.4) * 0.15 + Math.sin(time * 1.8) * 0.08;
+      // Professional singers have better breath control and more consistent volume
+      const professionalBase = 0.45 + Math.sin(time * 0.5) * 0.2 + Math.cos(time * 0.9) * 0.1;
       
-      const noviceNoise = (Math.random() - 0.5) * 0.1;
-      const professionalNoise = (Math.random() - 0.5) * 0.08;
+      const noviceNoise = (Math.random() - 0.5) * 0.15; // Higher variation for novice
+      const professionalNoise = (Math.random() - 0.5) * 0.08; // Lower variation for professional
       
       data.push({
         time: parseFloat(time.toFixed(2)),
-        novice: noviceUrl ? Math.max(0, Math.min(1, noviceBase + noviceNoise)) : null,
-        professional: professionalUrl ? Math.max(0, Math.min(1, professionalBase + professionalNoise)) : null
+        novice: noviceUrl ? Math.max(0.05, Math.min(0.9, noviceBase + noviceNoise)) : null,
+        professional: professionalUrl ? Math.max(0.1, Math.min(0.85, professionalBase + professionalNoise)) : null
       });
     }
     

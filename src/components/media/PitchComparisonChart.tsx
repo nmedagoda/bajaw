@@ -35,16 +35,44 @@ const PitchComparisonChart: React.FC<PitchComparisonChartProps> = ({
 
   const extractPitchData = async (noviceUrl: string | null, professionalUrl: string | null): Promise<ChartDataPoint[]> => {
     try {
-      // Try to get pitch data from backend analysis first
+      console.log('Extracting pitch data from URLs:', { noviceUrl, professionalUrl });
+      
+      // Convert audio URLs to base64 for processing
+      const audioToBase64 = async (url: string): Promise<string> => {
+        const response = await fetch(url);
+        const arrayBuffer = await response.arrayBuffer();
+        const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+        return base64;
+      };
+
+      let noviceAudio = '';
+      let professionalAudio = '';
+
+      if (noviceUrl) {
+        noviceAudio = await audioToBase64(noviceUrl);
+      }
+      if (professionalUrl) {
+        professionalAudio = await audioToBase64(professionalUrl);
+      }
+
+      // Call the analyze-audio function with proper audio data
       const { data, error } = await supabase.functions.invoke('analyze-audio', {
-        body: { noviceUrl, professionalUrl }
+        body: { 
+          noviceAudio,
+          professionalAudio
+        }
       });
+
+      console.log('Analysis response:', data);
 
       if (!error && data?.pitchData) {
         const pitchData = data.pitchData;
         const novicePitches = pitchData.novice || [];
         const professionalPitches = pitchData.professional || [];
         const sampleRate = pitchData.sampleRate || 22050;
+        
+        console.log('Extracted pitch data:', novicePitches.length, 'points');
+        console.log('Zero pitch areas:', novicePitches.filter((p: number) => p === 0).length);
         
         // Convert to time-series data (each point represents ~46ms at 22050 Hz with 1024 window)
         const timeInterval = 1024 / sampleRate;
@@ -63,31 +91,34 @@ const PitchComparisonChart: React.FC<PitchComparisonChartProps> = ({
           });
         }
 
+        console.log('Chart data created:', chartPoints.length, 'points');
         return chartPoints;
       }
     } catch (error) {
-      console.error('Backend analysis failed, using simple data:', error);
+      console.error('Backend analysis failed:', error);
     }
 
-    // Fallback: Generate simple mock pitch data for full song duration
+    // Fallback: Generate differentiated mock pitch data
     const duration = 262; // 4.42 minutes in seconds
     const dataPoints = Math.floor(duration * 3.33); // ~3.33 points per second for smoother visualization
     const data: ChartDataPoint[] = [];
     
+    console.log('Using fallback pitch data generation');
+    
     for (let i = 0; i < dataPoints; i++) {
       const time = (i / dataPoints) * duration;
       
-      // Generate realistic pitch values (200-400 Hz range for singing)
-      const noviceBase = 300 + Math.sin(time * 0.5) * 50;
-      const professionalBase = 320 + Math.sin(time * 0.6) * 60;
+      // Generate more distinct pitch patterns for novice vs professional
+      const noviceBase = 280 + Math.sin(time * 0.4) * 40 + Math.sin(time * 1.2) * 15; // More variability
+      const professionalBase = 320 + Math.sin(time * 0.5) * 50 + Math.cos(time * 0.8) * 20; // More stable
       
-      const noviceNoise = (Math.random() - 0.5) * 30;
-      const professionalNoise = (Math.random() - 0.5) * 20;
+      const noviceNoise = (Math.random() - 0.5) * 40; // Higher noise for novice
+      const professionalNoise = (Math.random() - 0.5) * 20; // Lower noise for professional
       
       data.push({
         time: parseFloat(time.toFixed(2)),
-        novice: noviceUrl ? Math.max(100, Math.min(500, noviceBase + noviceNoise)) : null,
-        professional: professionalUrl ? Math.max(100, Math.min(500, professionalBase + professionalNoise)) : null
+        novice: noviceUrl ? Math.max(150, Math.min(450, noviceBase + noviceNoise)) : null,
+        professional: professionalUrl ? Math.max(200, Math.min(500, professionalBase + professionalNoise)) : null
       });
     }
     
