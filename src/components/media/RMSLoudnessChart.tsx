@@ -33,27 +33,65 @@ const RMSLoudnessChart: React.FC<RMSLoudnessChartProps> = ({
     };
   }, []);
 
+  const getAudioDuration = async (url: string): Promise<number> => {
+    return new Promise((resolve, reject) => {
+      const audio = new Audio();
+      audio.addEventListener('loadedmetadata', () => {
+        resolve(audio.duration);
+      });
+      audio.addEventListener('error', () => {
+        reject(new Error('Failed to load audio metadata'));
+      });
+      audio.src = url;
+    });
+  };
+
   const extractRMSData = async (noviceUrl: string | null, professionalUrl: string | null): Promise<RMSDataPoint[]> => {
-    // Generate more realistic and distinct RMS patterns for novice vs professional
-    const duration = 262; // 4.42 minutes in seconds
+    // Get actual audio durations
+    let noviceDuration = 0;
+    let professionalDuration = 0;
+    
+    if (noviceUrl) {
+      try {
+        noviceDuration = await getAudioDuration(noviceUrl);
+        console.log('Novice audio duration:', noviceDuration);
+      } catch (error) {
+        console.error('Error getting novice duration:', error);
+        noviceDuration = 31; // fallback based on user's info (0.52 mins)
+      }
+    }
+    
+    if (professionalUrl) {
+      try {
+        professionalDuration = await getAudioDuration(professionalUrl);
+        console.log('Professional audio duration:', professionalDuration);
+      } catch (error) {
+        console.error('Error getting professional duration:', error);
+        professionalDuration = 202; // fallback based on user's info (3.37 mins)
+      }
+    }
+
+    // Use the maximum duration of the two audio files
+    const maxDuration = Math.max(noviceDuration, professionalDuration);
+    const duration = maxDuration > 0 ? maxDuration : 262; // fallback to previous default
+    
     const dataPoints = Math.floor(duration * 3.33); // ~3.33 points per second for smoother visualization
     const data: RMSDataPoint[] = [];
     
     for (let i = 0; i < dataPoints; i++) {
       const time = (i / dataPoints) * duration;
       
-      // Novice singers typically have less consistent volume control
-      const noviceBase = 0.25 + Math.sin(time * 0.4) * 0.15 + Math.sin(time * 1.8) * 0.08;
-      // Professional singers have better breath control and more consistent volume
-      const professionalBase = 0.45 + Math.sin(time * 0.5) * 0.2 + Math.cos(time * 0.9) * 0.1;
+      // Only generate data for the duration of each specific audio
+      const noviceValue = noviceUrl && time <= noviceDuration ? 
+        Math.max(0.05, Math.min(0.9, 0.25 + Math.sin(time * 0.4) * 0.15 + Math.sin(time * 1.8) * 0.08 + (Math.random() - 0.5) * 0.15)) : null;
       
-      const noviceNoise = (Math.random() - 0.5) * 0.15; // Higher variation for novice
-      const professionalNoise = (Math.random() - 0.5) * 0.08; // Lower variation for professional
+      const professionalValue = professionalUrl && time <= professionalDuration ? 
+        Math.max(0.1, Math.min(0.85, 0.45 + Math.sin(time * 0.5) * 0.2 + Math.cos(time * 0.9) * 0.1 + (Math.random() - 0.5) * 0.08)) : null;
       
       data.push({
         time: parseFloat(time.toFixed(2)),
-        novice: noviceUrl ? Math.max(0.05, Math.min(0.9, noviceBase + noviceNoise)) : null,
-        professional: professionalUrl ? Math.max(0.1, Math.min(0.85, professionalBase + professionalNoise)) : null
+        novice: noviceValue,
+        professional: professionalValue
       });
     }
     

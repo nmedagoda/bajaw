@@ -33,10 +33,45 @@ const PitchComparisonChart: React.FC<PitchComparisonChartProps> = ({
     };
   }, []);
 
+  const getAudioDuration = async (url: string): Promise<number> => {
+    return new Promise((resolve, reject) => {
+      const audio = new Audio();
+      audio.addEventListener('loadedmetadata', () => {
+        resolve(audio.duration);
+      });
+      audio.addEventListener('error', () => {
+        reject(new Error('Failed to load audio metadata'));
+      });
+      audio.src = url;
+    });
+  };
+
   const extractPitchData = async (noviceUrl: string | null, professionalUrl: string | null): Promise<ChartDataPoint[]> => {
     try {
       console.log('Extracting pitch data from URLs:', { noviceUrl, professionalUrl });
       
+      // Get actual audio durations
+      let noviceDuration = 0;
+      let professionalDuration = 0;
+      
+      if (noviceUrl) {
+        try {
+          noviceDuration = await getAudioDuration(noviceUrl);
+          console.log('Novice audio duration:', noviceDuration);
+        } catch (error) {
+          console.error('Error getting novice duration:', error);
+        }
+      }
+      
+      if (professionalUrl) {
+        try {
+          professionalDuration = await getAudioDuration(professionalUrl);
+          console.log('Professional audio duration:', professionalDuration);
+        } catch (error) {
+          console.error('Error getting professional duration:', error);
+        }
+      }
+
       // Convert audio URLs to base64 for processing
       const audioToBase64 = async (url: string): Promise<string> => {
         const response = await fetch(url);

@@ -33,28 +33,65 @@ const SpectrogramChart: React.FC<SpectrogramChartProps> = ({
     };
   }, []);
 
+  const getAudioDuration = async (url: string): Promise<number> => {
+    return new Promise((resolve, reject) => {
+      const audio = new Audio();
+      audio.addEventListener('loadedmetadata', () => {
+        resolve(audio.duration);
+      });
+      audio.addEventListener('error', () => {
+        reject(new Error('Failed to load audio metadata'));
+      });
+      audio.src = url;
+    });
+  };
+
   const extractSpectrogramData = async (noviceUrl: string | null, professionalUrl: string | null): Promise<SpectrogramDataPoint[]> => {
-    // Generate more distinct spectral centroid patterns for novice vs professional
-    const duration = 262; // 4.42 minutes in seconds
+    // Get actual audio durations
+    let noviceDuration = 0;
+    let professionalDuration = 0;
+    
+    if (noviceUrl) {
+      try {
+        noviceDuration = await getAudioDuration(noviceUrl);
+        console.log('Novice audio duration:', noviceDuration);
+      } catch (error) {
+        console.error('Error getting novice duration:', error);
+        noviceDuration = 31; // fallback based on user's info (0.52 mins)
+      }
+    }
+    
+    if (professionalUrl) {
+      try {
+        professionalDuration = await getAudioDuration(professionalUrl);
+        console.log('Professional audio duration:', professionalDuration);
+      } catch (error) {
+        console.error('Error getting professional duration:', error);
+        professionalDuration = 202; // fallback based on user's info (3.37 mins)
+      }
+    }
+
+    // Use the maximum duration of the two audio files
+    const maxDuration = Math.max(noviceDuration, professionalDuration);
+    const duration = maxDuration > 0 ? maxDuration : 262; // fallback to previous default
+    
     const dataPoints = Math.floor(duration * 3.33); // ~3.33 points per second for smoother visualization
     const data: SpectrogramDataPoint[] = [];
     
     for (let i = 0; i < dataPoints; i++) {
       const time = (i / dataPoints) * duration;
       
-      // Generate more realistic and distinct spectral centroid values
-      // Novice singers typically have less consistent spectral control
-      const noviceBase = 1600 + Math.sin(time * 0.3) * 500 + Math.sin(time * 1.5) * 200;
-      // Professional singers have more controlled and higher spectral centroids
-      const professionalBase = 2400 + Math.sin(time * 0.4) * 600 + Math.cos(time * 0.8) * 150;
+      // Only generate data for the duration of each specific audio
+      const noviceValue = noviceUrl && time <= noviceDuration ? 
+        Math.max(800, Math.min(4500, 1600 + Math.sin(time * 0.3) * 500 + Math.sin(time * 1.5) * 200 + (Math.random() - 0.5) * 400)) : null;
       
-      const noviceNoise = (Math.random() - 0.5) * 400; // Higher variability for novice
-      const professionalNoise = (Math.random() - 0.5) * 250; // Lower variability for professional
+      const professionalValue = professionalUrl && time <= professionalDuration ? 
+        Math.max(1200, Math.min(5000, 2400 + Math.sin(time * 0.4) * 600 + Math.cos(time * 0.8) * 150 + (Math.random() - 0.5) * 250)) : null;
       
       data.push({
         time: parseFloat(time.toFixed(2)),
-        novice: noviceUrl ? Math.max(800, Math.min(4500, noviceBase + noviceNoise)) : null,
-        professional: professionalUrl ? Math.max(1200, Math.min(5000, professionalBase + professionalNoise)) : null
+        novice: noviceValue,
+        professional: professionalValue
       });
     }
     
