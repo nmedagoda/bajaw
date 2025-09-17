@@ -227,11 +227,18 @@ const RecordSong = () => {
   useEffect(() => {
     const initFFmpeg = async () => {
       try {
+        console.log('🔧 Initializing FFmpeg for MP3 conversion...');
+        toast.info('Loading audio conversion system...');
+        
         const ffmpegInstance = new FFmpeg();
         const baseURL = 'https://unpkg.com/@ffmpeg/core@0.12.6/dist/umd';
         
         ffmpegInstance.on('log', ({ message }) => {
           console.log('[FFmpeg]', message);
+        });
+        
+        ffmpegInstance.on('progress', ({ progress }) => {
+          console.log('[FFmpeg Progress]', Math.round(progress * 100) + '%');
         });
         
         await ffmpegInstance.load({
@@ -241,9 +248,12 @@ const RecordSong = () => {
         
         setFFmpeg(ffmpegInstance);
         setFfmpegReady(true);
+        console.log('✅ FFmpeg initialized successfully for MP3 conversion');
+        toast.success('Audio conversion system ready! Recordings will be saved as MP3.');
       } catch (error) {
-        console.error('Failed to load FFmpeg:', error);
-        toast.error('Failed to initialize audio converter');
+        console.error('❌ Failed to load FFmpeg:', error);
+        setFfmpegReady(false);
+        toast.error('Failed to initialize audio converter. Recordings may be saved in WebM format.');
       }
     };
     
@@ -709,21 +719,44 @@ const RecordSong = () => {
   };
 
   // Download current recording
-  const downloadRecording = () => {
+  const downloadRecording = async () => {
     if (!audioBlob) {
       toast.error('No recording to download');
       return;
     }
 
-    const url = URL.createObjectURL(audioBlob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${performanceTitle || 'recording'}-${Date.now()}.webm`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-    toast.success('Recording downloaded successfully!');
+    try {
+      let downloadBlob = audioBlob;
+      let fileExtension = 'mp3';
+      
+      // Convert to MP3 before downloading
+      if (ffmpeg && ffmpegReady) {
+        try {
+          console.log('🔄 Converting to MP3 for download...');
+          downloadBlob = await convertWebmToMp3(audioBlob);
+          console.log('✅ Converted to MP3 for download');
+        } catch (conversionError) {
+          console.warn('⚠️ MP3 conversion failed for download, using webm:', conversionError);
+          fileExtension = 'webm';
+        }
+      } else {
+        console.log('⚠️ FFmpeg not ready, downloading as webm');
+        fileExtension = 'webm';
+      }
+
+      const url = URL.createObjectURL(downloadBlob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${performanceTitle || 'recording'}-${Date.now()}.${fileExtension}`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toast.success('Recording downloaded successfully!');
+    } catch (error) {
+      console.error('Download error:', error);
+      toast.error('Failed to download recording');
+    }
   };
 
   // Start new recording (re-record)
@@ -747,23 +780,51 @@ const RecordSong = () => {
     
     try {
       let finalBlob = audioBlob;
-      let fileExtension = 'webm';
-      let contentType = 'audio/webm';
+      let fileExtension = 'mp3';
+      let contentType = 'audio/mp3';
 
-      // Try to convert to MP3 if FFmpeg is ready, otherwise use webm
+      // Always convert to MP3 for performance analysis
       if (ffmpeg && ffmpegReady) {
         try {
           console.log('🔄 Converting webm to mp3...');
+          setUploadProgress(10);
           finalBlob = await convertWebmToMp3(audioBlob);
-          fileExtension = 'mp3';
-          contentType = 'audio/mp3';
           console.log('✅ Converted to MP3 successfully');
+          setUploadProgress(25);
         } catch (conversionError) {
-          console.warn('⚠️ MP3 conversion failed, uploading as webm:', conversionError);
-          // Keep using webm format as fallback
+          console.error('❌ MP3 conversion failed:', conversionError);
+          toast.error('Failed to convert audio to MP3. Please try again.');
+          return;
         }
       } else {
-        console.log('⚠️ FFmpeg not ready, uploading as webm');
+        // Wait for FFmpeg to be ready and then convert
+        console.log('⏳ Waiting for FFmpeg to initialize...');
+        toast.info('Preparing audio conversion...');
+        
+        // Wait up to 10 seconds for FFmpeg to be ready
+        let waitTime = 0;
+        while (!ffmpegReady && waitTime < 10000) {
+          await new Promise(resolve => setTimeout(resolve, 500));
+          waitTime += 500;
+        }
+        
+        if (ffmpegReady && ffmpeg) {
+          try {
+            console.log('🔄 Converting webm to mp3 after wait...');
+            setUploadProgress(10);
+            finalBlob = await convertWebmToMp3(audioBlob);
+            console.log('✅ Converted to MP3 successfully after wait');
+            setUploadProgress(25);
+          } catch (conversionError) {
+            console.error('❌ MP3 conversion failed after wait:', conversionError);
+            toast.error('Failed to convert audio to MP3. Please try again.');
+            return;
+          }
+        } else {
+          console.error('❌ FFmpeg failed to initialize within 10 seconds');
+          toast.error('Audio conversion system not ready. Please refresh the page and try again.');
+          return;
+        }
       }
       
       const fileName = `${Date.now()}_${performanceTitle.replace(/[^a-z0-9]/gi, '_').toLowerCase()}.${fileExtension}`;
