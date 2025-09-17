@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Music, Mic, Play, Pause, Square, Upload, Search, Timer, Volume2, Loader2, ExternalLink, X, FileAudio, RotateCcw, Trash2, Plus, Download } from 'lucide-react';
+import { Slider } from '@/components/ui/slider';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
@@ -93,7 +94,17 @@ const RecordSong = () => {
   const karaokeAudioRef = useRef<HTMLAudioElement | null>(null);
   const isKaraokePlayingRef = useRef(false);
 
-  // Initialize karaoke audio element
+  // Audio control state
+  const [karaokeVolume, setKaraokeVolume] = useState(80);
+  const [karaokeBass, setKaraokeBass] = useState(0);
+  const [karaokeTreble, setKaraokeTreble] = useState(0);
+
+  // Audio filter refs
+  const gainNodeRef = useRef<GainNode | null>(null);
+  const bassFilterRef = useRef<BiquadFilterNode | null>(null);
+  const trebleFilterRef = useRef<BiquadFilterNode | null>(null);
+
+  // Initialize karaoke audio element with audio filters
   useEffect(() => {
     if (!karaokeAudioRef.current) {
       const audio = new Audio();
@@ -102,8 +113,52 @@ const RecordSong = () => {
       audio.crossOrigin = 'anonymous';
       karaokeAudioRef.current = audio;
       console.log('✅ Karaoke audio element initialized');
+      
+      // Initialize audio context and filters
+      initializeAudioFilters();
     }
   }, []);
+
+  // Initialize audio filters
+  const initializeAudioFilters = () => {
+    if (!audioContextRef.current) {
+      audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+    }
+
+    const audioContext = audioContextRef.current;
+    
+    // Create gain node for volume control
+    gainNodeRef.current = audioContext.createGain();
+    
+    // Create bass filter (low-shelf)
+    bassFilterRef.current = audioContext.createBiquadFilter();
+    bassFilterRef.current.type = 'lowshelf';
+    bassFilterRef.current.frequency.value = 200;
+    
+    // Create treble filter (high-shelf)
+    trebleFilterRef.current = audioContext.createBiquadFilter();
+    trebleFilterRef.current.type = 'highshelf';
+    trebleFilterRef.current.frequency.value = 3000;
+  };
+
+  // Apply audio effects when controls change
+  useEffect(() => {
+    if (karaokeAudioRef.current && gainNodeRef.current) {
+      gainNodeRef.current.gain.value = karaokeVolume / 100;
+    }
+  }, [karaokeVolume]);
+
+  useEffect(() => {
+    if (bassFilterRef.current) {
+      bassFilterRef.current.gain.value = karaokeBass;
+    }
+  }, [karaokeBass]);
+
+  useEffect(() => {
+    if (trebleFilterRef.current) {
+      trebleFilterRef.current.gain.value = karaokeTreble;
+    }
+  }, [karaokeTreble]);
 
   // Load karaoke tracks from database on component mount
   useEffect(() => {
@@ -396,10 +451,24 @@ const RecordSong = () => {
             karaokeSourceNodeRef.current = audioContext.createMediaElementSource(karaokeAudioRef.current);
           }
           
-          // Connect karaoke to mixer with balanced volume
+          // Create audio filter chain for karaoke
           const karaokeGain = audioContext.createGain();
-          karaokeGain.gain.value = 0.8; // Slightly higher karaoke volume
-          karaokeSourceNodeRef.current.connect(karaokeGain);
+          karaokeGain.gain.value = (karaokeVolume / 100) * 0.8; // Apply volume setting
+          
+          const bassFilter = audioContext.createBiquadFilter();
+          bassFilter.type = 'lowshelf';
+          bassFilter.frequency.value = 200;
+          bassFilter.gain.value = karaokeBass;
+          
+          const trebleFilter = audioContext.createBiquadFilter();
+          trebleFilter.type = 'highshelf';
+          trebleFilter.frequency.value = 3000;
+          trebleFilter.gain.value = karaokeTreble;
+          
+          // Connect the filter chain: source -> bass -> treble -> gain -> destination
+          karaokeSourceNodeRef.current.connect(bassFilter);
+          bassFilter.connect(trebleFilter);
+          trebleFilter.connect(karaokeGain);
           karaokeGain.connect(mixedDestination);
           
           // Also connect to speakers for monitoring
@@ -407,6 +476,11 @@ const RecordSong = () => {
           speakerGain.gain.value = 0.7; // Separate speaker volume control
           karaokeGain.connect(speakerGain);
           speakerGain.connect(audioContext.destination);
+          
+          // Store filter references for real-time updates
+          gainNodeRef.current = karaokeGain;
+          bassFilterRef.current = bassFilter;
+          trebleFilterRef.current = trebleFilter;
           
           console.log('🎵 Karaoke connected to mixer and speakers');
           
@@ -1260,6 +1334,64 @@ const RecordSong = () => {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
+                {/* Audio Controls for Karaoke Track */}
+                {isKaraokeReady && (
+                  <div className="space-y-4 p-4 bg-muted/50 rounded-lg border">
+                    <h4 className="font-medium text-sm flex items-center gap-2">
+                      <Volume2 className="h-4 w-4" />
+                      Karaoke Audio Settings
+                    </h4>
+                    
+                    {/* Volume Control */}
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <Label className="text-sm">Volume</Label>
+                        <span className="text-sm text-muted-foreground">{karaokeVolume}%</span>
+                      </div>
+                      <Slider
+                        value={[karaokeVolume]}
+                        onValueChange={(value) => setKaraokeVolume(value[0])}
+                        max={100}
+                        min={0}
+                        step={1}
+                        className="w-full"
+                      />
+                    </div>
+
+                    {/* Bass Control */}
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <Label className="text-sm">Bass</Label>
+                        <span className="text-sm text-muted-foreground">{karaokeBass > 0 ? '+' : ''}{karaokeBass}dB</span>
+                      </div>
+                      <Slider
+                        value={[karaokeBass]}
+                        onValueChange={(value) => setKaraokeBass(value[0])}
+                        max={12}
+                        min={-12}
+                        step={1}
+                        className="w-full"
+                      />
+                    </div>
+
+                    {/* Treble Control */}
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <Label className="text-sm">Treble</Label>
+                        <span className="text-sm text-muted-foreground">{karaokeTreble > 0 ? '+' : ''}{karaokeTreble}dB</span>
+                      </div>
+                      <Slider
+                        value={[karaokeTreble]}
+                        onValueChange={(value) => setKaraokeTreble(value[0])}
+                        max={12}
+                        min={-12}
+                        step={1}
+                        className="w-full"
+                      />
+                    </div>
+                  </div>
+                )}
+
                 <div className="text-center">
                   <div className="text-4xl font-mono font-bold text-primary mb-4">
                     {formatTime(recordingTime)}
