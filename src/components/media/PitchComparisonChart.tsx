@@ -76,8 +76,17 @@ const PitchComparisonChart: React.FC<PitchComparisonChartProps> = ({
       const audioToBase64 = async (url: string): Promise<string> => {
         const response = await fetch(url);
         const arrayBuffer = await response.arrayBuffer();
-        const base64 = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
-        return base64;
+        const uint8Array = new Uint8Array(arrayBuffer);
+        
+        // Convert to string in chunks to avoid call stack issues
+        let binaryString = '';
+        const chunkSize = 8192; // 8KB chunks for string conversion
+        for (let i = 0; i < uint8Array.length; i += chunkSize) {
+          const chunk = uint8Array.subarray(i, i + chunkSize);
+          binaryString += String.fromCharCode.apply(null, Array.from(chunk));
+        }
+        
+        return btoa(binaryString);
       };
 
       let noviceAudio = '';
