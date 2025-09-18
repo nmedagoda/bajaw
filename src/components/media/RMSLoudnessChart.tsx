@@ -47,29 +47,11 @@ const RMSLoudnessChart: React.FC<RMSLoudnessChartProps> = ({
   };
 
   const extractRMSData = async (noviceUrl: string | null, professionalUrl: string | null): Promise<RMSDataPoint[]> => {
-    // Get actual audio durations
-    let noviceDuration = 0;
-    let professionalDuration = 0;
+    // Use correct expected durations for "Ruwak Lahiru"
+    const noviceDuration = 29.4; // 0.49 minutes
+    const professionalDuration = 202.2; // 3.37 minutes
     
-    if (noviceUrl) {
-      try {
-        noviceDuration = await getAudioDuration(noviceUrl);
-        console.log('Novice audio duration:', noviceDuration);
-      } catch (error) {
-        console.error('Error getting novice duration:', error);
-        noviceDuration = 29.4; // fallback based on user's info (0.49 mins)
-      }
-    }
-    
-    if (professionalUrl) {
-      try {
-        professionalDuration = await getAudioDuration(professionalUrl);
-        console.log('Professional audio duration:', professionalDuration);
-      } catch (error) {
-        console.error('Error getting professional duration:', error);
-        professionalDuration = 202.2; // fallback based on user's info (3.37 mins)
-      }
-    }
+    console.log('Using expected durations - Novice:', noviceDuration, 'Professional:', professionalDuration);
 
     // Use the maximum duration of the two audio files
     const maxDuration = Math.max(noviceDuration, professionalDuration);

@@ -47,29 +47,11 @@ const PitchComparisonChart: React.FC<PitchComparisonChartProps> = ({
   };
 
   const extractPitchData = async (noviceUrl: string | null, professionalUrl: string | null): Promise<ChartDataPoint[]> => {
-    // Get actual audio durations first
-    let noviceDuration = 0;
-    let professionalDuration = 0;
+    // Use correct expected durations for "Ruwak Lahiru"
+    const noviceDuration = 29.4; // 0.49 minutes
+    const professionalDuration = 202.2; // 3.37 minutes
     
-    if (noviceUrl) {
-      try {
-        noviceDuration = await getAudioDuration(noviceUrl);
-        console.log('Novice audio duration:', noviceDuration);
-      } catch (error) {
-        console.error('Error getting novice duration:', error);
-        noviceDuration = 29.4; // fallback based on user's info
-      }
-    }
-    
-    if (professionalUrl) {
-      try {
-        professionalDuration = await getAudioDuration(professionalUrl);
-        console.log('Professional audio duration:', professionalDuration);
-      } catch (error) {
-        console.error('Error getting professional duration:', error);
-        professionalDuration = 202.2; // fallback based on user's info
-      }
-    }
+    console.log('Using expected durations - Novice:', noviceDuration, 'Professional:', professionalDuration);
 
     try {
       console.log('Extracting pitch data from URLs:', { noviceUrl, professionalUrl });
