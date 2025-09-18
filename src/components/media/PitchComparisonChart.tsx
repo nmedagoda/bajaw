@@ -52,7 +52,7 @@ const PitchComparisonChart: React.FC<PitchComparisonChartProps> = ({
     // Define song-specific durations
     const songDurations: Record<string, { novice: number; professional: number }> = {
       "Ruwak Lahiru": { novice: 29.4, professional: 202.2 },
-      "Komalaliya": { novice: 35.0, professional: 180.0 }, // Example durations for another song
+      "Komalaliya": { novice: 180.0, professional: 35.0 }, // Novice longer for Komalaliya
       // Add more songs as needed
     };
     
@@ -204,7 +204,7 @@ const PitchComparisonChart: React.FC<PitchComparisonChartProps> = ({
     };
 
     loadPitchData();
-  }, [noviceUrl, professionalUrl]);
+  }, [noviceUrl, professionalUrl, songTitle]);
 
   const formatFrequency = (frequency: number) => {
     return `${frequency.toFixed(0)} Hz`;
@@ -298,14 +298,16 @@ const PitchComparisonChart: React.FC<PitchComparisonChartProps> = ({
     );
   }
 
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Pitch Comparison</CardTitle>
-        <p className="text-sm text-muted-foreground">
-          Compare pitch values between novice and professional performances
-        </p>
-      </CardHeader>
+    const durations = getSongDurations(songTitle);
+    
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Pitch Comparison - {songTitle || 'Unknown Song'}</CardTitle>
+          <p className="text-sm text-muted-foreground">
+            Compare pitch values between novice and professional performances (Novice: {durations.novice}s, Professional: {durations.professional}s)
+          </p>
+        </CardHeader>
       <CardContent>
         <div className="h-80">
           <ResponsiveContainer width="100%" height="100%">

@@ -52,7 +52,7 @@ const RMSLoudnessChart: React.FC<RMSLoudnessChartProps> = ({
     // Define song-specific durations
     const songDurations: Record<string, { novice: number; professional: number }> = {
       "Ruwak Lahiru": { novice: 29.4, professional: 202.2 },
-      "Komalaliya": { novice: 35.0, professional: 180.0 }, // Example durations for another song
+      "Komalaliya": { novice: 180.0, professional: 35.0 }, // Novice longer for Komalaliya
       // Add more songs as needed
     };
     
@@ -109,7 +109,7 @@ const RMSLoudnessChart: React.FC<RMSLoudnessChartProps> = ({
     };
 
     loadRMSData();
-  }, [noviceUrl, professionalUrl]);
+  }, [noviceUrl, professionalUrl, songTitle]);
 
   const formatRMS = (rms: number) => {
     return `${(rms * 100).toFixed(1)}%`;
@@ -173,11 +173,13 @@ const RMSLoudnessChart: React.FC<RMSLoudnessChartProps> = ({
     }
   };
 
+  const durations = getSongDurations(songTitle);
+
   if (isLoading) {
     return (
       <Card>
         <CardHeader>
-          <CardTitle>RMS Loudness Comparison</CardTitle>
+          <CardTitle>RMS Loudness Comparison - {songTitle || 'Unknown Song'}</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="flex items-center justify-center h-64">
@@ -192,7 +194,7 @@ const RMSLoudnessChart: React.FC<RMSLoudnessChartProps> = ({
     return (
       <Card>
         <CardHeader>
-          <CardTitle>RMS Loudness Comparison</CardTitle>
+          <CardTitle>RMS Loudness Comparison - {songTitle || 'Unknown Song'}</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="flex items-center justify-center h-64">
@@ -206,9 +208,9 @@ const RMSLoudnessChart: React.FC<RMSLoudnessChartProps> = ({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>RMS Loudness Comparison</CardTitle>
+        <CardTitle>RMS Loudness Comparison - {songTitle || 'Unknown Song'}</CardTitle>
         <p className="text-sm text-muted-foreground">
-          Compare RMS loudness levels between novice and professional performances
+          Compare RMS loudness levels between novice and professional performances (Novice: {durations.novice}s, Professional: {durations.professional}s)
         </p>
       </CardHeader>
       <CardContent>

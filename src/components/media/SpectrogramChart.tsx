@@ -52,7 +52,7 @@ const SpectrogramChart: React.FC<SpectrogramChartProps> = ({
     // Define song-specific durations
     const songDurations: Record<string, { novice: number; professional: number }> = {
       "Ruwak Lahiru": { novice: 29.4, professional: 202.2 },
-      "Komalaliya": { novice: 35.0, professional: 180.0 }, // Example durations for another song
+      "Komalaliya": { novice: 180.0, professional: 35.0 }, // Novice longer for Komalaliya
       // Add more songs as needed
     };
     
@@ -109,7 +109,7 @@ const SpectrogramChart: React.FC<SpectrogramChartProps> = ({
     };
 
     loadSpectrogramData();
-  }, [noviceUrl, professionalUrl]);
+  }, [noviceUrl, professionalUrl, songTitle]);
 
   const formatFrequency = (frequency: number) => {
     return `${frequency.toFixed(0)} Hz`;
@@ -173,11 +173,13 @@ const SpectrogramChart: React.FC<SpectrogramChartProps> = ({
     }
   };
 
+  const durations = getSongDurations(songTitle);
+
   if (isLoading) {
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Spectrogram Comparison</CardTitle>
+          <CardTitle>Spectrogram Comparison - {songTitle || 'Unknown Song'}</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="flex items-center justify-center h-64">
@@ -192,7 +194,7 @@ const SpectrogramChart: React.FC<SpectrogramChartProps> = ({
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Spectrogram Comparison</CardTitle>
+          <CardTitle>Spectrogram Comparison - {songTitle || 'Unknown Song'}</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="flex items-center justify-center h-64">
@@ -206,9 +208,9 @@ const SpectrogramChart: React.FC<SpectrogramChartProps> = ({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Spectrogram Comparison</CardTitle>
+        <CardTitle>Spectrogram Comparison - {songTitle || 'Unknown Song'}</CardTitle>
         <p className="text-sm text-muted-foreground">
-          Compare spectral centroid values between novice and professional performances
+          Compare spectral centroid values between novice and professional performances (Novice: {durations.novice}s, Professional: {durations.professional}s)
         </p>
       </CardHeader>
       <CardContent>
