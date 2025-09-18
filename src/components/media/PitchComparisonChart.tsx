@@ -115,29 +115,44 @@ const PitchComparisonChart: React.FC<PitchComparisonChartProps> = ({
         const pitchData = data.pitchData;
         const novicePitches = pitchData.novice || [];
         const professionalPitches = pitchData.professional || [];
-        const sampleRate = pitchData.sampleRate || 22050;
         
-        console.log('Extracted pitch data:', novicePitches.length, 'points');
-        console.log('Zero pitch areas:', novicePitches.filter((p: number) => p === 0).length);
+        console.log('Extracted pitch data:', novicePitches.length, 'novice points,', professionalPitches.length, 'professional points');
+        console.log('Using actual audio durations:', noviceDuration, 'vs', professionalDuration, 'seconds');
         
-        // Convert to time-series data (each point represents ~46ms at 22050 Hz with 1024 window)
-        const timeInterval = 1024 / sampleRate;
-        const maxLength = Math.max(novicePitches.length, professionalPitches.length);
+        // Create time series data where each recording's points are distributed across its actual duration
+        const maxDuration = Math.max(noviceDuration, professionalDuration);
+        const timeStep = 0.1; // 100ms resolution for smooth visualization
+        const totalPoints = Math.floor(maxDuration / timeStep);
         
         const chartPoints: ChartDataPoint[] = [];
-        for (let i = 0; i < maxLength; i++) {
-          const time = i * timeInterval;
-          const noviceFreq = novicePitches[i] || 0;
-          const professionalFreq = professionalPitches[i] || 0;
+        
+        for (let i = 0; i < totalPoints; i++) {
+          const time = i * timeStep;
+          
+          // Map time to index in each pitch array based on actual duration
+          let noviceValue = null;
+          let professionalValue = null;
+          
+          if (noviceUrl && time <= noviceDuration && novicePitches.length > 0) {
+            const noviceIndex = Math.floor((time / noviceDuration) * (novicePitches.length - 1));
+            const freq = novicePitches[noviceIndex] || 0;
+            noviceValue = freq > 0 ? freq : null;
+          }
+          
+          if (professionalUrl && time <= professionalDuration && professionalPitches.length > 0) {
+            const professionalIndex = Math.floor((time / professionalDuration) * (professionalPitches.length - 1));
+            const freq = professionalPitches[professionalIndex] || 0;
+            professionalValue = freq > 0 ? freq : null;
+          }
           
           chartPoints.push({
-            time: parseFloat(time.toFixed(3)),
-            novice: noviceFreq > 0 ? noviceFreq : null,
-            professional: professionalFreq > 0 ? professionalFreq : null
+            time: parseFloat(time.toFixed(1)),
+            novice: noviceValue,
+            professional: professionalValue
           });
         }
 
-        console.log('Chart data created:', chartPoints.length, 'points');
+        console.log('Chart data created:', chartPoints.length, 'points spanning', maxDuration, 'seconds');
         return chartPoints;
       }
     } catch (error) {
