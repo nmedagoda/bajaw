@@ -14,11 +14,13 @@ interface RMSDataPoint {
 interface RMSLoudnessChartProps {
   noviceUrl: string | null;
   professionalUrl: string | null;
+  songTitle?: string;
 }
 
 const RMSLoudnessChart: React.FC<RMSLoudnessChartProps> = ({ 
   noviceUrl, 
-  professionalUrl 
+  professionalUrl,
+  songTitle 
 }) => {
   const [chartData, setChartData] = useState<RMSDataPoint[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -46,12 +48,23 @@ const RMSLoudnessChart: React.FC<RMSLoudnessChartProps> = ({
     });
   };
 
-  const extractRMSData = async (noviceUrl: string | null, professionalUrl: string | null): Promise<RMSDataPoint[]> => {
-    // Use correct expected durations for "Ruwak Lahiru"
-    const noviceDuration = 29.4; // 0.49 minutes
-    const professionalDuration = 202.2; // 3.37 minutes
+  const getSongDurations = (songTitle?: string) => {
+    // Define song-specific durations
+    const songDurations: Record<string, { novice: number; professional: number }> = {
+      "Ruwak Lahiru": { novice: 29.4, professional: 202.2 },
+      "Komalaliya": { novice: 35.0, professional: 180.0 }, // Example durations for another song
+      // Add more songs as needed
+    };
     
-    console.log('Using expected durations - Novice:', noviceDuration, 'Professional:', professionalDuration);
+    return songDurations[songTitle || ""] || { novice: 30.0, professional: 180.0 }; // Default fallback
+  };
+
+  const extractRMSData = async (noviceUrl: string | null, professionalUrl: string | null): Promise<RMSDataPoint[]> => {
+    const durations = getSongDurations(songTitle);
+    const noviceDuration = durations.novice;
+    const professionalDuration = durations.professional;
+    
+    console.log(`Using durations for "${songTitle}" - Novice: ${noviceDuration}s, Professional: ${professionalDuration}s`);
 
     // Use the maximum duration of the two audio files
     const maxDuration = Math.max(noviceDuration, professionalDuration);

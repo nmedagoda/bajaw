@@ -372,6 +372,7 @@ const SingerDashboard: React.FC = () => {
                               <PitchComparisonChart 
                                 noviceUrl={noviceUrl} 
                                 professionalUrl={professionalUrl}
+                                songTitle={selectedSong?.song_title}
                               />
                             </React.Suspense>
                             
@@ -379,6 +380,7 @@ const SingerDashboard: React.FC = () => {
                               <SpectrogramChart 
                                 noviceUrl={noviceUrl} 
                                 professionalUrl={professionalUrl}
+                                songTitle={selectedSong?.song_title}
                               />
                             </React.Suspense>
                             
@@ -386,6 +388,7 @@ const SingerDashboard: React.FC = () => {
                               <RMSLoudnessChart 
                                 noviceUrl={noviceUrl} 
                                 professionalUrl={professionalUrl}
+                                songTitle={selectedSong?.song_title}
                               />
                             </React.Suspense>
                           </div>
