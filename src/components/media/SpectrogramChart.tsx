@@ -57,7 +57,7 @@ const SpectrogramChart: React.FC<SpectrogramChartProps> = ({
         console.log('Novice audio duration:', noviceDuration);
       } catch (error) {
         console.error('Error getting novice duration:', error);
-        noviceDuration = 31; // fallback based on user's info (0.52 mins)
+        noviceDuration = 29.4; // fallback based on user's info (0.49 mins)
       }
     }
     
@@ -67,13 +67,13 @@ const SpectrogramChart: React.FC<SpectrogramChartProps> = ({
         console.log('Professional audio duration:', professionalDuration);
       } catch (error) {
         console.error('Error getting professional duration:', error);
-        professionalDuration = 202; // fallback based on user's info (3.37 mins)
+        professionalDuration = 202.2; // fallback based on user's info (3.37 mins)
       }
     }
 
     // Use the maximum duration of the two audio files
     const maxDuration = Math.max(noviceDuration, professionalDuration);
-    const duration = maxDuration > 0 ? maxDuration : 262; // fallback to previous default
+    const duration = maxDuration > 0 ? maxDuration : 202.2; // fallback to professional duration
     
     const dataPoints = Math.floor(duration * 3.33); // ~3.33 points per second for smoother visualization
     const data: SpectrogramDataPoint[] = [];

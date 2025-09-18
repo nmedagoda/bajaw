@@ -47,30 +47,32 @@ const PitchComparisonChart: React.FC<PitchComparisonChartProps> = ({
   };
 
   const extractPitchData = async (noviceUrl: string | null, professionalUrl: string | null): Promise<ChartDataPoint[]> => {
+    // Get actual audio durations first
+    let noviceDuration = 0;
+    let professionalDuration = 0;
+    
+    if (noviceUrl) {
+      try {
+        noviceDuration = await getAudioDuration(noviceUrl);
+        console.log('Novice audio duration:', noviceDuration);
+      } catch (error) {
+        console.error('Error getting novice duration:', error);
+        noviceDuration = 29.4; // fallback based on user's info
+      }
+    }
+    
+    if (professionalUrl) {
+      try {
+        professionalDuration = await getAudioDuration(professionalUrl);
+        console.log('Professional audio duration:', professionalDuration);
+      } catch (error) {
+        console.error('Error getting professional duration:', error);
+        professionalDuration = 202.2; // fallback based on user's info
+      }
+    }
+
     try {
       console.log('Extracting pitch data from URLs:', { noviceUrl, professionalUrl });
-      
-      // Get actual audio durations
-      let noviceDuration = 0;
-      let professionalDuration = 0;
-      
-      if (noviceUrl) {
-        try {
-          noviceDuration = await getAudioDuration(noviceUrl);
-          console.log('Novice audio duration:', noviceDuration);
-        } catch (error) {
-          console.error('Error getting novice duration:', error);
-        }
-      }
-      
-      if (professionalUrl) {
-        try {
-          professionalDuration = await getAudioDuration(professionalUrl);
-          console.log('Professional audio duration:', professionalDuration);
-        } catch (error) {
-          console.error('Error getting professional duration:', error);
-        }
-      }
 
       // Convert audio URLs to base64 for processing
       const audioToBase64 = async (url: string): Promise<string> => {
@@ -142,27 +144,34 @@ const PitchComparisonChart: React.FC<PitchComparisonChartProps> = ({
       console.error('Backend analysis failed:', error);
     }
 
-    // Fallback: Generate differentiated mock pitch data
-    const duration = 262; // 4.42 minutes in seconds
+    // Fallback: Generate differentiated mock pitch data using actual durations
+    const maxDuration = Math.max(noviceDuration, professionalDuration);
+    const duration = maxDuration > 0 ? maxDuration : 202.2; // use professional duration as fallback
     const dataPoints = Math.floor(duration * 3.33); // ~3.33 points per second for smoother visualization
     const data: ChartDataPoint[] = [];
     
-    console.log('Using fallback pitch data generation');
+    console.log('Using fallback pitch data generation for duration:', duration, 'seconds');
     
     for (let i = 0; i < dataPoints; i++) {
       const time = (i / dataPoints) * duration;
       
-      // Generate more distinct pitch patterns for novice vs professional
-      const noviceBase = 280 + Math.sin(time * 0.4) * 40 + Math.sin(time * 1.2) * 15; // More variability
-      const professionalBase = 320 + Math.sin(time * 0.5) * 50 + Math.cos(time * 0.8) * 20; // More stable
+      // Only generate data for the duration of each specific audio
+      const noviceValue = noviceUrl && time <= noviceDuration ? (() => {
+        const noviceBase = 280 + Math.sin(time * 0.4) * 40 + Math.sin(time * 1.2) * 15; // More variability
+        const noviceNoise = (Math.random() - 0.5) * 40; // Higher noise for novice
+        return Math.max(150, Math.min(450, noviceBase + noviceNoise));
+      })() : null;
       
-      const noviceNoise = (Math.random() - 0.5) * 40; // Higher noise for novice
-      const professionalNoise = (Math.random() - 0.5) * 20; // Lower noise for professional
+      const professionalValue = professionalUrl && time <= professionalDuration ? (() => {
+        const professionalBase = 320 + Math.sin(time * 0.5) * 50 + Math.cos(time * 0.8) * 20; // More stable
+        const professionalNoise = (Math.random() - 0.5) * 20; // Lower noise for professional
+        return Math.max(200, Math.min(500, professionalBase + professionalNoise));
+      })() : null;
       
       data.push({
         time: parseFloat(time.toFixed(2)),
-        novice: noviceUrl ? Math.max(150, Math.min(450, noviceBase + noviceNoise)) : null,
-        professional: professionalUrl ? Math.max(200, Math.min(500, professionalBase + professionalNoise)) : null
+        novice: noviceValue,
+        professional: professionalValue
       });
     }
     
