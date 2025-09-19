@@ -52,7 +52,7 @@ const PitchComparisonChart: React.FC<PitchComparisonChartProps> = ({
     // Define song-specific durations
     const songDurations: Record<string, { novice: number; professional: number }> = {
       "Ruwak Lahiru": { novice: 29.4, professional: 202.2 },
-      "Komalaliya": { novice: 265.2, professional: 270.6 }, // 4.42 min and 4.51 min converted to seconds
+      "Komalaliya": { novice: 312.6, professional: 270.6 }, // 5.21 min and 4.51 min converted to seconds
       // Add more songs as needed
     };
     
