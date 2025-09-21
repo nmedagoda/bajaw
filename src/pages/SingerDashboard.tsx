@@ -114,6 +114,9 @@ const SingerDashboard: React.FC = () => {
       setChartsVisible(false);
       setChartLoadingStates({ pitch: false, spectrogram: false, rms: false });
       
+      // Force clear any cached analysis data
+      console.log('Clearing analysis data for song change:', sel.song_title);
+      
       // Resolve novice performance URL
       const noviceSrc = sel.recorded_song_url;
       if (noviceSrc) {
@@ -177,6 +180,13 @@ const SingerDashboard: React.FC = () => {
 
       const noviceBase64 = await audioToBase64(noviceUrl);
       const professionalBase64 = await audioToBase64(professionalUrl);
+      
+      // Log audio fingerprints to ensure different data is being sent
+      console.log('Song:', selectedSong?.song_title);
+      console.log('Novice audio size:', noviceBase64.length);
+      console.log('Professional audio size:', professionalBase64.length);
+      console.log('Novice URL:', noviceUrl);
+      console.log('Professional URL:', professionalUrl);
 
       // Try enhanced HuggingFace analysis first, fallback to basic if needed
       const { data, error } = await supabase.functions.invoke('analyze-audio-hf', {
