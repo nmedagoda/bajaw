@@ -8,7 +8,8 @@ const corsHeaders = {
 
 // Improved DTW implementation for pitch comparison
 function calculateDTW(seq1: number[], seq2: number[]): number {
-  const maxLength = 100;
+  // Increase limit for better accuracy but balance performance
+  const maxLength = 300; // Increased from 100
   const s1 = seq1.slice(0, maxLength);
   const s2 = seq2.slice(0, maxLength);
   
@@ -17,50 +18,73 @@ function calculateDTW(seq1: number[], seq2: number[]): number {
   
   if (m === 0 || n === 0) return 1.0;
   
-  // Normalize sequences to log scale for better pitch comparison
-  const normalizeSequence = (seq: number[]) => {
-    return seq.map(f => f > 0 ? Math.log2(f / 220) : -10); // Use -10 for silence
+  // Filter out silence and improve normalization
+  const filterAndNormalize = (seq: number[]) => {
+    const filtered = seq.filter(f => f > 50 && f < 800); // Human vocal range
+    if (filtered.length === 0) return seq.map(() => -10);
+    
+    const mean = filtered.reduce((sum, f) => sum + f, 0) / filtered.length;
+    return seq.map(f => f > 50 && f < 800 ? Math.log2(f / mean) : -10);
   };
   
-  const norm_s1 = normalizeSequence(s1);
-  const norm_s2 = normalizeSequence(s2);
+  const norm_s1 = filterAndNormalize(s1);
+  const norm_s2 = filterAndNormalize(s2);
   
-  // Create DTW matrix
+  // Create DTW matrix with improved initialization
   const dtw = Array(m + 1).fill(null).map(() => Array(n + 1).fill(Infinity));
   dtw[0][0] = 0;
+  
+  // Allow for some flexibility in alignment
+  for (let i = 1; i <= Math.min(m, 5); i++) dtw[i][0] = i;
+  for (let j = 1; j <= Math.min(n, 5); j++) dtw[0][j] = j;
   
   for (let i = 1; i <= m; i++) {
     for (let j = 1; j <= n; j++) {
       const cost = Math.abs(norm_s1[i - 1] - norm_s2[j - 1]);
+      // Weight diagonal moves slightly less to encourage alignment
       dtw[i][j] = cost + Math.min(
-        dtw[i - 1][j],     // insertion
-        dtw[i][j - 1],     // deletion
-        dtw[i - 1][j - 1]  // match
+        dtw[i - 1][j] + 0.1,     // insertion
+        dtw[i][j - 1] + 0.1,     // deletion
+        dtw[i - 1][j - 1]        // match
       );
     }
   }
   
-  // Normalize distance
-  const maxDistance = Math.max(m, n) * 5; // Max possible log difference
-  return Math.min(1, dtw[m][n] / maxDistance);
+  // Improved normalization based on sequence characteristics
+  const pathLength = Math.max(m, n);
+  const normalizedDistance = dtw[m][n] / pathLength;
+  
+  // Convert to similarity score with better scaling
+  return Math.min(1, normalizedDistance / 3);
 }
 
-// Optimized pitch extraction with CPU efficiency
+// Enhanced pitch extraction with better accuracy
 function extractPitch(audioBuffer: Float32Array, sampleRate: number): number[] {
-  const windowSize = 1024; // Smaller window for faster processing
-  const hopSize = 1024; // Larger hop size for fewer calculations
+  const windowSize = 2048; // Larger window for better frequency resolution
+  const hopSize = 512; // Smaller hop for better time resolution
   const pitches: number[] = [];
-  const maxPitches = 200; // Limit pitch points for performance
+  const maxPitches = 500; // Increased limit for better analysis
   
   console.log(`Extracting pitch from ${audioBuffer.length} samples at ${sampleRate}Hz`);
   
-  // Skip pre-emphasis for performance
+  // Pre-emphasis filter for better pitch detection
+  const preEmphasized = new Float32Array(audioBuffer.length);
+  preEmphasized[0] = audioBuffer[0];
+  for (let i = 1; i < audioBuffer.length; i++) {
+    preEmphasized[i] = audioBuffer[i] - 0.97 * audioBuffer[i - 1];
+  }
+  
   const stepSize = Math.max(1, Math.floor(audioBuffer.length / (maxPitches * hopSize)));
   
-  for (let i = 0; i < audioBuffer.length - windowSize; i += hopSize * stepSize) {
-    const window = audioBuffer.slice(i, i + windowSize);
+  for (let i = 0; i < preEmphasized.length - windowSize; i += hopSize * stepSize) {
+    const window = preEmphasized.slice(i, i + windowSize);
     
-    // Quick energy check first
+    // Apply Hamming window
+    for (let j = 0; j < windowSize; j++) {
+      window[j] *= 0.54 - 0.46 * Math.cos(2 * Math.PI * j / (windowSize - 1));
+    }
+    
+    // Energy check with better threshold
     let energy = 0;
     for (let j = 0; j < windowSize; j++) {
       energy += window[j] * window[j];
@@ -69,8 +93,8 @@ function extractPitch(audioBuffer: Float32Array, sampleRate: number): number[] {
     
     let bestFreq = 0;
     
-    if (energy > 0.01) { // Higher threshold for performance
-      bestFreq = fastPitchDetection(window, sampleRate);
+    if (energy > 0.005) { // Better energy threshold
+      bestFreq = enhancedPitchDetection(window, sampleRate);
     }
     
     pitches.push(Math.round(bestFreq));
@@ -82,25 +106,30 @@ function extractPitch(audioBuffer: Float32Array, sampleRate: number): number[] {
   return pitches;
 }
 
-// Fast pitch detection using simplified autocorrelation
-function fastPitchDetection(window: Float32Array, sampleRate: number): number {
-  const minPitch = 80;   // Reasonable range for human voice
-  const maxPitch = 400; 
+// Enhanced pitch detection using improved autocorrelation
+function enhancedPitchDetection(window: Float32Array, sampleRate: number): number {
+  const minPitch = 80;   // Human vocal range
+  const maxPitch = 800; 
   const minPeriod = Math.floor(sampleRate / maxPitch);
   const maxPeriod = Math.floor(sampleRate / minPitch);
   
   let maxCorr = 0;
   let bestFreq = 0;
   
-  // Simplified autocorrelation - check fewer periods for performance
-  const stepSize = Math.max(1, Math.floor((maxPeriod - minPeriod) / 20)); // Only check 20 periods max
-  
-  for (let period = minPeriod; period <= maxPeriod; period += stepSize) {
+  // Improved autocorrelation with better resolution
+  for (let period = minPeriod; period <= maxPeriod; period++) {
     let correlation = 0;
-    const checkLength = Math.min(window.length - period, 100); // Limit calculation length
+    let normalization = 0;
+    const checkLength = Math.min(window.length - period, window.length / 2);
     
+    // Normalized autocorrelation
     for (let j = 0; j < checkLength; j++) {
       correlation += window[j] * window[j + period];
+      normalization += window[j] * window[j] + window[j + period] * window[j + period];
+    }
+    
+    if (normalization > 0) {
+      correlation = correlation / Math.sqrt(normalization);
     }
     
     if (correlation > maxCorr) {
@@ -109,8 +138,8 @@ function fastPitchDetection(window: Float32Array, sampleRate: number): number {
     }
   }
   
-  // Simple threshold check
-  if (maxCorr > 0.1 && bestFreq >= minPitch && bestFreq <= maxPitch) {
+  // Better threshold and validation
+  if (maxCorr > 0.3 && bestFreq >= minPitch && bestFreq <= maxPitch) {
     return bestFreq;
   }
   
@@ -157,38 +186,67 @@ function detectOnsets(audioBuffer: Float32Array, sampleRate: number): number[] {
   return onsets;
 }
 
-// Optimized spectral features
+// Enhanced spectral features with proper MFCC-like analysis
 function extractFeatures(audioBuffer: Float32Array, sampleRate: number): number[][] {
-  const windowSize = Math.floor(sampleRate * 0.2); // 200ms for performance
-  const hopSize = windowSize; // No overlap for speed
+  const windowSize = Math.floor(sampleRate * 0.05); // 50ms windows for better resolution
+  const hopSize = Math.floor(windowSize / 2); // 50% overlap
   const features: number[][] = [];
-  const maxFeatures = 15; // Limit features for performance
+  const maxFeatures = 50; // Increased limit for better analysis
   
   for (let i = 0; i < audioBuffer.length - windowSize && features.length < maxFeatures; i += hopSize) {
     const window = audioBuffer.slice(i, i + windowSize);
     
-    // RMS Energy
+    // Apply Hamming window
+    for (let j = 0; j < windowSize; j++) {
+      window[j] *= 0.54 - 0.46 * Math.cos(2 * Math.PI * j / (windowSize - 1));
+    }
+    
+    // 1. RMS Energy
     const rmsEnergy = Math.sqrt(window.reduce((sum, s) => sum + s * s, 0) / window.length);
     
-    // Zero Crossing Rate (simplified)
+    // 2. Zero Crossing Rate
     let zcr = 0;
-    for (let j = 1; j < Math.min(window.length, 1000); j++) { // Limit ZCR calculation
+    for (let j = 1; j < window.length; j++) {
       if ((window[j] >= 0) !== (window[j-1] >= 0)) zcr++;
     }
-    const zcrRate = zcr / Math.min(window.length, 1000);
+    const zcrRate = zcr / window.length;
     
-    // Simple energy-based spectral centroid approximation
+    // 3. Improved Spectral Centroid
     let centroid = 0;
-    let totalEnergy = 0;
-    const step = Math.max(1, Math.floor(window.length / 100)); // Sample fewer points
-    for (let j = 0; j < window.length; j += step) {
-      const energy = window[j] * window[j];
-      centroid += j * energy;
-      totalEnergy += energy;
-    }
-    const spectralCentroid = totalEnergy > 0 ? (centroid / totalEnergy) * sampleRate / window.length : 0;
+    let totalMagnitude = 0;
+    const fftSize = Math.min(windowSize, 512); // Limit FFT size for performance
     
-    features.push([rmsEnergy, zcrRate, spectralCentroid]);
+    for (let j = 0; j < fftSize; j++) {
+      const magnitude = Math.abs(window[j]);
+      const frequency = j * sampleRate / fftSize;
+      centroid += frequency * magnitude;
+      totalMagnitude += magnitude;
+    }
+    const spectralCentroid = totalMagnitude > 0 ? centroid / totalMagnitude : 0;
+    
+    // 4. Spectral Rolloff (85% of energy)
+    let cumulativeEnergy = 0;
+    const totalEnergy = window.reduce((sum, s) => sum + s * s, 0);
+    let rolloff = 0;
+    
+    for (let j = 0; j < fftSize && cumulativeEnergy < 0.85 * totalEnergy; j++) {
+      cumulativeEnergy += window[j] * window[j];
+      rolloff = j * sampleRate / fftSize;
+    }
+    
+    // 5. Spectral Bandwidth
+    let bandwidth = 0;
+    if (totalMagnitude > 0 && spectralCentroid > 0) {
+      let variance = 0;
+      for (let j = 0; j < fftSize; j++) {
+        const magnitude = Math.abs(window[j]);
+        const frequency = j * sampleRate / fftSize;
+        variance += Math.pow(frequency - spectralCentroid, 2) * magnitude;
+      }
+      bandwidth = Math.sqrt(variance / totalMagnitude);
+    }
+    
+    features.push([rmsEnergy, zcrRate, spectralCentroid / 1000, rolloff / 1000, bandwidth / 1000]);
   }
   
   return features;
@@ -274,6 +332,14 @@ function decodeAudioBuffer(base64: string): Float32Array {
     console.error('Audio decode error:', error);
     throw new Error(`Failed to decode audio data: ${error.message}`);
   }
+}
+
+// Helper function for variance calculation
+function calculateVariance(values: number[]): number {
+  if (values.length === 0) return 0;
+  const mean = values.reduce((sum, val) => sum + val, 0) / values.length;
+  const variance = values.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / values.length;
+  return variance;
 }
 
 // Add audio fingerprinting to ensure unique analysis
@@ -383,37 +449,67 @@ serve(async (req) => {
       console.log('Warning: No onsets detected for rhythm analysis');
     }
     
-    // 3. Feature similarity
+    // 3. Enhanced MFCC-like Feature similarity
     let featureSimilarity = 0;
     if (noviceFeatures.length > 0 && professionalFeatures.length > 0) {
       const minLength = Math.min(noviceFeatures.length, professionalFeatures.length);
-      let totalDiff = 0;
+      let totalDistance = 0;
       let featureCount = 0;
       
       for (let i = 0; i < minLength; i++) {
-        for (let j = 0; j < Math.min(3, noviceFeatures[i].length, professionalFeatures[i].length); j++) {
-          const noviceVal = noviceFeatures[i][j] || 0;
-          const professionalVal = professionalFeatures[i][j] || 0;
+        const noviceFeature = noviceFeatures[i];
+        const professionalFeature = professionalFeatures[i];
+        
+        // Calculate Euclidean distance between feature vectors
+        let distance = 0;
+        const featureLength = Math.min(noviceFeature.length, professionalFeature.length);
+        
+        for (let j = 0; j < featureLength; j++) {
+          const noviceVal = noviceFeature[j] || 0;
+          const professionalVal = professionalFeature[j] || 0;
           
-          // Simple normalized difference
+          // Normalize features to same scale
           const maxVal = Math.max(Math.abs(noviceVal), Math.abs(professionalVal), 0.001);
-          const normalizedDiff = Math.abs(noviceVal - professionalVal) / maxVal;
+          const normalizedNovice = noviceVal / maxVal;
+          const normalizedProf = professionalVal / maxVal;
           
-          totalDiff += normalizedDiff;
-          featureCount++;
+          distance += Math.pow(normalizedNovice - normalizedProf, 2);
         }
+        
+        totalDistance += Math.sqrt(distance / featureLength);
+        featureCount++;
       }
       
-      featureSimilarity = featureCount > 0 ? Math.max(0, 1 - (totalDiff / featureCount)) : 0;
-      console.log(`Feature similarity: ${(featureSimilarity * 100).toFixed(1)}%`);
+      // Convert distance to similarity (0-1 scale)
+      const avgDistance = totalDistance / featureCount;
+      featureSimilarity = Math.max(0, 1 - avgDistance);
+      console.log(`Enhanced feature similarity: ${(featureSimilarity * 100).toFixed(1)}%, Avg distance: ${avgDistance.toFixed(3)}`);
     }
     
-    // 4. Simple emotion match based on energy
-    const avgNoviceEnergy = noviceFeatures.length > 0 ? 
-      noviceFeatures.reduce((sum, f) => sum + (f[0] || 0), 0) / noviceFeatures.length : 0;
-    const avgProfEnergy = professionalFeatures.length > 0 ? 
-      professionalFeatures.reduce((sum, f) => sum + (f[0] || 0), 0) / professionalFeatures.length : 0;
-    const emotionMatch = 1 - Math.min(1, Math.abs(avgNoviceEnergy - avgProfEnergy) * 10);
+    // 4. Enhanced emotion analysis using multiple acoustic features
+    let emotionMatch = 0;
+    if (noviceFeatures.length > 0 && professionalFeatures.length > 0) {
+      // Energy variation (excitement/sadness indicator)
+      const noviceEnergyVar = calculateVariance(noviceFeatures.map(f => f[0] || 0));
+      const profEnergyVar = calculateVariance(professionalFeatures.map(f => f[0] || 0));
+      const energyVarSimilarity = 1 - Math.min(1, Math.abs(noviceEnergyVar - profEnergyVar) * 50);
+      
+      // ZCR variation (emotional intensity)
+      const noviceZCRVar = calculateVariance(noviceFeatures.map(f => f[1] || 0));
+      const profZCRVar = calculateVariance(professionalFeatures.map(f => f[1] || 0));
+      const zcrVarSimilarity = 1 - Math.min(1, Math.abs(noviceZCRVar - profZCRVar) * 100);
+      
+      // Spectral characteristics (timbre emotion)
+      const noviceSpectralMean = noviceFeatures.reduce((sum, f) => sum + (f[2] || 0), 0) / noviceFeatures.length;
+      const profSpectralMean = professionalFeatures.reduce((sum, f) => sum + (f[2] || 0), 0) / professionalFeatures.length;
+      const spectralSimilarity = 1 - Math.min(1, Math.abs(noviceSpectralMean - profSpectralMean) / Math.max(noviceSpectralMean, profSpectralMean, 0.1));
+      
+      // Combined emotion score
+      emotionMatch = (energyVarSimilarity + zcrVarSimilarity + spectralSimilarity) / 3;
+      console.log(`Enhanced emotion analysis: Energy var similarity: ${(energyVarSimilarity * 100).toFixed(1)}%, ZCR var similarity: ${(zcrVarSimilarity * 100).toFixed(1)}%, Spectral similarity: ${(spectralSimilarity * 100).toFixed(1)}%, Combined: ${(emotionMatch * 100).toFixed(1)}%`);
+    } else {
+      emotionMatch = 0.1; // Low score if features couldn't be extracted
+    }
     
     console.log('Analysis complete')
 
