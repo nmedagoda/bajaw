@@ -117,24 +117,41 @@ function fastPitchDetection(window: Float32Array, sampleRate: number): number {
   return 0;
 }
 
-// Optimized onset detection
+// Improved onset detection for better rhythm analysis
 function detectOnsets(audioBuffer: Float32Array, sampleRate: number): number[] {
-  const windowSize = Math.floor(sampleRate * 0.2); // 200ms windows for performance
-  const hopSize = windowSize; // No overlap for speed
+  const windowSize = Math.floor(sampleRate * 0.05); // 50ms windows for better resolution
+  const hopSize = Math.floor(windowSize / 4); // 75% overlap for better detection
   const onsets: number[] = [];
-  const maxOnsets = 10; // Limit onsets for performance
+  const maxOnsets = 50; // Increased limit for better accuracy
   
   let prevEnergy = 0;
+  let prevSpectralFlux = 0;
   
   for (let i = 0; i < audioBuffer.length - windowSize && onsets.length < maxOnsets; i += hopSize) {
     const window = audioBuffer.slice(i, i + windowSize);
+    
+    // Calculate energy
     const energy = window.reduce((sum, sample) => sum + sample * sample, 0) / windowSize;
     
-    if (energy > prevEnergy * 2.0 && energy > 0.05) {
+    // Calculate spectral flux (high frequency energy)
+    let highFreqEnergy = 0;
+    for (let j = Math.floor(window.length / 2); j < window.length; j++) {
+      highFreqEnergy += window[j] * window[j];
+    }
+    const spectralFlux = highFreqEnergy / (window.length / 2);
+    
+    // Improved onset detection criteria
+    const energyIncrease = energy > prevEnergy * 1.5;
+    const spectralIncrease = spectralFlux > prevSpectralFlux * 1.3;
+    const minEnergy = energy > 0.01;
+    const minTime = onsets.length === 0 || (i / sampleRate) - onsets[onsets.length - 1] > 0.1; // Min 100ms between onsets
+    
+    if (energyIncrease && spectralIncrease && minEnergy && minTime) {
       onsets.push(i / sampleRate);
     }
     
     prevEnergy = energy;
+    prevSpectralFlux = spectralFlux;
   }
   
   return onsets;
@@ -329,10 +346,42 @@ serve(async (req) => {
     const pitchAccuracy = Math.max(0, 1 - dtwDistance);
     console.log(`DTW distance: ${dtwDistance.toFixed(3)}, Pitch accuracy: ${(pitchAccuracy * 100).toFixed(1)}%`);
     
-    // 2. Rhythm Timing Error
-    const rhythmError = noviceOnsets.length > 0 && professionalOnsets.length > 0 
-      ? Math.abs(noviceOnsets.length - professionalOnsets.length) / Math.max(noviceOnsets.length, professionalOnsets.length)
-      : 0;
+    // 2. Improved Rhythm Timing Analysis
+    let rhythmAccuracy = 0;
+    if (noviceOnsets.length > 0 && professionalOnsets.length > 0) {
+      // Calculate onset timing differences
+      const maxOnsets = Math.min(noviceOnsets.length, professionalOnsets.length);
+      let totalTimingError = 0;
+      
+      // Compare onset timings using dynamic programming for best alignment
+      for (let i = 0; i < maxOnsets; i++) {
+        const noviceTime = noviceOnsets[i];
+        let minError = Infinity;
+        
+        // Find closest professional onset within reasonable window (±2 seconds)
+        for (let j = 0; j < professionalOnsets.length; j++) {
+          const profTime = professionalOnsets[j];
+          const timeDiff = Math.abs(noviceTime - profTime);
+          if (timeDiff < 2.0 && timeDiff < minError) {
+            minError = timeDiff;
+          }
+        }
+        
+        if (minError !== Infinity) {
+          totalTimingError += minError;
+        }
+      }
+      
+      // Calculate rhythm accuracy (lower timing error = higher accuracy)
+      const avgTimingError = totalTimingError / maxOnsets;
+      rhythmAccuracy = Math.max(0, 1 - (avgTimingError / 2.0)); // Normalize to 0-1 range
+      
+      console.log(`Rhythm analysis: Novice onsets: ${noviceOnsets.length}, Professional onsets: ${professionalOnsets.length}, Avg timing error: ${avgTimingError.toFixed(3)}s, Accuracy: ${(rhythmAccuracy * 100).toFixed(1)}%`);
+    } else {
+      // Fallback if no onsets detected
+      rhythmAccuracy = 0.1; // Low score for poor onset detection
+      console.log('Warning: No onsets detected for rhythm analysis');
+    }
     
     // 3. Feature similarity
     let featureSimilarity = 0;
@@ -375,9 +424,9 @@ serve(async (req) => {
         difference: Math.abs(1.0 - Math.max(0, Math.min(1, pitchAccuracy)))
       },
       rhythmTiming: {
-        novice: Math.max(0, Math.min(1, 1 - rhythmError)),
+        novice: Math.max(0, Math.min(1, rhythmAccuracy)),
         professional: 1.0,
-        difference: Math.abs(1.0 - Math.max(0, Math.min(1, 1 - rhythmError)))
+        difference: Math.abs(1.0 - Math.max(0, Math.min(1, rhythmAccuracy)))
       },
       mfccDistance: {
         novice: Math.max(0, Math.min(1, featureSimilarity)),
