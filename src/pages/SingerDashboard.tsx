@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
@@ -700,9 +701,9 @@ const SingerDashboard: React.FC = () => {
             </CardHeader>
             <CardContent>
               <Button asChild>
-                <a href="/record?tab=record" className="inline-flex items-center gap-2">
+                <Link to="/record?tab=record" className="inline-flex items-center gap-2">
                   <ExternalLink className="w-4 h-4" /> Open Recording Studio
-                </a>
+                </Link>
               </Button>
             </CardContent>
           </Card>

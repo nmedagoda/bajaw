@@ -31,6 +31,9 @@ const App = () => (
               <Routes>
               <Route path="/" element={<Index />} />
               <Route path="/auth" element={<Auth />} />
+              <Route path="/auth/confirm" element={<Auth />} />
+              <Route path="/auth/verify" element={<Auth />} />
+              <Route path="/auth/callback" element={<Auth />} />
               <Route 
                 path="/performances" 
                 element={
