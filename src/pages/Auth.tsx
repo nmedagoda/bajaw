@@ -364,7 +364,7 @@ const Auth = () => {
             </DialogHeader>
             <div className="space-y-4">
               <RadioGroup value={selectedRole} onValueChange={setSelectedRole}>
-                {roles.map((r) => (
+                {roles?.map((r) => (
                   <div key={r} className="flex items-center gap-3 p-3 rounded-md border">
                     <RadioGroupItem value={r} id={`role-${r}`} />
                     <Label htmlFor={`role-${r}`} className="flex items-center gap-2 cursor-pointer">
