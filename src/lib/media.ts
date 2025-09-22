@@ -12,7 +12,14 @@ export const resolvePlayableUrl = async (url: string | null): Promise<string | n
       const objectIdx = parts.indexOf('object');
       if (objectIdx !== -1) {
         let bucketIdx = objectIdx + 1;
-        if (parts[bucketIdx] === 'public' || parts[bucketIdx] === 'sign') {
+        
+        // If it's a public URL, return it as-is
+        if (parts[bucketIdx] === 'public') {
+          return url;
+        }
+        
+        // For private buckets or signed URLs, create a signed URL
+        if (parts[bucketIdx] === 'sign') {
           bucketIdx++;
         }
         const bucket = parts[bucketIdx];
