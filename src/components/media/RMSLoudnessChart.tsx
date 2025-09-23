@@ -82,12 +82,103 @@ const RMSLoudnessChart: React.FC<RMSLoudnessChartProps> = ({
     
     console.log(`Using durations for "${songTitle}" - Novice: ${noviceDuration}s, Professional: ${professionalDuration}s`);
 
-    // Use the maximum duration of the two audio files
+    try {
+      console.log('Extracting RMS data from URLs:', { noviceUrl, professionalUrl });
+
+      // Convert audio URLs to base64 for processing
+      const audioToBase64 = async (url: string): Promise<string> => {
+        const response = await fetch(url);
+        const arrayBuffer = await response.arrayBuffer();
+        const uint8Array = new Uint8Array(arrayBuffer);
+        
+        // Convert to string in chunks to avoid call stack issues
+        let binaryString = '';
+        const chunkSize = 8192; // 8KB chunks for string conversion
+        for (let i = 0; i < uint8Array.length; i += chunkSize) {
+          const chunk = uint8Array.subarray(i, i + chunkSize);
+          binaryString += String.fromCharCode.apply(null, Array.from(chunk));
+        }
+        
+        return btoa(binaryString);
+      };
+
+      let noviceAudio = '';
+      let professionalAudio = '';
+
+      if (noviceUrl) {
+        noviceAudio = await audioToBase64(noviceUrl);
+      }
+      if (professionalUrl) {
+        professionalAudio = await audioToBase64(professionalUrl);
+      }
+
+      // Call the analyze-audio-rms function with proper audio data
+      const { data, error } = await supabase.functions.invoke('analyze-audio-rms', {
+        body: { 
+          noviceAudio,
+          professionalAudio
+        }
+      });
+
+      console.log('RMS analysis response:', data);
+
+      if (!error && data?.rmsData) {
+        const rmsData = data.rmsData;
+        const noviceRMS = rmsData.novice || [];
+        const professionalRMS = rmsData.professional || [];
+        
+        console.log('Extracted RMS data:', noviceRMS.length, 'novice points,', professionalRMS.length, 'professional points');
+        console.log('Using actual audio durations:', noviceDuration, 'vs', professionalDuration, 'seconds');
+        
+        // Use the longer duration so both recordings are visible for their full length
+        const maxDuration = Math.max(noviceDuration, professionalDuration);
+        const timeStep = 0.5; // 500ms resolution for better performance
+        const totalPoints = Math.floor(maxDuration / timeStep);
+        
+        const chartPoints: RMSDataPoint[] = [];
+        
+        for (let i = 0; i < totalPoints; i++) {
+          const time = i * timeStep;
+          
+          // Map time to index in each RMS array based on actual duration
+          let noviceValue = null;
+          let professionalValue = null;
+          
+          // Show novice data for its full duration
+          if (noviceUrl && noviceRMS.length > 0 && time <= noviceDuration) {
+            const noviceIndex = Math.floor((time / noviceDuration) * (noviceRMS.length - 1));
+            const rms = noviceRMS[noviceIndex] || 0;
+            noviceValue = rms >= 0 ? rms : null;
+          }
+          
+          // Show professional data for its full duration
+          if (professionalUrl && professionalRMS.length > 0 && time <= professionalDuration) {
+            const professionalIndex = Math.floor((time / professionalDuration) * (professionalRMS.length - 1));
+            const rms = professionalRMS[professionalIndex] || 0;
+            professionalValue = rms >= 0 ? rms : null;
+          }
+          
+          chartPoints.push({
+            time: parseFloat(time.toFixed(1)),
+            novice: noviceValue,
+            professional: professionalValue
+          });
+        }
+
+        console.log('RMS chart data created:', chartPoints.length, 'points spanning', maxDuration, 'seconds');
+        return chartPoints;
+      }
+    } catch (error) {
+      console.error('Backend RMS analysis failed:', error);
+    }
+
+    // Fallback: Generate mock RMS data using actual durations
     const maxDuration = Math.max(noviceDuration, professionalDuration);
-    const duration = maxDuration > 0 ? maxDuration : 202.2; // fallback to professional duration
-    
+    const duration = maxDuration > 0 ? maxDuration : 202.2;
     const dataPoints = Math.floor(duration * 2); // 2 points per second for better performance
     const data: RMSDataPoint[] = [];
+    
+    console.log('Using fallback RMS data generation for duration:', duration, 'seconds');
     
     for (let i = 0; i < dataPoints; i++) {
       const time = (i / dataPoints) * duration;

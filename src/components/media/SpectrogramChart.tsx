@@ -82,12 +82,103 @@ const SpectrogramChart: React.FC<SpectrogramChartProps> = ({
     
     console.log(`Using durations for "${songTitle}" - Novice: ${noviceDuration}s, Professional: ${professionalDuration}s`);
 
-    // Use the maximum duration of the two audio files
+    try {
+      console.log('Extracting spectrogram data from URLs:', { noviceUrl, professionalUrl });
+
+      // Convert audio URLs to base64 for processing
+      const audioToBase64 = async (url: string): Promise<string> => {
+        const response = await fetch(url);
+        const arrayBuffer = await response.arrayBuffer();
+        const uint8Array = new Uint8Array(arrayBuffer);
+        
+        // Convert to string in chunks to avoid call stack issues
+        let binaryString = '';
+        const chunkSize = 8192; // 8KB chunks for string conversion
+        for (let i = 0; i < uint8Array.length; i += chunkSize) {
+          const chunk = uint8Array.subarray(i, i + chunkSize);
+          binaryString += String.fromCharCode.apply(null, Array.from(chunk));
+        }
+        
+        return btoa(binaryString);
+      };
+
+      let noviceAudio = '';
+      let professionalAudio = '';
+
+      if (noviceUrl) {
+        noviceAudio = await audioToBase64(noviceUrl);
+      }
+      if (professionalUrl) {
+        professionalAudio = await audioToBase64(professionalUrl);
+      }
+
+      // Call the analyze-audio-spectrogram function with proper audio data
+      const { data, error } = await supabase.functions.invoke('analyze-audio-spectrogram', {
+        body: { 
+          noviceAudio,
+          professionalAudio
+        }
+      });
+
+      console.log('Spectrogram analysis response:', data);
+
+      if (!error && data?.spectrogramData) {
+        const spectrogramData = data.spectrogramData;
+        const noviceSpectrogram = spectrogramData.novice || [];
+        const professionalSpectrogram = spectrogramData.professional || [];
+        
+        console.log('Extracted spectrogram data:', noviceSpectrogram.length, 'novice points,', professionalSpectrogram.length, 'professional points');
+        console.log('Using actual audio durations:', noviceDuration, 'vs', professionalDuration, 'seconds');
+        
+        // Use the longer duration so both recordings are visible for their full length
+        const maxDuration = Math.max(noviceDuration, professionalDuration);
+        const timeStep = 0.5; // 500ms resolution for better performance
+        const totalPoints = Math.floor(maxDuration / timeStep);
+        
+        const chartPoints: SpectrogramDataPoint[] = [];
+        
+        for (let i = 0; i < totalPoints; i++) {
+          const time = i * timeStep;
+          
+          // Map time to index in each spectrogram array based on actual duration
+          let noviceValue = null;
+          let professionalValue = null;
+          
+          // Show novice data for its full duration
+          if (noviceUrl && noviceSpectrogram.length > 0 && time <= noviceDuration) {
+            const noviceIndex = Math.floor((time / noviceDuration) * (noviceSpectrogram.length - 1));
+            const centroid = noviceSpectrogram[noviceIndex] || 0;
+            noviceValue = centroid > 0 ? centroid : null;
+          }
+          
+          // Show professional data for its full duration
+          if (professionalUrl && professionalSpectrogram.length > 0 && time <= professionalDuration) {
+            const professionalIndex = Math.floor((time / professionalDuration) * (professionalSpectrogram.length - 1));
+            const centroid = professionalSpectrogram[professionalIndex] || 0;
+            professionalValue = centroid > 0 ? centroid : null;
+          }
+          
+          chartPoints.push({
+            time: parseFloat(time.toFixed(1)),
+            novice: noviceValue,
+            professional: professionalValue
+          });
+        }
+
+        console.log('Spectrogram chart data created:', chartPoints.length, 'points spanning', maxDuration, 'seconds');
+        return chartPoints;
+      }
+    } catch (error) {
+      console.error('Backend spectrogram analysis failed:', error);
+    }
+
+    // Fallback: Generate mock spectrogram data using actual durations
     const maxDuration = Math.max(noviceDuration, professionalDuration);
-    const duration = maxDuration > 0 ? maxDuration : 202.2; // fallback to professional duration
-    
+    const duration = maxDuration > 0 ? maxDuration : 202.2;
     const dataPoints = Math.floor(duration * 2); // 2 points per second for better performance
     const data: SpectrogramDataPoint[] = [];
+    
+    console.log('Using fallback spectrogram data generation for duration:', duration, 'seconds');
     
     for (let i = 0; i < dataPoints; i++) {
       const time = (i / dataPoints) * duration;
