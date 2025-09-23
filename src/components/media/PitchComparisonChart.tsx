@@ -132,7 +132,7 @@ const PitchComparisonChart: React.FC<PitchComparisonChartProps> = ({
         
         // Use the longer duration so both recordings are visible for their full length
         const maxDuration = Math.max(noviceDuration, professionalDuration);
-        const timeStep = 0.1; // 100ms resolution for smooth visualization
+        const timeStep = 0.5; // 500ms resolution for better performance
         const totalPoints = Math.floor(maxDuration / timeStep);
         
         const chartPoints: ChartDataPoint[] = [];

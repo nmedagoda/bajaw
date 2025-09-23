@@ -61,9 +61,24 @@ const SpectrogramChart: React.FC<SpectrogramChartProps> = ({
   };
 
   const extractSpectrogramData = async (noviceUrl: string | null, professionalUrl: string | null): Promise<SpectrogramDataPoint[]> => {
-    const durations = getSongDurations(songTitle);
-    const noviceDuration = durations.novice;
-    const professionalDuration = durations.professional;
+    // Get actual audio durations instead of using predefined ones
+    let noviceDuration = 30.0; // default fallback
+    let professionalDuration = 180.0; // default fallback
+    
+    try {
+      if (noviceUrl) {
+        noviceDuration = await getAudioDuration(noviceUrl);
+      }
+      if (professionalUrl) {
+        professionalDuration = await getAudioDuration(professionalUrl);
+      }
+    } catch (error) {
+      console.error('Error getting audio durations, using fallbacks:', error);
+      // Fall back to predefined durations if audio duration detection fails
+      const durations = getSongDurations(songTitle);
+      noviceDuration = durations.novice;
+      professionalDuration = durations.professional;
+    }
     
     console.log(`Using durations for "${songTitle}" - Novice: ${noviceDuration}s, Professional: ${professionalDuration}s`);
 
@@ -71,7 +86,7 @@ const SpectrogramChart: React.FC<SpectrogramChartProps> = ({
     const maxDuration = Math.max(noviceDuration, professionalDuration);
     const duration = maxDuration > 0 ? maxDuration : 202.2; // fallback to professional duration
     
-    const dataPoints = Math.floor(duration * 3.33); // ~3.33 points per second for smoother visualization
+    const dataPoints = Math.floor(duration * 2); // 2 points per second for better performance
     const data: SpectrogramDataPoint[] = [];
     
     for (let i = 0; i < dataPoints; i++) {
