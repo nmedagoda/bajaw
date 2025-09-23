@@ -61,9 +61,24 @@ const PitchComparisonChart: React.FC<PitchComparisonChartProps> = ({
   };
 
   const extractPitchData = async (noviceUrl: string | null, professionalUrl: string | null): Promise<ChartDataPoint[]> => {
-    const durations = getSongDurations(songTitle);
-    const noviceDuration = durations.novice;
-    const professionalDuration = durations.professional;
+    // Get actual audio durations instead of using predefined ones
+    let noviceDuration = 30.0; // default fallback
+    let professionalDuration = 180.0; // default fallback
+    
+    try {
+      if (noviceUrl) {
+        noviceDuration = await getAudioDuration(noviceUrl);
+      }
+      if (professionalUrl) {
+        professionalDuration = await getAudioDuration(professionalUrl);
+      }
+    } catch (error) {
+      console.error('Error getting audio durations, using fallbacks:', error);
+      // Fall back to predefined durations if audio duration detection fails
+      const durations = getSongDurations(songTitle);
+      noviceDuration = durations.novice;
+      professionalDuration = durations.professional;
+    }
     
     console.log(`Using durations for "${songTitle}" - Novice: ${noviceDuration}s, Professional: ${professionalDuration}s`);
 
@@ -115,7 +130,7 @@ const PitchComparisonChart: React.FC<PitchComparisonChartProps> = ({
         console.log('Extracted pitch data:', novicePitches.length, 'novice points,', professionalPitches.length, 'professional points');
         console.log('Using actual audio durations:', noviceDuration, 'vs', professionalDuration, 'seconds');
         
-        // Create time series data where each recording's points are distributed across its actual duration
+        // Use the longer duration so both recordings are visible for their full length
         const maxDuration = Math.max(noviceDuration, professionalDuration);
         const timeStep = 0.1; // 100ms resolution for smooth visualization
         const totalPoints = Math.floor(maxDuration / timeStep);
@@ -129,13 +144,15 @@ const PitchComparisonChart: React.FC<PitchComparisonChartProps> = ({
           let noviceValue = null;
           let professionalValue = null;
           
-          if (noviceUrl && time <= noviceDuration && novicePitches.length > 0) {
+          // Show novice data for its full duration
+          if (noviceUrl && novicePitches.length > 0 && time <= noviceDuration) {
             const noviceIndex = Math.floor((time / noviceDuration) * (novicePitches.length - 1));
             const freq = novicePitches[noviceIndex] || 0;
             noviceValue = freq > 0 ? freq : null;
           }
           
-          if (professionalUrl && time <= professionalDuration && professionalPitches.length > 0) {
+          // Show professional data for its full duration
+          if (professionalUrl && professionalPitches.length > 0 && time <= professionalDuration) {
             const professionalIndex = Math.floor((time / professionalDuration) * (professionalPitches.length - 1));
             const freq = professionalPitches[professionalIndex] || 0;
             professionalValue = freq > 0 ? freq : null;
