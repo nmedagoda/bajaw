@@ -5,3 +5,12 @@ verify_jwt = false
 
 [functions.generate-review]
 verify_jwt = false
+
+[functions.analyze-spectrogram]
+verify_jwt = false
+
+[functions.analyze-audio-spectrogram]
+verify_jwt = false
+
+[functions.analyze-audio-rms]
+verify_jwt = false
