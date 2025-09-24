@@ -42,7 +42,8 @@ serve(async (req) => {
       }
       
       noviceBuffer = noviceSamples;
-      console.log('Successfully decoded', noviceBuffer.length, 'RMS audio samples, max amplitude:', Math.max(...Array.from(noviceBuffer)).toFixed(4));
+      const maxAmp = noviceBuffer.length > 0 ? Math.max(...Array.from(noviceBuffer.slice(0, Math.min(1000, noviceBuffer.length)))) : 0;
+      console.log('Successfully decoded', noviceBuffer.length, 'RMS audio samples, max amplitude:', maxAmp.toFixed(4));
     }
 
     if (professionalAudio) {
@@ -63,7 +64,8 @@ serve(async (req) => {
       }
       
       professionalBuffer = professionalSamples;
-      console.log('Successfully decoded', professionalBuffer.length, 'RMS audio samples, max amplitude:', Math.max(...Array.from(professionalBuffer)).toFixed(4));
+      const maxAmp2 = professionalBuffer.length > 0 ? Math.max(...Array.from(professionalBuffer.slice(0, Math.min(1000, professionalBuffer.length)))) : 0;
+      console.log('Successfully decoded', professionalBuffer.length, 'RMS audio samples, max amplitude:', maxAmp2.toFixed(4));
     }
 
     console.log('Audio decoded: Novice', noviceBuffer?.length || 0, 'samples, Professional', professionalBuffer?.length || 0, 'samples');
@@ -122,6 +124,7 @@ function extractRMS(audioBuffer: Float32Array): number[] {
     }
   }
 
-  console.log('Extracted', rmsValues.length, 'RMS values, max RMS:', Math.max(...rmsValues).toFixed(4));
+    const maxRMS = rmsValues.length > 0 ? Math.max(...rmsValues) : 0;
+    console.log('Extracted', rmsValues.length, 'RMS values, max RMS:', maxRMS.toFixed(4));
   return rmsValues;
 }
