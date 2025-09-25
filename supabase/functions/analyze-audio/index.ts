@@ -412,41 +412,47 @@ serve(async (req) => {
     const pitchAccuracy = Math.max(0, 1 - dtwDistance);
     console.log(`DTW distance: ${dtwDistance.toFixed(3)}, Pitch accuracy: ${(pitchAccuracy * 100).toFixed(1)}%`);
     
-    // 2. Improved Rhythm Timing Analysis
+    // 2. Improved Rhythm Timing Analysis based on onset pattern consistency
     let rhythmAccuracy = 0;
     if (noviceOnsets.length > 0 && professionalOnsets.length > 0) {
-      // Calculate onset timing differences
-      const maxOnsets = Math.min(noviceOnsets.length, professionalOnsets.length);
-      let totalTimingError = 0;
+      console.log(`Rhythm analysis: Detected ${noviceOnsets.length} novice onsets, ${professionalOnsets.length} professional onsets`);
       
-      // Compare onset timings using dynamic programming for best alignment
-      for (let i = 0; i < maxOnsets; i++) {
-        const noviceTime = noviceOnsets[i];
-        let minError = Infinity;
+      // Calculate rhythm consistency within each recording (more realistic metric)
+      const calculateRhythmConsistency = (onsets: number[]): number => {
+        if (onsets.length < 3) return 0.3; // Not enough data for rhythm analysis
         
-        // Find closest professional onset within reasonable window (±2 seconds)
-        for (let j = 0; j < professionalOnsets.length; j++) {
-          const profTime = professionalOnsets[j];
-          const timeDiff = Math.abs(noviceTime - profTime);
-          if (timeDiff < 2.0 && timeDiff < minError) {
-            minError = timeDiff;
-          }
+        // Calculate intervals between onsets
+        const intervals: number[] = [];
+        for (let i = 1; i < onsets.length; i++) {
+          intervals.push(onsets[i] - onsets[i-1]);
         }
         
-        if (minError !== Infinity) {
-          totalTimingError += minError;
-        }
-      }
+        // Calculate consistency (lower standard deviation = more consistent rhythm)
+        const mean = intervals.reduce((sum, val) => sum + val, 0) / intervals.length;
+        const variance = intervals.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / intervals.length;
+        const stdDev = Math.sqrt(variance);
+        
+        // Convert to consistency score (0-1, where 1 is perfectly consistent)
+        const consistency = Math.max(0, 1 - (stdDev / mean));
+        return Math.min(1, consistency);
+      };
       
-      // Calculate rhythm accuracy (lower timing error = higher accuracy)
-      const avgTimingError = totalTimingError / maxOnsets;
-      rhythmAccuracy = Math.max(0, 1 - (avgTimingError / 2.0)); // Normalize to 0-1 range
+      const noviceConsistency = calculateRhythmConsistency(noviceOnsets);
+      const professionalConsistency = calculateRhythmConsistency(professionalOnsets);
       
-      console.log(`Rhythm analysis: Novice onsets: ${noviceOnsets.length}, Professional onsets: ${professionalOnsets.length}, Avg timing error: ${avgTimingError.toFixed(3)}s, Accuracy: ${(rhythmAccuracy * 100).toFixed(1)}%`);
+      // Also check onset density similarity (similar number of onsets per unit time)
+      const noviceDensity = noviceOnsets.length / (noviceBuffer.length / sampleRate);
+      const professionalDensity = professionalOnsets.length / (professionalBuffer.length / sampleRate);
+      const densitySimilarity = 1 - Math.min(1, Math.abs(noviceDensity - professionalDensity) / Math.max(noviceDensity, professionalDensity));
+      
+      // Combine consistency and density for overall rhythm score
+      rhythmAccuracy = (noviceConsistency * 0.7) + (densitySimilarity * 0.3);
+      
+      console.log(`Rhythm details - Novice consistency: ${(noviceConsistency * 100).toFixed(1)}%, Professional consistency: ${(professionalConsistency * 100).toFixed(1)}%, Density similarity: ${(densitySimilarity * 100).toFixed(1)}%, Final accuracy: ${(rhythmAccuracy * 100).toFixed(1)}%`);
     } else {
       // Fallback if no onsets detected
-      rhythmAccuracy = 0.1; // Low score for poor onset detection
-      console.log('Warning: No onsets detected for rhythm analysis');
+      rhythmAccuracy = 0.2; // Low score for poor onset detection
+      console.log('Warning: Insufficient onsets detected for rhythm analysis');
     }
     
     // 3. Enhanced MFCC-like Feature similarity
