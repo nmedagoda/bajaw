@@ -1,5 +1,8 @@
 project_id = "ywosoqjzagmwhkybelqp"
 
+[functions.analyze-audio]
+verify_jwt = false
+
 [functions.analyze-audio-hf]
 verify_jwt = false
 

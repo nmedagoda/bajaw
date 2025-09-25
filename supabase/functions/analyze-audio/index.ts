@@ -363,6 +363,70 @@ function calculateAudioFingerprint(audioBuffer: Float32Array): string {
   return `${mean.toFixed(6)}_${rms.toFixed(6)}_${peakRatio.toFixed(6)}`;
 }
 
+// LLM-based rhythm analysis using Hugging Face
+async function analyzeLLMRhythm(
+  noviceOnsets: number[], 
+  professionalOnsets: number[], 
+  noviceConsistency: number,
+  professionalConsistency: number,
+  densitySimilarity: number
+): Promise<number> {
+  try {
+    const hf = new HfInference(Deno.env.get('HUGGINGFACE_API_KEY'));
+    
+    // Prepare rhythm data for LLM analysis
+    const rhythmContext = `
+    Rhythm Analysis Data:
+    - Novice onsets: ${noviceOnsets.length} events at times [${noviceOnsets.slice(0, 10).map(t => t.toFixed(2)).join(', ')}${noviceOnsets.length > 10 ? '...' : ''}]
+    - Professional onsets: ${professionalOnsets.length} events at times [${professionalOnsets.slice(0, 10).map(t => t.toFixed(2)).join(', ')}${professionalOnsets.length > 10 ? '...' : ''}]
+    - Novice timing consistency: ${(noviceConsistency * 100).toFixed(1)}%
+    - Professional timing consistency: ${(professionalConsistency * 100).toFixed(1)}%
+    - Onset density similarity: ${(densitySimilarity * 100).toFixed(1)}%
+    
+    Analyze the rhythmic performance quality based on timing precision, consistency, and pattern matching. 
+    Consider factors like: steady tempo maintenance, accent placement accuracy, syncopation handling, and overall rhythmic flow.
+    
+    Respond with only a single number between 0.0 and 1.0 representing the rhythm accuracy score, where:
+    - 0.9-1.0: Excellent rhythm with professional-level timing
+    - 0.7-0.9: Good rhythm with minor timing variations
+    - 0.5-0.7: Fair rhythm with noticeable inconsistencies
+    - 0.3-0.5: Poor rhythm with significant timing issues
+    - 0.0-0.3: Very poor rhythm, major timing problems
+    `;
+
+    const result = await hf.textGeneration({
+      model: 'mistralai/Mistral-7B-Instruct-v0.1',
+      inputs: rhythmContext,
+      parameters: {
+        max_new_tokens: 10,
+        temperature: 0.1,
+        return_full_text: false
+      }
+    });
+
+    // Extract numeric score from LLM response
+    const responseText = result.generated_text || '';
+    const scoreMatch = responseText.match(/(?:^|\s)(0?\.\d+|1\.0?)(?:\s|$)/);
+    
+    if (scoreMatch) {
+      const score = parseFloat(scoreMatch[1]);
+      if (!isNaN(score) && score >= 0 && score <= 1) {
+        console.log(`LLM rhythm analysis: ${responseText.trim()} -> ${score}`);
+        return score;
+      }
+    }
+    
+    console.log('LLM rhythm analysis: Could not parse score from response:', responseText);
+    // Fallback based on traditional metrics
+    return (noviceConsistency * 0.7) + (densitySimilarity * 0.3);
+    
+  } catch (error) {
+    console.error('LLM rhythm analysis error:', error);
+    // Fallback to traditional calculation
+    return (noviceConsistency * 0.7) + (densitySimilarity * 0.3);
+  }
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
@@ -413,12 +477,12 @@ serve(async (req) => {
     const pitchAccuracy = Math.max(0, 1 - dtwDistance);
     console.log(`DTW distance: ${dtwDistance.toFixed(3)}, Pitch accuracy: ${(pitchAccuracy * 100).toFixed(1)}%`);
     
-    // 2. Improved Rhythm Timing Analysis based on onset pattern consistency
+    // 2. Enhanced Rhythm Timing Analysis using LLM analysis
     let rhythmAccuracy = 0;
     if (noviceOnsets.length > 0 && professionalOnsets.length > 0) {
       console.log(`Rhythm analysis: Detected ${noviceOnsets.length} novice onsets, ${professionalOnsets.length} professional onsets`);
       
-      // Calculate rhythm consistency within each recording (more realistic metric)
+      // Traditional rhythm consistency calculation
       const calculateRhythmConsistency = (onsets: number[]): number => {
         if (onsets.length < 3) return 0.3; // Not enough data for rhythm analysis
         
@@ -446,8 +510,18 @@ serve(async (req) => {
       const professionalDensity = professionalOnsets.length / (professionalBuffer.length / sampleRate);
       const densitySimilarity = 1 - Math.min(1, Math.abs(noviceDensity - professionalDensity) / Math.max(noviceDensity, professionalDensity));
       
-      // Combine consistency and density for overall rhythm score
-      rhythmAccuracy = (noviceConsistency * 0.7) + (densitySimilarity * 0.3);
+      // Enhanced LLM-based rhythm analysis
+      try {
+        const llmRhythmScore = await analyzeLLMRhythm(noviceOnsets, professionalOnsets, noviceConsistency, professionalConsistency, densitySimilarity);
+        // Combine traditional analysis (70%) with LLM insights (30%)
+        rhythmAccuracy = (noviceConsistency * 0.5) + (densitySimilarity * 0.2) + (llmRhythmScore * 0.3);
+        
+        console.log(`Enhanced rhythm analysis - Traditional: ${((noviceConsistency * 0.7) + (densitySimilarity * 0.3) * 100).toFixed(1)}%, LLM: ${(llmRhythmScore * 100).toFixed(1)}%, Final: ${(rhythmAccuracy * 100).toFixed(1)}%`);
+      } catch (error) {
+        console.error('LLM rhythm analysis failed, using traditional method:', error);
+        // Fallback to traditional method
+        rhythmAccuracy = (noviceConsistency * 0.7) + (densitySimilarity * 0.3);
+      }
       
       console.log(`Rhythm details - Novice consistency: ${(noviceConsistency * 100).toFixed(1)}%, Professional consistency: ${(professionalConsistency * 100).toFixed(1)}%, Density similarity: ${(densitySimilarity * 100).toFixed(1)}%, Final accuracy: ${(rhythmAccuracy * 100).toFixed(1)}%`);
     } else {
