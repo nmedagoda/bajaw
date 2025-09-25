@@ -1,6 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import "https://deno.land/x/xhr@0.1.0/mod.ts"
-import { HfInference } from "https://esm.sh/@huggingface/inference@2.3.2"
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -363,8 +362,8 @@ function calculateAudioFingerprint(audioBuffer: Float32Array): string {
   return `${mean.toFixed(6)}_${rms.toFixed(6)}_${peakRatio.toFixed(6)}`;
 }
 
-// LLM-based rhythm analysis using Hugging Face
-async function analyzeLLMRhythm(
+// Advanced rhythm analysis using mathematical pattern matching
+async function analyzeAdvancedRhythm(
   noviceOnsets: number[], 
   professionalOnsets: number[], 
   noviceConsistency: number,
@@ -372,61 +371,115 @@ async function analyzeLLMRhythm(
   densitySimilarity: number
 ): Promise<number> {
   try {
-    const hf = new HfInference(Deno.env.get('HUGGINGFACE_API_KEY'));
+    // Calculate temporal pattern similarity using Dynamic Time Warping approach
+    const temporalSimilarity = calculateTemporalPatternSimilarity(noviceOnsets, professionalOnsets);
     
-    // Prepare rhythm data for LLM analysis
-    const rhythmContext = `
-    Rhythm Analysis Data:
-    - Novice onsets: ${noviceOnsets.length} events at times [${noviceOnsets.slice(0, 10).map(t => t.toFixed(2)).join(', ')}${noviceOnsets.length > 10 ? '...' : ''}]
-    - Professional onsets: ${professionalOnsets.length} events at times [${professionalOnsets.slice(0, 10).map(t => t.toFixed(2)).join(', ')}${professionalOnsets.length > 10 ? '...' : ''}]
-    - Novice timing consistency: ${(noviceConsistency * 100).toFixed(1)}%
-    - Professional timing consistency: ${(professionalConsistency * 100).toFixed(1)}%
-    - Onset density similarity: ${(densitySimilarity * 100).toFixed(1)}%
+    // Analyze interval patterns between onsets
+    const intervalSimilarity = calculateIntervalPatternSimilarity(noviceOnsets, professionalOnsets);
     
-    Analyze the rhythmic performance quality based on timing precision, consistency, and pattern matching. 
-    Consider factors like: steady tempo maintenance, accent placement accuracy, syncopation handling, and overall rhythmic flow.
+    // Calculate rhythmic deviation metrics
+    const rhythmicDeviation = calculateRhythmicDeviation(noviceOnsets, professionalOnsets);
     
-    Respond with only a single number between 0.0 and 1.0 representing the rhythm accuracy score, where:
-    - 0.9-1.0: Excellent rhythm with professional-level timing
-    - 0.7-0.9: Good rhythm with minor timing variations
-    - 0.5-0.7: Fair rhythm with noticeable inconsistencies
-    - 0.3-0.5: Poor rhythm with significant timing issues
-    - 0.0-0.3: Very poor rhythm, major timing problems
-    `;
-
-    const result = await hf.textGeneration({
-      model: 'mistralai/Mistral-7B-Instruct-v0.1',
-      inputs: rhythmContext,
-      parameters: {
-        max_new_tokens: 10,
-        temperature: 0.1,
-        return_full_text: false
-      }
-    });
-
-    // Extract numeric score from LLM response
-    const responseText = result.generated_text || '';
-    const scoreMatch = responseText.match(/(?:^|\s)(0?\.\d+|1\.0?)(?:\s|$)/);
+    // Weighted combination of multiple rhythm factors
+    const advancedScore = (
+      temporalSimilarity * 0.4 +       // How well timing patterns match
+      intervalSimilarity * 0.3 +       // How similar the interval patterns are
+      densitySimilarity * 0.2 +        // Onset density similarity
+      (1 - rhythmicDeviation) * 0.1    // Lower deviation = higher score
+    );
     
-    if (scoreMatch) {
-      const score = parseFloat(scoreMatch[1]);
-      if (!isNaN(score) && score >= 0 && score <= 1) {
-        console.log(`LLM rhythm analysis: ${responseText.trim()} -> ${score}`);
-        return score;
-      }
-    }
+    console.log(`Advanced rhythm analysis - Temporal: ${(temporalSimilarity * 100).toFixed(1)}%, Interval: ${(intervalSimilarity * 100).toFixed(1)}%, Density: ${(densitySimilarity * 100).toFixed(1)}%, Deviation: ${(rhythmicDeviation * 100).toFixed(1)}%`);
     
-    console.log('LLM rhythm analysis: Could not parse score from response:', responseText);
-    // Fallback based on traditional metrics
-    return (noviceConsistency * 0.7) + (densitySimilarity * 0.3);
+    return Math.max(0, Math.min(1, advancedScore));
     
   } catch (error) {
-    console.error('LLM rhythm analysis error:', error);
-    // Fallback to traditional calculation
+    console.error('Advanced rhythm analysis error:', error);
+    // Fallback to basic metrics
     return (noviceConsistency * 0.7) + (densitySimilarity * 0.3);
   }
 }
 
+// Calculate temporal pattern similarity between onset sequences
+function calculateTemporalPatternSimilarity(onsets1: number[], onsets2: number[]): number {
+  if (onsets1.length === 0 || onsets2.length === 0) return 0;
+  
+  // Normalize both sequences to start from 0
+  const norm1 = onsets1.map(t => t - onsets1[0]);
+  const norm2 = onsets2.map(t => t - onsets2[0]);
+  
+  // Compare patterns using cross-correlation approach
+  let maxSimilarity = 0;
+  const minLength = Math.min(norm1.length, norm2.length);
+  
+  for (let offset = 0; offset < Math.min(5, minLength); offset++) {
+    let similarity = 0;
+    let comparisons = 0;
+    
+    for (let i = 0; i < minLength - offset; i++) {
+      const diff = Math.abs(norm1[i] - norm2[i + offset]);
+      similarity += Math.exp(-diff); // Exponential decay for timing differences
+      comparisons++;
+    }
+    
+    if (comparisons > 0) {
+      maxSimilarity = Math.max(maxSimilarity, similarity / comparisons);
+    }
+  }
+  
+  return maxSimilarity;
+}
+
+// Calculate interval pattern similarity (time between consecutive onsets)
+function calculateIntervalPatternSimilarity(onsets1: number[], onsets2: number[]): number {
+  if (onsets1.length < 2 || onsets2.length < 2) return 0;
+  
+  // Calculate intervals between consecutive onsets
+  const intervals1 = [];
+  const intervals2 = [];
+  
+  for (let i = 1; i < onsets1.length; i++) {
+    intervals1.push(onsets1[i] - onsets1[i-1]);
+  }
+  
+  for (let i = 1; i < onsets2.length; i++) {
+    intervals2.push(onsets2[i] - onsets2[i-1]);
+  }
+  
+  // Compare interval patterns
+  const minLength = Math.min(intervals1.length, intervals2.length);
+  let similarity = 0;
+  
+  for (let i = 0; i < minLength; i++) {
+    const ratio = Math.min(intervals1[i], intervals2[i]) / Math.max(intervals1[i], intervals2[i]);
+    similarity += ratio;
+  }
+  
+  return minLength > 0 ? similarity / minLength : 0;
+}
+
+// Calculate rhythmic deviation from professional reference
+function calculateRhythmicDeviation(noviceOnsets: number[], professionalOnsets: number[]): number {
+  if (noviceOnsets.length === 0 || professionalOnsets.length === 0) return 1;
+  
+  let totalDeviation = 0;
+  let comparisons = 0;
+  
+  // For each novice onset, find closest professional onset and measure deviation
+  for (const noviceTime of noviceOnsets) {
+    let minDistance = Infinity;
+    
+    for (const profTime of professionalOnsets) {
+      const distance = Math.abs(noviceTime - profTime);
+      minDistance = Math.min(minDistance, distance);
+    }
+    
+    // Normalize deviation (larger deviations are exponentially worse)
+    totalDeviation += Math.min(1, minDistance / 0.5); // 0.5 second max meaningful deviation
+    comparisons++;
+  }
+  
+  return comparisons > 0 ? totalDeviation / comparisons : 1;
+}
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
@@ -510,15 +563,15 @@ serve(async (req) => {
       const professionalDensity = professionalOnsets.length / (professionalBuffer.length / sampleRate);
       const densitySimilarity = 1 - Math.min(1, Math.abs(noviceDensity - professionalDensity) / Math.max(noviceDensity, professionalDensity));
       
-      // Enhanced LLM-based rhythm analysis
+      // Enhanced advanced rhythm analysis
       try {
-        const llmRhythmScore = await analyzeLLMRhythm(noviceOnsets, professionalOnsets, noviceConsistency, professionalConsistency, densitySimilarity);
-        // Combine traditional analysis (70%) with LLM insights (30%)
-        rhythmAccuracy = (noviceConsistency * 0.5) + (densitySimilarity * 0.2) + (llmRhythmScore * 0.3);
+        const advancedRhythmScore = await analyzeAdvancedRhythm(noviceOnsets, professionalOnsets, noviceConsistency, professionalConsistency, densitySimilarity);
+        // Combine traditional analysis (50%) with advanced analysis (50%)
+        rhythmAccuracy = (noviceConsistency * 0.3) + (densitySimilarity * 0.2) + (advancedRhythmScore * 0.5);
         
-        console.log(`Enhanced rhythm analysis - Traditional: ${((noviceConsistency * 0.7) + (densitySimilarity * 0.3) * 100).toFixed(1)}%, LLM: ${(llmRhythmScore * 100).toFixed(1)}%, Final: ${(rhythmAccuracy * 100).toFixed(1)}%`);
+        console.log(`Enhanced rhythm analysis - Traditional: ${((noviceConsistency * 0.7) + (densitySimilarity * 0.3) * 100).toFixed(1)}%, Advanced: ${(advancedRhythmScore * 100).toFixed(1)}%, Final: ${(rhythmAccuracy * 100).toFixed(1)}%`);
       } catch (error) {
-        console.error('LLM rhythm analysis failed, using traditional method:', error);
+        console.error('Advanced rhythm analysis failed, using traditional method:', error);
         // Fallback to traditional method
         rhythmAccuracy = (noviceConsistency * 0.7) + (densitySimilarity * 0.3);
       }
