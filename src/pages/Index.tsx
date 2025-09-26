@@ -202,6 +202,26 @@ const Index = () => {
           </Button>
         </div>
       </div>
+
+      {/* Footer */}
+      <footer className="border-t border-border/50 bg-card/30">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <div className="text-center text-sm text-muted-foreground">
+            <p className="mb-2">© 2025 DeepAI. All rights reserved.</p>
+            <p>
+              Designed, Developed & Maintained by{' '}
+              <a 
+                href="https://www.deepai.co.nz" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-primary hover:text-primary/80 transition-colors underline"
+              >
+                www.deepai.co.nz
+              </a>
+            </p>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 };
