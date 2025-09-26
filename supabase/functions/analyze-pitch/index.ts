@@ -84,7 +84,8 @@ serve(async (req) => {
           console.log(`Model ${model} failed:`, response.status, errorText);
         }
       } catch (modelError) {
-        console.log(`Error with model ${model}:`, modelError.message);
+        const errorMessage = modelError instanceof Error ? modelError.message : String(modelError)
+        console.log(`Error with model ${model}:`, errorMessage);
         continue;
       }
     }
@@ -103,7 +104,8 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('Error in analyze-pitch function:', error);
-    return new Response(JSON.stringify({ error: error.message }), {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    return new Response(JSON.stringify({ error: errorMessage }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });

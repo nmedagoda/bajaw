@@ -406,9 +406,10 @@ serve(async (req) => {
 
   } catch (error) {
     console.error('Error searching songs:', error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
     return new Response(
       JSON.stringify({ 
-        error: error.message || 'Failed to search songs' 
+        error: errorMessage || 'Failed to search songs' 
       }),
       {
         status: 500,

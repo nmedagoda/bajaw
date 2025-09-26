@@ -98,7 +98,8 @@ Keep the tone encouraging but honest. Focus on practical, actionable advice that
           console.log(`Model ${model} failed:`, response.status, errorText);
         }
       } catch (modelError) {
-        console.log(`Error with model ${model}:`, modelError.message);
+        const errorMessage = modelError instanceof Error ? modelError.message : String(modelError)
+        console.log(`Error with model ${model}:`, errorMessage);
         continue;
       }
     }
