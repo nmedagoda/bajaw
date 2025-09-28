@@ -698,14 +698,32 @@ serve(async (req) => {
 
     // Helper function to ensure valid metric values
     const ensureValidMetric = (value: number): number => {
-      if (!isFinite(value) || isNaN(value)) return 0;
+      if (!isFinite(value) || isNaN(value)) {
+        console.warn(`Invalid metric value: ${value}, returning 0`);
+        return 0;
+      }
       return Math.max(0, Math.min(1, value));
     };
 
-    const safeRhythmAccuracy = ensureValidMetric(rhythmAccuracy);
-    const safePitchAccuracy = ensureValidMetric(pitchAccuracy);
-    const safeFeatureSimilarity = ensureValidMetric(featureSimilarity);
+    // Convert percentage values to [0,1] range and ensure validity
+    console.log('Raw metric values before validation:', {
+      pitchAccuracy,
+      rhythmAccuracy,
+      featureSimilarity,
+      emotionMatch
+    });
+
+    const safeRhythmAccuracy = ensureValidMetric(rhythmAccuracy / 100);
+    const safePitchAccuracy = ensureValidMetric(pitchAccuracy / 100);
+    const safeFeatureSimilarity = ensureValidMetric(featureSimilarity / 100);
     const safeEmotionMatch = ensureValidMetric(emotionMatch);
+
+    console.log('Safe metric values after validation:', {
+      safeRhythmAccuracy,
+      safePitchAccuracy,
+      safeFeatureSimilarity,
+      safeEmotionMatch
+    });
 
     const results = {
       pitchAccuracy: {

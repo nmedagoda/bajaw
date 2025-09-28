@@ -35,15 +35,42 @@ serve(async (req) => {
         // Convert 4 bytes to float32 (little endian)
         const bytes = new Uint8Array(4);
         for (let j = 0; j < 4 && (i * 4 + j) < noviceBinary.length; j++) {
-          bytes[j] = noviceBinary.charCodeAt(i * 4 + j);
+          bytes[j] = noviceBinary.charCodeAt(i * 4 + j) & 0xFF;
         }
         const view = new DataView(bytes.buffer);
-        noviceSamples[i] = view.getFloat32(0, true); // true for little endian
+        let floatValue = view.getFloat32(0, true); // true for little endian
+        
+        // Validate and normalize the value
+        if (!isFinite(floatValue) || isNaN(floatValue) || Math.abs(floatValue) > 1e10) {
+          floatValue = 0;
+        }
+        
+        noviceSamples[i] = floatValue;
+      }
+      
+      // Find max amplitude and normalize if needed
+      let maxAmp = 0;
+      let validSamples = 0;
+      for (let i = 0; i < noviceSamples.length; i++) {
+        if (isFinite(noviceSamples[i]) && !isNaN(noviceSamples[i])) {
+          maxAmp = Math.max(maxAmp, Math.abs(noviceSamples[i]));
+          validSamples++;
+        } else {
+          noviceSamples[i] = 0;
+        }
+      }
+      
+      // Normalize to [-1, 1] range if values are too large
+      if (maxAmp > 1) {
+        console.log('Normalizing novice audio from max amplitude', maxAmp, 'to [-1, 1]');
+        for (let i = 0; i < noviceSamples.length; i++) {
+          noviceSamples[i] = noviceSamples[i] / maxAmp;
+        }
+        maxAmp = 1;
       }
       
       noviceBuffer = noviceSamples;
-      const maxAmp = noviceBuffer.length > 0 ? Math.max(...Array.from(noviceBuffer.slice(0, Math.min(1000, noviceBuffer.length)))) : 0;
-      console.log('Successfully decoded', noviceBuffer.length, 'RMS audio samples, max amplitude:', maxAmp.toFixed(4));
+      console.log('Successfully decoded', noviceBuffer.length, 'RMS audio samples, max amplitude:', maxAmp.toFixed(4), 'valid samples:', validSamples);
     }
 
     if (professionalAudio) {
@@ -57,15 +84,42 @@ serve(async (req) => {
       for (let i = 0; i < professionalSamples.length; i++) {
         const bytes = new Uint8Array(4);
         for (let j = 0; j < 4 && (i * 4 + j) < professionalBinary.length; j++) {
-          bytes[j] = professionalBinary.charCodeAt(i * 4 + j);
+          bytes[j] = professionalBinary.charCodeAt(i * 4 + j) & 0xFF;
         }
         const view = new DataView(bytes.buffer);
-        professionalSamples[i] = view.getFloat32(0, true);
+        let floatValue = view.getFloat32(0, true);
+        
+        // Validate and normalize the value
+        if (!isFinite(floatValue) || isNaN(floatValue) || Math.abs(floatValue) > 1e10) {
+          floatValue = 0;
+        }
+        
+        professionalSamples[i] = floatValue;
+      }
+      
+      // Find max amplitude and normalize if needed
+      let maxAmp2 = 0;
+      let validSamples2 = 0;
+      for (let i = 0; i < professionalSamples.length; i++) {
+        if (isFinite(professionalSamples[i]) && !isNaN(professionalSamples[i])) {
+          maxAmp2 = Math.max(maxAmp2, Math.abs(professionalSamples[i]));
+          validSamples2++;
+        } else {
+          professionalSamples[i] = 0;
+        }
+      }
+      
+      // Normalize to [-1, 1] range if values are too large
+      if (maxAmp2 > 1) {
+        console.log('Normalizing professional audio from max amplitude', maxAmp2, 'to [-1, 1]');
+        for (let i = 0; i < professionalSamples.length; i++) {
+          professionalSamples[i] = professionalSamples[i] / maxAmp2;
+        }
+        maxAmp2 = 1;
       }
       
       professionalBuffer = professionalSamples;
-      const maxAmp2 = professionalBuffer.length > 0 ? Math.max(...Array.from(professionalBuffer.slice(0, Math.min(1000, professionalBuffer.length)))) : 0;
-      console.log('Successfully decoded', professionalBuffer.length, 'RMS audio samples, max amplitude:', maxAmp2.toFixed(4));
+      console.log('Successfully decoded', professionalBuffer.length, 'RMS audio samples, max amplitude:', maxAmp2.toFixed(4), 'valid samples:', validSamples2);
     }
 
     console.log('Audio decoded: Novice', noviceBuffer?.length || 0, 'samples, Professional', professionalBuffer?.length || 0, 'samples');
