@@ -24,7 +24,18 @@ function calculateDTW(seq1: number[], seq2: number[]): number {
     if (filtered.length === 0) return seq.map(() => -10);
     
     const mean = filtered.reduce((sum, f) => sum + f, 0) / filtered.length;
-    return seq.map(f => f > 50 && f < 800 ? Math.log2(f / mean) : -10);
+    if (mean === 0 || !isFinite(mean)) return seq.map(() => -10);
+    
+    return seq.map(f => {
+      if (f > 50 && f < 800 && f > 0 && mean > 0) {
+        const ratio = f / mean;
+        if (ratio > 0 && isFinite(ratio)) {
+          const logValue = Math.log2(ratio);
+          return isFinite(logValue) ? logValue : -10;
+        }
+      }
+      return -10;
+    });
   };
   
   const norm_s1 = filterAndNormalize(s1);
@@ -338,9 +349,16 @@ function decodeAudioBuffer(base64: string): Float32Array {
 // Helper function for variance calculation
 function calculateVariance(values: number[]): number {
   if (values.length === 0) return 0;
-  const mean = values.reduce((sum, val) => sum + val, 0) / values.length;
-  const variance = values.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / values.length;
-  return variance;
+  
+  // Filter out invalid values
+  const validValues = values.filter(val => isFinite(val) && !isNaN(val));
+  if (validValues.length === 0) return 0;
+  
+  const mean = validValues.reduce((sum, val) => sum + val, 0) / validValues.length;
+  if (!isFinite(mean) || isNaN(mean)) return 0;
+  
+  const variance = validValues.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / validValues.length;
+  return isFinite(variance) && !isNaN(variance) ? variance : 0;
 }
 
 // Add audio fingerprinting to ensure unique analysis
@@ -451,8 +469,14 @@ function calculateIntervalPatternSimilarity(onsets1: number[], onsets2: number[]
   let similarity = 0;
   
   for (let i = 0; i < minLength; i++) {
-    const ratio = Math.min(intervals1[i], intervals2[i]) / Math.max(intervals1[i], intervals2[i]);
-    similarity += ratio;
+        const minInterval = Math.min(intervals1[i], intervals2[i]);
+        const maxInterval = Math.max(intervals1[i], intervals2[i]);
+        if (maxInterval > 0 && isFinite(maxInterval) && isFinite(minInterval)) {
+          const ratio = minInterval / maxInterval;
+          if (isFinite(ratio) && !isNaN(ratio)) {
+            similarity += ratio;
+          }
+        }
   }
   
   return minLength > 0 ? similarity / minLength : 0;
@@ -560,9 +584,24 @@ serve(async (req) => {
       const professionalConsistency = calculateRhythmConsistency(professionalOnsets);
       
       // Also check onset density similarity (similar number of onsets per unit time)
-      const noviceDensity = noviceOnsets.length / (noviceBuffer.length / sampleRate);
-      const professionalDensity = professionalOnsets.length / (professionalBuffer.length / sampleRate);
-      const densitySimilarity = 1 - Math.min(1, Math.abs(noviceDensity - professionalDensity) / Math.max(noviceDensity, professionalDensity));
+      const noviceDuration = noviceBuffer.length / sampleRate;
+      const professionalDuration = professionalBuffer.length / sampleRate;
+      
+      let densitySimilarity = 0;
+      if (noviceDuration > 0 && professionalDuration > 0) {
+        const noviceDensity = noviceOnsets.length / noviceDuration;
+        const professionalDensity = professionalOnsets.length / professionalDuration;
+        
+        if (isFinite(noviceDensity) && isFinite(professionalDensity) && !isNaN(noviceDensity) && !isNaN(professionalDensity)) {
+          const maxDensity = Math.max(noviceDensity, professionalDensity, 0.1);
+          const densityDiff = Math.abs(noviceDensity - professionalDensity);
+          densitySimilarity = 1 - Math.min(1, densityDiff / maxDensity);
+          
+          if (!isFinite(densitySimilarity) || isNaN(densitySimilarity)) {
+            densitySimilarity = 0;
+          }
+        }
+      }
       
       // Enhanced advanced rhythm analysis
       try {
@@ -637,7 +676,16 @@ serve(async (req) => {
       // Spectral characteristics (timbre emotion)
       const noviceSpectralMean = noviceFeatures.reduce((sum, f) => sum + (f[2] || 0), 0) / noviceFeatures.length;
       const profSpectralMean = professionalFeatures.reduce((sum, f) => sum + (f[2] || 0), 0) / professionalFeatures.length;
-      const spectralSimilarity = 1 - Math.min(1, Math.abs(noviceSpectralMean - profSpectralMean) / Math.max(noviceSpectralMean, profSpectralMean, 0.1));
+      
+      let spectralSimilarity = 0;
+      if (isFinite(noviceSpectralMean) && isFinite(profSpectralMean) && !isNaN(noviceSpectralMean) && !isNaN(profSpectralMean)) {
+        const maxSpectral = Math.max(Math.abs(noviceSpectralMean), Math.abs(profSpectralMean), 0.1);
+        const diff = Math.abs(noviceSpectralMean - profSpectralMean);
+        spectralSimilarity = 1 - Math.min(1, diff / maxSpectral);
+        if (!isFinite(spectralSimilarity) || isNaN(spectralSimilarity)) {
+          spectralSimilarity = 0;
+        }
+      }
       
       // Combined emotion score
       emotionMatch = (energyVarSimilarity + zcrVarSimilarity + spectralSimilarity) / 3;
@@ -648,26 +696,37 @@ serve(async (req) => {
     
     console.log('Analysis complete')
 
+    // Helper function to ensure valid metric values
+    const ensureValidMetric = (value: number): number => {
+      if (!isFinite(value) || isNaN(value)) return 0;
+      return Math.max(0, Math.min(1, value));
+    };
+
+    const safeRhythmAccuracy = ensureValidMetric(rhythmAccuracy);
+    const safePitchAccuracy = ensureValidMetric(pitchAccuracy);
+    const safeFeatureSimilarity = ensureValidMetric(featureSimilarity);
+    const safeEmotionMatch = ensureValidMetric(emotionMatch);
+
     const results = {
       pitchAccuracy: {
-        novice: Math.max(0, Math.min(1, pitchAccuracy)),
+        novice: safePitchAccuracy,
         professional: 1.0,
-        difference: Math.abs(1.0 - Math.max(0, Math.min(1, pitchAccuracy)))
+        difference: Math.abs(1.0 - safePitchAccuracy)
       },
       rhythmTiming: {
-        novice: Math.max(0, Math.min(1, rhythmAccuracy)),
+        novice: safeRhythmAccuracy,
         professional: 1.0,
-        difference: Math.abs(1.0 - Math.max(0, Math.min(1, rhythmAccuracy)))
+        difference: Math.abs(1.0 - safeRhythmAccuracy)
       },
       mfccDistance: {
-        novice: Math.max(0, Math.min(1, featureSimilarity)),
+        novice: safeFeatureSimilarity,
         professional: 1.0,
-        difference: Math.abs(1.0 - Math.max(0, Math.min(1, featureSimilarity)))
+        difference: Math.abs(1.0 - safeFeatureSimilarity)
       },
       emotionMatch: {
-        novice: Math.max(0, Math.min(1, emotionMatch)),
+        novice: safeEmotionMatch,
         professional: 1.0,
-        difference: Math.abs(1.0 - Math.max(0, Math.min(1, emotionMatch)))
+        difference: Math.abs(1.0 - safeEmotionMatch)
       },
       // Add raw pitch data for visualization
       pitchData: {
