@@ -705,7 +705,7 @@ serve(async (req) => {
       return Math.max(0, Math.min(1, value));
     };
 
-    // Convert percentage values to [0,1] range and ensure validity
+    // Ensure validity without percentage conversion (values are already in [0,1] range)
     console.log('Raw metric values before validation:', {
       pitchAccuracy,
       rhythmAccuracy,
@@ -713,9 +713,9 @@ serve(async (req) => {
       emotionMatch
     });
 
-    const safeRhythmAccuracy = ensureValidMetric(rhythmAccuracy / 100);
-    const safePitchAccuracy = ensureValidMetric(pitchAccuracy / 100);
-    const safeFeatureSimilarity = ensureValidMetric(featureSimilarity / 100);
+    const safeRhythmAccuracy = ensureValidMetric(rhythmAccuracy);
+    const safePitchAccuracy = ensureValidMetric(pitchAccuracy);
+    const safeFeatureSimilarity = ensureValidMetric(featureSimilarity);
     const safeEmotionMatch = ensureValidMetric(emotionMatch);
 
     console.log('Safe metric values after validation:', {
