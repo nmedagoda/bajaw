@@ -182,10 +182,17 @@ const SingerDashboard: React.FC = () => {
       const noviceBase64 = await audioToBase64(noviceUrl);
       const professionalBase64 = await audioToBase64(professionalUrl);
       
-      // Log audio fingerprints to ensure different data is being sent
+      // Debug: Check if the base64 data is actually different
+      const noviceHash = noviceBase64.substring(0, 50) + '...' + noviceBase64.substring(noviceBase64.length - 50);
+      const professionalHash = professionalBase64.substring(0, 50) + '...' + professionalBase64.substring(professionalBase64.length - 50);
+      
       console.log('Song:', selectedSong?.song_title);
       console.log('Novice audio size:', noviceBase64.length);
       console.log('Professional audio size:', professionalBase64.length);
+      console.log('Novice sample:', noviceHash);
+      console.log('Professional sample:', professionalHash);
+      console.log('URLs are different?', noviceUrl !== professionalUrl);
+      console.log('Base64 data is different?', noviceBase64 !== professionalBase64);
       console.log('Novice URL:', noviceUrl);
       console.log('Professional URL:', professionalUrl);
 
