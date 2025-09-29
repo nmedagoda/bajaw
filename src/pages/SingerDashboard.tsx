@@ -130,6 +130,7 @@ const SingerDashboard: React.FC = () => {
       
       // Resolve professional performance URL
       const professionalSrc = sel.original_song_url;
+      console.log('Selected song:', sel.song_title, 'Professional src:', professionalSrc);
       if (professionalSrc) {
         const playableProfessional = await resolvePlayableUrl(professionalSrc);
         console.log('Resolved professional URL:', playableProfessional);

@@ -538,21 +538,19 @@ serve(async (req) => {
     console.log('Extracting features...')
     
     // Debug: Check if audio data is actually different
-    const noviceSample = Array.from(noviceBuffer.slice(0, 10));
-    const professionalSample = Array.from(professionalBuffer.slice(0, 10));
-    console.log('Novice audio sample (first 10):', noviceSample.map(v => v.toFixed(6)));
-    console.log('Professional audio sample (first 10):', professionalSample.map(v => v.toFixed(6)));
+    console.log('Novice first 3 samples:', Array.from(noviceBuffer.slice(0, 3)));
+    console.log('Professional first 3 samples:', Array.from(professionalBuffer.slice(0, 3)));
     
     // Check statistical differences
     const noviceStats = {
-      mean: noviceBuffer.reduce((sum, val) => sum + val, 0) / noviceBuffer.length,
-      max: Math.max(...noviceBuffer),
-      min: Math.min(...noviceBuffer)
+      mean: (noviceBuffer.reduce((sum, val) => sum + val, 0) / noviceBuffer.length).toFixed(6),
+      max: Math.max(...Array.from(noviceBuffer)).toFixed(6),
+      min: Math.min(...Array.from(noviceBuffer)).toFixed(6)
     };
     const professionalStats = {
-      mean: professionalBuffer.reduce((sum, val) => sum + val, 0) / professionalBuffer.length,
-      max: Math.max(...professionalBuffer),
-      min: Math.min(...professionalBuffer)
+      mean: (professionalBuffer.reduce((sum, val) => sum + val, 0) / professionalBuffer.length).toFixed(6),
+      max: Math.max(...Array.from(professionalBuffer)).toFixed(6),
+      min: Math.min(...Array.from(professionalBuffer)).toFixed(6)
     };
     console.log('Novice stats:', noviceStats);
     console.log('Professional stats:', professionalStats);
