@@ -149,13 +149,30 @@ serve(async (req) => {
     console.log('Analysis complete with enhanced features');
     
     const results = {
-      pitchAccuracy,
-      rhythmTiming,
-      mfccDistance: timbreMatch,
-      emotionMatch,
-      rawPitchData: {
+      pitchAccuracy: {
+        novice: pitchAccuracy,
+        professional: 1.0,
+        difference: Math.abs(1.0 - pitchAccuracy)
+      },
+      rhythmTiming: {
+        novice: rhythmTiming,
+        professional: 1.0,
+        difference: Math.abs(1.0 - rhythmTiming)
+      },
+      mfccDistance: {
+        novice: timbreMatch,
+        professional: 1.0,
+        difference: Math.abs(1.0 - timbreMatch)
+      },
+      emotionMatch: {
+        novice: emotionMatch,
+        professional: 1.0,
+        difference: Math.abs(1.0 - emotionMatch)
+      },
+      pitchData: {
         novice: novicePitch,
-        professional: professionalPitch
+        professional: professionalPitch,
+        sampleRate: 44100
       },
       enhancedMetrics: {
         overallSimilarity,
