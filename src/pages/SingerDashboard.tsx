@@ -143,9 +143,17 @@ const SingerDashboard: React.FC = () => {
 
   const selectedSong = useMemo(() => songs.find((s) => s.id === selectedId) || null, [songs, selectedId]);
 
-  // Convert audio URL to base64 for analysis
+  // Convert audio URL to base64 for analysis with cache busting
   const audioToBase64 = async (url: string): Promise<string> => {
-    const response = await fetch(url);
+    // Add cache busting parameter to ensure fresh data
+    const cacheBustUrl = url + (url.includes('?') ? '&' : '?') + 'cb=' + Date.now();
+    const response = await fetch(cacheBustUrl, {
+      cache: 'no-cache',
+      headers: {
+        'Cache-Control': 'no-cache',
+        'Pragma': 'no-cache'
+      }
+    });
     const arrayBuffer = await response.arrayBuffer();
     const uint8Array = new Uint8Array(arrayBuffer);
     
