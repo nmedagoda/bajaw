@@ -263,22 +263,15 @@ function extractFeatures(audioBuffer: Float32Array, sampleRate: number): number[
   return features;
 }
 
-// Improved audio buffer decoding with better format support and memory efficiency
+// Improved MP3/audio buffer decoding
 function decodeAudioBuffer(base64: string): Float32Array {
   try {
     console.log(`Starting audio decode, base64 length: ${base64.length}`);
     
-    // Decode base64 in chunks to avoid memory issues
-    const chunkSize = 1024 * 1024; // 1MB chunks
     const binaryLength = Math.floor((base64.length * 3) / 4);
     console.log(`Estimated binary length: ${binaryLength} bytes`);
     
-    // Limit processing to reasonable size
     const maxBytes = 10 * 1024 * 1024; // 10MB max
-    if (binaryLength > maxBytes) {
-      console.log(`Large file detected (${binaryLength} bytes), truncating to ${maxBytes} bytes`);
-    }
-    
     const processLength = Math.min(binaryLength, maxBytes);
     const maxBase64Length = Math.floor((processLength * 4) / 3);
     const truncatedBase64 = base64.substring(0, maxBase64Length);
@@ -286,13 +279,33 @@ function decodeAudioBuffer(base64: string): Float32Array {
     const binaryString = atob(truncatedBase64);
     console.log(`Decoded binary string: ${binaryString.length} bytes`);
     
-    // Strategy 1: Try as WAV file (skip header if present)
     let offset = 0;
-    if (binaryString.length > 44) {
-      const header = binaryString.substring(0, 4);
-      if (header === 'RIFF') {
-        console.log('Detected WAV format, skipping header');
-        offset = 44; // Skip WAV header
+    
+    // Check for ID3v2 tag (MP3)
+    if (binaryString.length > 10 && binaryString.substring(0, 3) === 'ID3') {
+      const size = ((binaryString.charCodeAt(6) & 0x7F) << 21) |
+                   ((binaryString.charCodeAt(7) & 0x7F) << 14) |
+                   ((binaryString.charCodeAt(8) & 0x7F) << 7) |
+                   (binaryString.charCodeAt(9) & 0x7F);
+      offset = size + 10;
+      console.log(`Skipped ID3v2 tag: ${offset} bytes`);
+    }
+    
+    // Check for WAV header
+    if (binaryString.length > 44 && binaryString.substring(0, 4) === 'RIFF') {
+      console.log('Detected WAV format, skipping header');
+      offset = 44;
+    }
+    
+    // Look for MP3 frame sync if needed
+    if (offset === 0) {
+      for (let i = 0; i < Math.min(binaryString.length - 1, 1000); i++) {
+        if ((binaryString.charCodeAt(i) & 0xFF) === 0xFF && 
+            (binaryString.charCodeAt(i + 1) & 0xE0) === 0xE0) {
+          offset = i;
+          console.log(`Found MP3 frame sync at: ${offset}`);
+          break;
+        }
       }
     }
     
@@ -521,40 +534,13 @@ serve(async (req) => {
     
     const sampleRate = 22050;
     
-    // Decode audio buffers with error handling
-    console.log('Decoding audio buffers...')
+    // Decode audio buffers
     const noviceBuffer = decodeAudioBuffer(noviceAudio);
     const professionalBuffer = decodeAudioBuffer(professionalAudio);
     
     console.log(`Audio decoded: Novice ${noviceBuffer.length} samples, Professional ${professionalBuffer.length} samples`)
     
-    // Add unique audio fingerprinting to ensure different analysis
-    const noviceFingerprint = calculateAudioFingerprint(noviceBuffer);
-    const professionalFingerprint = calculateAudioFingerprint(professionalBuffer);
-    
-    console.log(`Audio fingerprints: Novice ${noviceFingerprint}, Professional ${professionalFingerprint}`)
-
     // Extract features
-    console.log('Extracting features...')
-    
-    // Debug: Check if audio data is actually different
-    console.log('Novice first 3 samples:', Array.from(noviceBuffer.slice(0, 3)));
-    console.log('Professional first 3 samples:', Array.from(professionalBuffer.slice(0, 3)));
-    
-    // Check statistical differences
-    const noviceStats = {
-      mean: (noviceBuffer.reduce((sum, val) => sum + val, 0) / noviceBuffer.length).toFixed(6),
-      max: Math.max(...Array.from(noviceBuffer)).toFixed(6),
-      min: Math.min(...Array.from(noviceBuffer)).toFixed(6)
-    };
-    const professionalStats = {
-      mean: (professionalBuffer.reduce((sum, val) => sum + val, 0) / professionalBuffer.length).toFixed(6),
-      max: Math.max(...Array.from(professionalBuffer)).toFixed(6),
-      min: Math.min(...Array.from(professionalBuffer)).toFixed(6)
-    };
-    console.log('Novice stats:', noviceStats);
-    console.log('Professional stats:', professionalStats);
-    
     const novicePitch = extractPitch(noviceBuffer, sampleRate);
     const professionalPitch = extractPitch(professionalBuffer, sampleRate);
     
@@ -567,7 +553,6 @@ serve(async (req) => {
     console.log('Features extracted successfully')
 
     // Calculate metrics
-    console.log('Calculating metrics...')
     
     // 1. Pitch Accuracy using DTW
     const dtwDistance = calculateDTW(novicePitch, professionalPitch);

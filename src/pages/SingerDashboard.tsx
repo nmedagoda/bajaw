@@ -130,7 +130,6 @@ const SingerDashboard: React.FC = () => {
       
       // Resolve professional performance URL
       const professionalSrc = sel.original_song_url;
-      console.log('Selected song:', sel.song_title, 'Professional src:', professionalSrc);
       if (professionalSrc) {
         const playableProfessional = await resolvePlayableUrl(professionalSrc);
         console.log('Resolved professional URL:', playableProfessional);
@@ -190,22 +189,8 @@ const SingerDashboard: React.FC = () => {
 
       const noviceBase64 = await audioToBase64(noviceUrl);
       const professionalBase64 = await audioToBase64(professionalUrl);
-      
-      // Debug: Check if the base64 data is actually different
-      const noviceHash = noviceBase64.substring(0, 50) + '...' + noviceBase64.substring(noviceBase64.length - 50);
-      const professionalHash = professionalBase64.substring(0, 50) + '...' + professionalBase64.substring(professionalBase64.length - 50);
-      
-      console.log('Song:', selectedSong?.song_title);
-      console.log('Novice audio size:', noviceBase64.length);
-      console.log('Professional audio size:', professionalBase64.length);
-      console.log('Novice sample:', noviceHash);
-      console.log('Professional sample:', professionalHash);
-      console.log('URLs are different?', noviceUrl !== professionalUrl);
-      console.log('Base64 data is different?', noviceBase64 !== professionalBase64);
-      console.log('Novice URL:', noviceUrl);
-      console.log('Professional URL:', professionalUrl);
 
-      // Try enhanced HuggingFace analysis first, fallback to basic if needed
+      // Try enhanced audio analysis
       const { data, error } = await supabase.functions.invoke('analyze-audio-hf', {
         body: {
           noviceAudio: noviceBase64,
@@ -214,8 +199,7 @@ const SingerDashboard: React.FC = () => {
       });
 
       if (error) {
-        console.log('Enhanced analysis failed, falling back to basic analysis');
-        // Fallback to original analyze-audio function
+        console.log('Enhanced analysis failed, trying basic analysis');
         const fallbackResult = await supabase.functions.invoke('analyze-audio', {
           body: {
             noviceAudio: noviceBase64,
