@@ -6,72 +6,23 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-// Decode MP3 audio buffer from base64
+// Decode PCM audio buffer from base64 (already decoded by Web Audio API on client)
 function decodeAudioBuffer(base64: string): Float32Array {
   try {
-    console.log(`Decoding audio, base64 length: ${base64.length}`);
+    console.log(`Decoding PCM audio, base64 length: ${base64.length}`);
     
     const binaryString = atob(base64);
     console.log(`Binary data: ${binaryString.length} bytes`);
     
-    // Skip ID3v2 tag if present in MP3
-    let offset = 0;
-    if (binaryString.length > 10 && binaryString.substring(0, 3) === 'ID3') {
-      // ID3v2 tag size is at bytes 6-9 (synchsafe integer)
-      const size = ((binaryString.charCodeAt(6) & 0x7F) << 21) |
-                   ((binaryString.charCodeAt(7) & 0x7F) << 14) |
-                   ((binaryString.charCodeAt(8) & 0x7F) << 7) |
-                   (binaryString.charCodeAt(9) & 0x7F);
-      offset = size + 10; // Skip ID3 header + tag data
-      console.log(`Skipped ID3v2 tag: ${offset} bytes`);
+    // Convert binary string to Float32Array
+    const bytes = new Uint8Array(binaryString.length);
+    for (let i = 0; i < binaryString.length; i++) {
+      bytes[i] = binaryString.charCodeAt(i);
     }
     
-    // Skip to audio data, look for MP3 frame sync
-    while (offset < binaryString.length - 1) {
-      // MP3 frame sync: 11 bits set (0xFF 0xE0 or higher)
-      if ((binaryString.charCodeAt(offset) & 0xFF) === 0xFF && 
-          (binaryString.charCodeAt(offset + 1) & 0xE0) === 0xE0) {
-        console.log(`Found MP3 frame sync at offset: ${offset}`);
-        break;
-      }
-      offset++;
-    }
+    const float32Array = new Float32Array(bytes.buffer);
+    console.log(`Decoded ${float32Array.length} PCM samples`);
     
-    const dataLength = binaryString.length - offset;
-    const maxSamples = 22050 * 60; // 60 seconds max
-    const sampleCount = Math.min(Math.floor(dataLength / 2), maxSamples);
-    
-    console.log(`Processing ${sampleCount} samples from ${dataLength} bytes`);
-    
-    const float32Array = new Float32Array(sampleCount);
-    
-    // Decode as 16-bit PCM
-    for (let i = 0; i < sampleCount; i++) {
-      const byteIndex = offset + (i * 2);
-      if (byteIndex + 1 < binaryString.length) {
-        const low = binaryString.charCodeAt(byteIndex) & 0xFF;
-        const high = binaryString.charCodeAt(byteIndex + 1) & 0xFF;
-        const sample = low | (high << 8);
-        const signed = sample > 32767 ? sample - 65536 : sample;
-        float32Array[i] = signed / 32768.0;
-      }
-    }
-    
-    // Normalize
-    let maxAmplitude = 0;
-    for (let i = 0; i < float32Array.length; i++) {
-      const abs = Math.abs(float32Array[i]);
-      if (abs > maxAmplitude) maxAmplitude = abs;
-    }
-    
-    if (maxAmplitude > 0.001) {
-      const gain = Math.min(1.0, 0.8 / maxAmplitude);
-      for (let i = 0; i < float32Array.length; i++) {
-        float32Array[i] *= gain;
-      }
-    }
-    
-    console.log(`Decoded ${sampleCount} samples, max: ${maxAmplitude.toFixed(4)}`);
     return float32Array;
   } catch (error) {
     console.error('Audio decode error:', error);
@@ -175,13 +126,14 @@ serve(async (req) => {
   try {
     console.log('Starting real audio analysis...');
     
-    const { noviceAudio, professionalAudio } = await req.json();
+    const { noviceAudio, professionalAudio, sampleRate: clientSampleRate, isPCM } = await req.json();
     
     if (!noviceAudio || !professionalAudio) {
       throw new Error('Both audio files required');
     }
 
-    const sampleRate = 22050;
+    const sampleRate = clientSampleRate || 22050;
+    console.log(`Using sample rate: ${sampleRate}Hz, isPCM: ${isPCM}`);
     
     console.log('Decoding audio buffers...');
     const noviceBuffer = decodeAudioBuffer(noviceAudio);

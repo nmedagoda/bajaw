@@ -184,17 +184,57 @@ const SingerDashboard: React.FC = () => {
     try {
       toast({
         title: "Starting Analysis",
-        description: "Converting audio files and analyzing performance...",
+        description: "Decoding audio files using Web Audio API...",
       });
 
-      const noviceBase64 = await audioToBase64(noviceUrl);
-      const professionalBase64 = await audioToBase64(professionalUrl);
+      // Fetch audio files with cache busting
+      const timestamp = Date.now();
+      const noviceResponse = await fetch(`${noviceUrl}?t=${timestamp}`, {
+        cache: 'no-cache',
+        headers: { 'Cache-Control': 'no-cache' }
+      });
+      const professionalResponse = await fetch(`${professionalUrl}?t=${timestamp}`, {
+        cache: 'no-cache', 
+        headers: { 'Cache-Control': 'no-cache' }
+      });
 
-      // Try enhanced audio analysis
+      if (!noviceResponse.ok || !professionalResponse.ok) {
+        throw new Error('Failed to fetch audio files');
+      }
+
+      const noviceArrayBuffer = await noviceResponse.arrayBuffer();
+      const professionalArrayBuffer = await professionalResponse.arrayBuffer();
+
+      console.log('Decoding audio using Web Audio API...');
+      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+      
+      // Decode MP3 to PCM using Web Audio API
+      const noviceAudioBuffer = await audioContext.decodeAudioData(noviceArrayBuffer.slice(0));
+      const professionalAudioBuffer = await audioContext.decodeAudioData(professionalArrayBuffer.slice(0));
+
+      console.log(`Novice: ${noviceAudioBuffer.length} samples, ${noviceAudioBuffer.numberOfChannels} channels, ${noviceAudioBuffer.sampleRate}Hz`);
+      console.log(`Professional: ${professionalAudioBuffer.length} samples, ${professionalAudioBuffer.numberOfChannels} channels, ${professionalAudioBuffer.sampleRate}Hz`);
+
+      // Extract mono channel PCM data
+      const noviceData = noviceAudioBuffer.getChannelData(0);
+      const professionalData = professionalAudioBuffer.getChannelData(0);
+
+      // Convert Float32Array to base64 for transmission
+      const noviceBase64 = btoa(String.fromCharCode(...new Uint8Array(noviceData.buffer)));
+      const professionalBase64 = btoa(String.fromCharCode(...new Uint8Array(professionalData.buffer)));
+
+      toast({
+        title: "Analyzing Performance",
+        description: "Comparing audio features...",
+      });
+
+      // Try enhanced audio analysis with PCM data
       const { data, error } = await supabase.functions.invoke('analyze-audio-hf', {
         body: {
           noviceAudio: noviceBase64,
-          professionalAudio: professionalBase64
+          professionalAudio: professionalBase64,
+          sampleRate: noviceAudioBuffer.sampleRate,
+          isPCM: true
         }
       });
 
@@ -203,7 +243,9 @@ const SingerDashboard: React.FC = () => {
         const fallbackResult = await supabase.functions.invoke('analyze-audio', {
           body: {
             noviceAudio: noviceBase64,
-            professionalAudio: professionalBase64
+            professionalAudio: professionalBase64,
+            sampleRate: noviceAudioBuffer.sampleRate,
+            isPCM: true
           }
         });
         if (fallbackResult.error) throw fallbackResult.error;
