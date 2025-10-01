@@ -271,13 +271,17 @@ serve(async (req) => {
     // Calculate stability metrics (vocal control)
     const noviceStability = calculateSpectralStability(noviceFeatures);
     const profStability = calculateSpectralStability(professionalFeatures);
-    const stabilityRatio = noviceStability / (profStability + 0.001);
     
-    // MFCC similarity (timbre matching)
-    const timbreScore = stabilityRatio * 0.7 + (1 - Math.abs(noviceFeatures.length - professionalFeatures.length) / Math.max(noviceFeatures.length, professionalFeatures.length)) * 0.3;
+    // Calculate similarity score (1.0 = perfect match, 0.0 = completely different)
+    // Use 1 - normalized absolute difference
+    const stabilitySimilarity = 1 - Math.min(1, Math.abs(noviceStability - profStability) / Math.max(noviceStability, profStability, 0.001));
     
-    // Emotion match (dynamic control)
-    const emotionScore = stabilityRatio;
+    // MFCC similarity (timbre matching) - measure feature length similarity
+    const featureLengthSimilarity = 1 - Math.abs(noviceFeatures.length - professionalFeatures.length) / Math.max(noviceFeatures.length, professionalFeatures.length);
+    const timbreScore = Math.min(1.0, stabilitySimilarity * 0.7 + featureLengthSimilarity * 0.3);
+    
+    // Emotion match (dynamic control) - based on stability similarity
+    const emotionScore = Math.min(1.0, stabilitySimilarity);
     
     console.log(`Accuracy - Pitch: ${(pitchAccuracy*100).toFixed(1)}%, Rhythm: ${(rhythmAccuracy*100).toFixed(1)}%, Timbre: ${(timbreScore*100).toFixed(1)}%, Emotion: ${(emotionScore*100).toFixed(1)}%`);
     
