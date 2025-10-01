@@ -30,12 +30,51 @@ function decodeAudioBuffer(base64: string): Float32Array {
   }
 }
 
-// Extract spectral features (MFCC-like)
-function extractAudioFeatures(audioBuffer: Float32Array, sampleRate: number): number[][] {
-  const windowSize = Math.floor(sampleRate * 0.05); // 50ms
+// Extract pitch using autocorrelation
+function extractPitch(audioBuffer: Float32Array, sampleRate: number): number[] {
+  const windowSize = Math.floor(sampleRate * 0.05); // 50ms windows
+  const hopSize = Math.floor(windowSize / 2);
+  const pitches: number[] = [];
+  const maxPitches = 200;
+  
+  for (let i = 0; i < audioBuffer.length - windowSize && pitches.length < maxPitches; i += hopSize) {
+    const window = audioBuffer.slice(i, i + windowSize);
+    
+    // Apply Hamming window
+    for (let j = 0; j < windowSize; j++) {
+      window[j] *= 0.54 - 0.46 * Math.cos(2 * Math.PI * j / (windowSize - 1));
+    }
+    
+    // Autocorrelation for pitch detection
+    const minLag = Math.floor(sampleRate / 500); // 500 Hz max
+    const maxLag = Math.floor(sampleRate / 80);  // 80 Hz min
+    let maxCorr = 0;
+    let bestLag = minLag;
+    
+    for (let lag = minLag; lag < maxLag && lag < window.length / 2; lag++) {
+      let corr = 0;
+      for (let j = 0; j < window.length - lag; j++) {
+        corr += window[j] * window[j + lag];
+      }
+      if (corr > maxCorr) {
+        maxCorr = corr;
+        bestLag = lag;
+      }
+    }
+    
+    const pitch = maxCorr > 0.3 ? sampleRate / bestLag : 0;
+    pitches.push(pitch);
+  }
+  
+  return pitches;
+}
+
+// Extract spectral features for timbre analysis
+function extractSpectralFeatures(audioBuffer: Float32Array, sampleRate: number): number[][] {
+  const windowSize = Math.floor(sampleRate * 0.05);
   const hopSize = Math.floor(windowSize / 2);
   const features: number[][] = [];
-  const maxFeatures = 50;
+  const maxFeatures = 100;
   
   for (let i = 0; i < audioBuffer.length - windowSize && features.length < maxFeatures; i += hopSize) {
     const window = audioBuffer.slice(i, i + windowSize);
@@ -58,64 +97,131 @@ function extractAudioFeatures(audioBuffer: Float32Array, sampleRate: number): nu
     // Spectral Centroid
     let centroid = 0;
     let totalMag = 0;
-    const fftSize = Math.min(windowSize, 512);
-    
-    for (let j = 0; j < fftSize; j++) {
+    for (let j = 0; j < window.length; j++) {
       const magnitude = Math.abs(window[j]);
-      centroid += (j * sampleRate / fftSize) * magnitude;
+      centroid += j * magnitude;
       totalMag += magnitude;
     }
     const spectralCentroid = totalMag > 0 ? centroid / totalMag : 0;
     
-    features.push([rms, zcrRate, spectralCentroid / 1000]);
+    features.push([rms, zcrRate, spectralCentroid]);
   }
   
   return features;
 }
 
-// Calculate similarity between two feature sets using cosine similarity
-function calculateSimilarity(features1: number[][], features2: number[][]): number {
-  try {
-    const minLength = Math.min(features1.length, features2.length);
-    let totalSimilarity = 0;
-    
-    for (let i = 0; i < minLength; i++) {
-      const f1 = features1[i];
-      const f2 = features2[i];
-      
-      let dotProduct = 0;
-      let norm1 = 0;
-      let norm2 = 0;
-      
-      const featureLength = Math.min(f1.length, f2.length);
-      for (let j = 0; j < featureLength; j++) {
-        dotProduct += f1[j] * f2[j];
-        norm1 += f1[j] * f1[j];
-        norm2 += f2[j] * f2[j];
-      }
-      
-      const similarity = dotProduct / (Math.sqrt(norm1) * Math.sqrt(norm2) + 1e-10);
-      totalSimilarity += similarity;
-    }
-    
-    return Math.max(0, Math.min(1, totalSimilarity / minLength));
-  } catch (error) {
-    console.error('Similarity calculation error:', error);
-    return 0;
+// Detect note onsets for rhythm analysis
+function detectOnsets(audioBuffer: Float32Array, sampleRate: number): number[] {
+  const windowSize = Math.floor(sampleRate * 0.02); // 20ms
+  const hopSize = Math.floor(windowSize / 2);
+  const energies: number[] = [];
+  
+  for (let i = 0; i < audioBuffer.length - windowSize; i += hopSize) {
+    const window = audioBuffer.slice(i, i + windowSize);
+    const energy = window.reduce((sum, s) => sum + s * s, 0) / window.length;
+    energies.push(energy);
   }
+  
+  // Find peaks in energy
+  const threshold = energies.reduce((a, b) => a + b, 0) / energies.length * 2;
+  const onsets: number[] = [];
+  
+  for (let i = 2; i < energies.length - 2; i++) {
+    if (energies[i] > threshold &&
+        energies[i] > energies[i-1] &&
+        energies[i] > energies[i-2] &&
+        energies[i] >= energies[i+1]) {
+      onsets.push(i * hopSize / sampleRate);
+    }
+  }
+  
+  return onsets;
 }
 
-// Generate pitch data from spectral features
-function generatePitchFromFeatures(features: number[][]): number[] {
-  const pitch: number[] = [];
+// Calculate pitch accuracy using mean absolute error
+function calculatePitchAccuracy(novicePitch: number[], professionalPitch: number[]): number {
+  const minLength = Math.min(novicePitch.length, professionalPitch.length);
+  if (minLength === 0) return 0;
   
-  for (const feature of features) {
-    const spectralCentroid = feature[2]; // In kHz
-    const pitchHz = spectralCentroid * 200; // Approximate pitch from centroid
-    pitch.push(Math.max(80, Math.min(800, Math.round(pitchHz))));
+  let totalError = 0;
+  let validComparisons = 0;
+  
+  for (let i = 0; i < minLength; i++) {
+    // Only compare when both have pitch (not silence)
+    if (novicePitch[i] > 0 && professionalPitch[i] > 0) {
+      // Calculate error in cents (100 cents = 1 semitone)
+      const cents = Math.abs(1200 * Math.log2(novicePitch[i] / professionalPitch[i]));
+      totalError += cents;
+      validComparisons++;
+    }
   }
   
-  return pitch;
+  if (validComparisons === 0) return 0;
+  
+  const avgError = totalError / validComparisons;
+  // Convert error to accuracy: 0 cents = 100%, 50 cents = 50%, 100+ cents = 0%
+  const accuracy = Math.max(0, 1 - avgError / 100);
+  
+  console.log(`Pitch: ${validComparisons} comparisons, avg error ${avgError.toFixed(1)} cents, accuracy ${(accuracy*100).toFixed(1)}%`);
+  return accuracy;
+}
+
+// Calculate rhythm timing accuracy
+function calculateRhythmAccuracy(noviceOnsets: number[], profOnsets: number[]): number {
+  if (noviceOnsets.length === 0 || profOnsets.length === 0) return 0;
+  
+  // Calculate inter-onset intervals (IOI)
+  const noviceIOI: number[] = [];
+  const profIOI: number[] = [];
+  
+  for (let i = 1; i < noviceOnsets.length; i++) {
+    noviceIOI.push(noviceOnsets[i] - noviceOnsets[i-1]);
+  }
+  for (let i = 1; i < profOnsets.length; i++) {
+    profIOI.push(profOnsets[i] - profOnsets[i-1]);
+  }
+  
+  if (noviceIOI.length === 0 || profIOI.length === 0) return 0;
+  
+  // Compare IOI patterns
+  const minLength = Math.min(noviceIOI.length, profIOI.length);
+  let totalError = 0;
+  
+  for (let i = 0; i < minLength; i++) {
+    const error = Math.abs(noviceIOI[i] - profIOI[i]);
+    totalError += error;
+  }
+  
+  const avgInterval = profIOI.reduce((a, b) => a + b, 0) / profIOI.length;
+  const avgError = totalError / minLength;
+  const accuracy = Math.max(0, 1 - (avgError / avgInterval));
+  
+  console.log(`Rhythm: ${minLength} intervals, avg error ${(avgError*1000).toFixed(1)}ms, accuracy ${(accuracy*100).toFixed(1)}%`);
+  return accuracy;
+}
+
+// Calculate spectral stability (measure of vocal control)
+function calculateSpectralStability(features: number[][]): number {
+  if (features.length < 2) return 0;
+  
+  const rmsValues = features.map(f => f[0]);
+  const centroidValues = features.map(f => f[2]);
+  
+  // Calculate variance (lower variance = more stable/controlled)
+  const rmsVariance = calculateVariance(rmsValues);
+  const centroidVariance = calculateVariance(centroidValues);
+  
+  // Normalize variances (lower is better)
+  const rmsStability = 1 / (1 + rmsVariance * 100);
+  const centroidStability = 1 / (1 + centroidVariance * 0.0001);
+  
+  return (rmsStability + centroidStability) / 2;
+}
+
+function calculateVariance(values: number[]): number {
+  const mean = values.reduce((a, b) => a + b, 0) / values.length;
+  const squaredDiffs = values.map(v => Math.pow(v - mean, 2));
+  return squaredDiffs.reduce((a, b) => a + b, 0) / values.length;
 }
 
 serve(async (req) => {
@@ -141,37 +247,39 @@ serve(async (req) => {
     
     console.log(`Novice: ${noviceBuffer.length} samples, Professional: ${professionalBuffer.length} samples`);
     
-    // Extract real features
-    console.log('Extracting features...');
-    const noviceFeatures = extractAudioFeatures(noviceBuffer, sampleRate);
-    const professionalFeatures = extractAudioFeatures(professionalBuffer, sampleRate);
+    // Extract pitch contours
+    console.log('Extracting pitch...');
+    const novicePitch = extractPitch(noviceBuffer, sampleRate);
+    const professionalPitch = extractPitch(professionalBuffer, sampleRate);
+    console.log(`Extracted ${novicePitch.length} novice and ${professionalPitch.length} professional pitch points`);
     
-    console.log(`Extracted ${noviceFeatures.length} novice and ${professionalFeatures.length} professional features`);
+    // Extract spectral features for timbre
+    console.log('Extracting spectral features...');
+    const noviceFeatures = extractSpectralFeatures(noviceBuffer, sampleRate);
+    const professionalFeatures = extractSpectralFeatures(professionalBuffer, sampleRate);
     
-    // Calculate real similarity
-    const featureSimilarity = calculateSimilarity(noviceFeatures, professionalFeatures);
+    // Detect onsets for rhythm
+    console.log('Detecting onsets...');
+    const noviceOnsets = detectOnsets(noviceBuffer, sampleRate);
+    const profOnsets = detectOnsets(professionalBuffer, sampleRate);
+    console.log(`Detected ${noviceOnsets.length} novice and ${profOnsets.length} professional onsets`);
     
-    // Calculate energy-based metrics
-    const noviceEnergy = noviceFeatures.map(f => f[0]);
-    const profEnergy = professionalFeatures.map(f => f[0]);
-    const noviceAvgEnergy = noviceEnergy.reduce((a,b) => a+b, 0) / noviceEnergy.length;
-    const profAvgEnergy = profEnergy.reduce((a,b) => a+b, 0) / profEnergy.length;
-    const energyRatio = Math.min(noviceAvgEnergy, profAvgEnergy) / Math.max(noviceAvgEnergy, profAvgEnergy, 0.001);
+    // Calculate accuracy metrics
+    const pitchAccuracy = calculatePitchAccuracy(novicePitch, professionalPitch);
+    const rhythmAccuracy = calculateRhythmAccuracy(noviceOnsets, profOnsets);
     
-    // Calculate ZCR-based metrics
-    const noviceZCR = noviceFeatures.map(f => f[1]);
-    const profZCR = professionalFeatures.map(f => f[1]);
-    const noviceAvgZCR = noviceZCR.reduce((a,b) => a+b, 0) / noviceZCR.length;
-    const profAvgZCR = profZCR.reduce((a,b) => a+b, 0) / profZCR.length;
-    const zcrRatio = Math.min(noviceAvgZCR, profAvgZCR) / Math.max(noviceAvgZCR, profAvgZCR, 0.001);
+    // Calculate stability metrics (vocal control)
+    const noviceStability = calculateSpectralStability(noviceFeatures);
+    const profStability = calculateSpectralStability(professionalFeatures);
+    const stabilityRatio = noviceStability / (profStability + 0.001);
     
-    // Real metrics without any random data
-    const pitchAccuracy = featureSimilarity * 0.7 + energyRatio * 0.3;
-    const rhythmTiming = zcrRatio * 0.6 + featureSimilarity * 0.4;
-    const mfccSimilarity = featureSimilarity;
-    const emotionMatch = energyRatio * 0.5 + zcrRatio * 0.5;
+    // MFCC similarity (timbre matching)
+    const timbreScore = stabilityRatio * 0.7 + (1 - Math.abs(noviceFeatures.length - professionalFeatures.length) / Math.max(noviceFeatures.length, professionalFeatures.length)) * 0.3;
     
-    console.log(`Real scores - Pitch: ${(pitchAccuracy*100).toFixed(1)}%, Rhythm: ${(rhythmTiming*100).toFixed(1)}%, MFCC: ${(mfccSimilarity*100).toFixed(1)}%, Emotion: ${(emotionMatch*100).toFixed(1)}%`);
+    // Emotion match (dynamic control)
+    const emotionScore = stabilityRatio;
+    
+    console.log(`Accuracy - Pitch: ${(pitchAccuracy*100).toFixed(1)}%, Rhythm: ${(rhythmAccuracy*100).toFixed(1)}%, Timbre: ${(timbreScore*100).toFixed(1)}%, Emotion: ${(emotionScore*100).toFixed(1)}%`);
     
     const results = {
       pitchAccuracy: {
@@ -180,23 +288,23 @@ serve(async (req) => {
         difference: Math.abs(1.0 - pitchAccuracy)
       },
       rhythmTiming: {
-        novice: rhythmTiming,
+        novice: rhythmAccuracy,
         professional: 1.0,
-        difference: Math.abs(1.0 - rhythmTiming)
+        difference: Math.abs(1.0 - rhythmAccuracy)
       },
       mfccDistance: {
-        novice: mfccSimilarity,
+        novice: timbreScore,
         professional: 1.0,
-        difference: Math.abs(1.0 - mfccSimilarity)
+        difference: Math.abs(1.0 - timbreScore)
       },
       emotionMatch: {
-        novice: emotionMatch,
+        novice: emotionScore,
         professional: 1.0,
-        difference: Math.abs(1.0 - emotionMatch)
+        difference: Math.abs(1.0 - emotionScore)
       },
       pitchData: {
-        novice: generatePitchFromFeatures(noviceFeatures),
-        professional: generatePitchFromFeatures(professionalFeatures),
+        novice: novicePitch.filter(p => p > 0),
+        professional: professionalPitch.filter(p => p > 0),
         sampleRate: sampleRate
       }
     };
