@@ -159,8 +159,9 @@ function calculatePitchAccuracy(novicePitch: number[], professionalPitch: number
   if (validComparisons === 0) return 0;
   
   const avgError = totalError / validComparisons;
-  // Convert error to accuracy: 0 cents = 100%, 50 cents = 50%, 100+ cents = 0%
-  const accuracy = Math.max(0, 1 - avgError / 100);
+  // Use exponential decay for more realistic scoring
+  // 0 cents = 100%, 50 cents = 77%, 100 cents = 61%, 200 cents = 37%, 500 cents = 14%
+  const accuracy = Math.exp(-avgError / 200);
   
   console.log(`Pitch: ${validComparisons} comparisons, avg error ${avgError.toFixed(1)} cents, accuracy ${(accuracy*100).toFixed(1)}%`);
   return accuracy;
@@ -194,7 +195,10 @@ function calculateRhythmAccuracy(noviceOnsets: number[], profOnsets: number[]): 
   
   const avgInterval = profIOI.reduce((a, b) => a + b, 0) / profIOI.length;
   const avgError = totalError / minLength;
-  const accuracy = Math.max(0, 1 - (avgError / avgInterval));
+  // Use exponential decay for more realistic rhythm scoring
+  // Perfect timing = 100%, 50% error = 61%, 100% error = 37%, 200% error = 14%
+  const normalizedError = avgError / (avgInterval + 0.001);
+  const accuracy = Math.exp(-normalizedError);
   
   console.log(`Rhythm: ${minLength} intervals, avg error ${(avgError*1000).toFixed(1)}ms, accuracy ${(accuracy*100).toFixed(1)}%`);
   return accuracy;
@@ -268,20 +272,32 @@ serve(async (req) => {
     const pitchAccuracy = calculatePitchAccuracy(novicePitch, professionalPitch);
     const rhythmAccuracy = calculateRhythmAccuracy(noviceOnsets, profOnsets);
     
-    // Calculate stability metrics (vocal control)
-    const noviceStability = calculateSpectralStability(noviceFeatures);
-    const profStability = calculateSpectralStability(professionalFeatures);
+    // Calculate timbre similarity by comparing spectral features
+    const minFeatureLength = Math.min(noviceFeatures.length, professionalFeatures.length);
+    let featureDistance = 0;
     
-    // Calculate similarity score (1.0 = perfect match, 0.0 = completely different)
-    // Use 1 - normalized absolute difference
-    const stabilitySimilarity = 1 - Math.min(1, Math.abs(noviceStability - profStability) / Math.max(noviceStability, profStability, 0.001));
+    for (let i = 0; i < minFeatureLength; i++) {
+      // Compare RMS, ZCR, and Spectral Centroid
+      const rmsError = Math.abs(noviceFeatures[i][0] - professionalFeatures[i][0]);
+      const zcrError = Math.abs(noviceFeatures[i][1] - professionalFeatures[i][1]);
+      const centroidError = Math.abs(noviceFeatures[i][2] - professionalFeatures[i][2]);
+      
+      // Normalize and combine errors
+      featureDistance += (rmsError + zcrError * 0.5 + centroidError * 0.0001);
+    }
     
-    // MFCC similarity (timbre matching) - measure feature length similarity
-    const featureLengthSimilarity = 1 - Math.abs(noviceFeatures.length - professionalFeatures.length) / Math.max(noviceFeatures.length, professionalFeatures.length);
-    const timbreScore = Math.min(1.0, stabilitySimilarity * 0.7 + featureLengthSimilarity * 0.3);
+    const avgFeatureDistance = featureDistance / minFeatureLength;
+    // Use exponential decay for timbre similarity
+    const timbreScore = Math.exp(-avgFeatureDistance * 5);
     
-    // Emotion match (dynamic control) - based on stability similarity
-    const emotionScore = Math.min(1.0, stabilitySimilarity);
+    // Calculate dynamic range similarity for emotion
+    const noviceRMS = noviceFeatures.map(f => f[0]);
+    const profRMS = professionalFeatures.map(f => f[0]);
+    const noviceDynamicRange = Math.max(...noviceRMS) - Math.min(...noviceRMS);
+    const profDynamicRange = Math.max(...profRMS) - Math.min(...profRMS);
+    const dynamicRangeSimilarity = Math.exp(-Math.abs(noviceDynamicRange - profDynamicRange) * 10);
+    
+    const emotionScore = dynamicRangeSimilarity;
     
     console.log(`Accuracy - Pitch: ${(pitchAccuracy*100).toFixed(1)}%, Rhythm: ${(rhythmAccuracy*100).toFixed(1)}%, Timbre: ${(timbreScore*100).toFixed(1)}%, Emotion: ${(emotionScore*100).toFixed(1)}%`);
     
