@@ -215,13 +215,43 @@ const SingerDashboard: React.FC = () => {
       console.log(`Novice: ${noviceAudioBuffer.length} samples, ${noviceAudioBuffer.numberOfChannels} channels, ${noviceAudioBuffer.sampleRate}Hz`);
       console.log(`Professional: ${professionalAudioBuffer.length} samples, ${professionalAudioBuffer.numberOfChannels} channels, ${professionalAudioBuffer.sampleRate}Hz`);
 
-      // Extract mono channel PCM data
-      const noviceData = noviceAudioBuffer.getChannelData(0);
-      const professionalData = professionalAudioBuffer.getChannelData(0);
-
-      // Convert Float32Array to base64 for transmission
-      const noviceBase64 = btoa(String.fromCharCode(...new Uint8Array(noviceData.buffer)));
-      const professionalBase64 = btoa(String.fromCharCode(...new Uint8Array(professionalData.buffer)));
+      // Downsample to 22050Hz to reduce data size and match edge function expectations
+      const targetSampleRate = 22050;
+      
+      const downsample = (buffer: AudioBuffer, targetRate: number): Float32Array => {
+        const sourceRate = buffer.sampleRate;
+        const ratio = sourceRate / targetRate;
+        const newLength = Math.floor(buffer.length / ratio);
+        const result = new Float32Array(newLength);
+        const sourceData = buffer.getChannelData(0); // Use mono channel
+        
+        for (let i = 0; i < newLength; i++) {
+          const sourceIndex = Math.floor(i * ratio);
+          result[i] = sourceData[sourceIndex];
+        }
+        
+        return result;
+      };
+      
+      const noviceData = downsample(noviceAudioBuffer, targetSampleRate);
+      const professionalData = downsample(professionalAudioBuffer, targetSampleRate);
+      
+      console.log(`Downsampled: Novice ${noviceData.length} samples, Professional ${professionalData.length} samples`);
+      
+      // Convert Float32Array to base64 in chunks to avoid stack overflow
+      const encodeToBase64 = (float32Array: Float32Array): string => {
+        const bytes = new Uint8Array(float32Array.buffer);
+        let binary = '';
+        const chunkSize = 8192; // Process in chunks
+        for (let i = 0; i < bytes.length; i += chunkSize) {
+          const chunk = bytes.subarray(i, Math.min(i + chunkSize, bytes.length));
+          binary += String.fromCharCode.apply(null, Array.from(chunk));
+        }
+        return btoa(binary);
+      };
+      
+      const noviceBase64 = encodeToBase64(noviceData);
+      const professionalBase64 = encodeToBase64(professionalData);
 
       toast({
         title: "Analyzing Performance",
