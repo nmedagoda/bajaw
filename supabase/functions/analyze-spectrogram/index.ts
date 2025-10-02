@@ -25,7 +25,12 @@ serve(async (req) => {
       throw new Error('Invalid spectrogram data provided');
     }
 
-    console.log('Trying free open-source models for spectrogram analysis...');
+    const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
+    if (!LOVABLE_API_KEY) {
+      throw new Error('LOVABLE_API_KEY is not configured');
+    }
+    
+    console.log('Using Lovable AI with Gemini for spectrogram analysis...');
 
     // Analyze the spectrogram data
     const analysis = analyzeSpectrogramData(spectrogramData);
@@ -33,61 +38,51 @@ serve(async (req) => {
     // Create prompt for LLM analysis
     const prompt = createAnalysisPrompt(analysis);
     
-    // Try multiple free models in order of preference (same as generate-review)
-    const freeModels = [
-      'mistralai/Mistral-7B-Instruct-v0.1',
-      'meta-llama/Llama-2-7b-chat-hf',
-      'microsoft/DialoGPT-large',
-      'google/flan-t5-large'
-    ];
-
     let llmResponse = null;
     
-    for (const model of freeModels) {
-      try {
-        console.log(`Trying model: ${model}`);
-        
-        const response = await fetch(`https://api-inference.huggingface.co/models/${model}`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            inputs: prompt,
-            parameters: {
-              max_new_tokens: 500,
-              temperature: 0.7,
-              do_sample: true,
-              return_full_text: false
-            }
-          })
-        });
+    try {
+      console.log('Calling Lovable AI Gateway with Gemini model...');
+      
+      const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'google/gemini-2.5-flash',
+          messages: [
+            { 
+              role: 'system', 
+              content: 'You are an expert vocal coach providing detailed performance analysis. Keep responses under 500 tokens.'
+            },
+            { role: 'user', content: prompt }
+          ],
+        })
+      });
 
-        if (response.ok) {
-          const result = await response.json();
-          console.log(`Success with model ${model}:`, result);
-          
-          if (Array.isArray(result) && result[0]?.generated_text) {
-            llmResponse = result[0].generated_text;
-            console.log(`Generated analysis with ${model}: ${llmResponse.substring(0, 100)}...`);
-            break;
-          } else if (result.generated_text) {
-            llmResponse = result.generated_text;
-            console.log(`Generated analysis with ${model}: ${llmResponse.substring(0, 100)}...`);
-            break;
-          }
-        } else {
-          const errorText = await response.text();
-          console.log(`Model ${model} failed:`, response.status, errorText);
-        }
-      } catch (modelError) {
-        const errorMessage = modelError instanceof Error ? modelError.message : String(modelError)
-        console.log(`Error with model ${model}:`, errorMessage);
-        continue;
+      if (response.status === 429) {
+        console.log('Rate limit exceeded, using fallback');
+        llmResponse = generateFallbackAnalysis(analysis);
+      } else if (response.status === 402) {
+        console.log('Payment required, using fallback');
+        llmResponse = generateFallbackAnalysis(analysis);
+      } else if (response.ok) {
+        const result = await response.json();
+        console.log('Success with Gemini model');
+        llmResponse = result.choices[0].message.content;
+      } else {
+        const errorText = await response.text();
+        console.log(`Lovable AI failed: ${response.status} ${errorText}`);
+        llmResponse = generateFallbackAnalysis(analysis);
       }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.log(`Error calling Lovable AI: ${errorMessage}`);
+      llmResponse = generateFallbackAnalysis(analysis);
     }
 
-    // Fallback analysis if all models fail
+    // Fallback analysis if response is empty
     if (!llmResponse) {
       llmResponse = generateFallbackAnalysis(analysis);
     }
