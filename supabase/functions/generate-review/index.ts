@@ -21,7 +21,44 @@ serve(async (req) => {
       performanceId
     } = await req.json();
 
+    // Fetch voting scores if performanceId is provided
+    let votingData = null;
+    if (performanceId) {
+      try {
+        const supabase = createClient(
+          Deno.env.get('SUPABASE_URL') ?? '',
+          Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+        );
+        
+        const { data: votes, error } = await supabase
+          .from('votes')
+          .select('voice_score, overall_score')
+          .eq('performance_id', performanceId);
+        
+        if (!error && votes && votes.length > 0) {
+          const validVotes = votes.filter(v => v.voice_score !== null && v.overall_score !== null);
+          if (validVotes.length > 0) {
+            const avgVoiceScore = validVotes.reduce((sum, v) => sum + v.voice_score!, 0) / validVotes.length;
+            const avgOverallScore = validVotes.reduce((sum, v) => sum + v.overall_score!, 0) / validVotes.length;
+            votingData = {
+              avgVoiceScore,
+              avgOverallScore,
+              totalVotes: validVotes.length
+            };
+          }
+        }
+      } catch (e) {
+        console.error('Failed to fetch voting data:', e);
+      }
+    }
+
     // Prepare the analysis data for the LLM
+    const votingContext = votingData ? `
+
+Community Feedback (Based on ${votingData.totalVotes} vote${votingData.totalVotes === 1 ? '' : 's'}):
+- Voice Quality Rating: ${votingData.avgVoiceScore.toFixed(1)}/10
+- Overall Performance Rating: ${votingData.avgOverallScore.toFixed(1)}/10` : '';
+
     const analysisContext = `
 Song: ${songTitle}
 
@@ -29,24 +66,25 @@ Performance Analysis Results:
 - Pitch Accuracy: ${(analysisResults?.pitchAccuracy?.novice || 0) * 100}%
 - Rhythm Timing: ${(analysisResults?.rhythmTiming?.novice || 0) * 100}%
 - MFCC Similarity: ${(analysisResults?.mfccDistance?.novice || 0) * 100}%
-- Emotion Match: ${(analysisResults?.emotionMatch?.novice || 0) * 100}%
+- Emotion Match: ${(analysisResults?.emotionMatch?.novice || 0) * 100}%${votingContext}
 
 Note: Higher percentages indicate better performance. Professional comparison data is available for detailed analysis.`;
 
-    const prompt = `You are an expert vocal coach analyzing a novice singer's performance. Based on the technical audio analysis data provided below, generate a comprehensive review report.
+    const prompt = `You are an expert vocal coach analyzing a novice singer's performance. Based on the technical audio analysis data and community feedback provided below, generate a comprehensive review report.
 
 ${analysisContext}
 
-Please provide:
+Please provide a professionally formatted report with clear numbering and bullet points:
 
-1. **Overall Performance Summary** (2-3 sentences)
-2. **Strengths** (identify what the singer did well)
-3. **Areas for Improvement** (specific technical aspects that need work)
-4. **Detailed Recommendations** (actionable advice for each major area)
-5. **Practice Exercises** (specific exercises to improve weak areas)
-6. **Next Steps** (immediate actions the singer can take)
+1. Overall Performance Summary (2-3 sentences)
+2. Key Strengths (bullet points for what the singer did well)
+3. Areas for Improvement (numbered list with specific technical aspects)
+4. Detailed Recommendations (numbered actionable advice)
+5. Practice Exercises (bullet points for specific exercises)
+6. Community Feedback Analysis (if votes are available, interpret what the ratings mean)
+7. Next Steps (numbered immediate actions)
 
-Keep the tone encouraging but honest. Focus on practical, actionable advice that a novice singer can implement. Limit response to 400 words maximum.`;
+Keep the tone encouraging but honest. Use professional formatting with clear sections, numbers, and bullet points. Limit response to 500 words maximum.`;
 
     const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
     if (!LOVABLE_API_KEY) {
@@ -99,36 +137,6 @@ Keep the tone encouraging but honest. Focus on practical, actionable advice that
       generatedReview = null;
     }
 
-    // Fetch voting scores if performanceId is provided
-    let votingData = null;
-    if (performanceId) {
-      try {
-        const supabase = createClient(
-          Deno.env.get('SUPABASE_URL') ?? '',
-          Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-        );
-        
-        const { data: votes, error } = await supabase
-          .from('votes')
-          .select('voice_score, overall_score')
-          .eq('performance_id', performanceId);
-        
-        if (!error && votes && votes.length > 0) {
-          const validVotes = votes.filter(v => v.voice_score !== null && v.overall_score !== null);
-          if (validVotes.length > 0) {
-            const avgVoiceScore = validVotes.reduce((sum, v) => sum + v.voice_score!, 0) / validVotes.length;
-            const avgOverallScore = validVotes.reduce((sum, v) => sum + v.overall_score!, 0) / validVotes.length;
-            votingData = {
-              avgVoiceScore,
-              avgOverallScore,
-              totalVotes: validVotes.length
-            };
-          }
-        }
-      } catch (e) {
-        console.error('Failed to fetch voting data:', e);
-      }
-    }
 
     // If no model worked, use fallback
     if (!generatedReview) {
