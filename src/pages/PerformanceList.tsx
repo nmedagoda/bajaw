@@ -286,7 +286,7 @@ const PerformanceList = () => {
                     </Avatar>
                     <div>
                       <CardTitle className="text-lg leading-tight">{performance.title}</CardTitle>
-                      <p className="text-sm text-muted-foreground">Novice Singer: {performance.singer?.full_name}</p>
+                      <p className="text-sm text-muted-foreground">Performer: {performance.singer?.full_name}</p>
                     </div>
                   </div>
                   {performance.similarity_score && (

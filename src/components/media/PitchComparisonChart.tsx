@@ -15,12 +15,14 @@ interface PitchComparisonChartProps {
   noviceUrl: string | null;
   professionalUrl: string | null;
   songTitle?: string;
+  professionalSingerName?: string;
 }
 
 const PitchComparisonChart: React.FC<PitchComparisonChartProps> = ({ 
   noviceUrl, 
   professionalUrl,
-  songTitle 
+  songTitle,
+  professionalSingerName = "Professional Singer"
 }) => {
   const [chartData, setChartData] = useState<ChartDataPoint[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -235,7 +237,7 @@ const PitchComparisonChart: React.FC<PitchComparisonChartProps> = ({
           <p className="text-sm font-medium">{`Time: ${Number(label).toFixed(1)}s`}</p>
           {payload.map((entry: any, index: number) => {
             const isNovice = entry.dataKey === 'novice';
-            const singerType = isNovice ? 'Novice Singer' : 'Professional Singer';
+            const singerType = isNovice ? 'Novice Singer' : professionalSingerName;
             const value = entry.value;
             const displayValue = value ? formatFrequency(Number(value)) : 'No data';
             
@@ -372,7 +374,7 @@ const PitchComparisonChart: React.FC<PitchComparisonChartProps> = ({
                   strokeWidth={2}
                   dot={false}
                   connectNulls={false}
-                  name="Professional Singer"
+                  name={professionalSingerName}
                 />
               )}
             </LineChart>

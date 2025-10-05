@@ -15,12 +15,14 @@ interface RMSLoudnessChartProps {
   noviceUrl: string | null;
   professionalUrl: string | null;
   songTitle?: string;
+  professionalSingerName?: string;
 }
 
 const RMSLoudnessChart: React.FC<RMSLoudnessChartProps> = ({ 
   noviceUrl, 
   professionalUrl,
-  songTitle 
+  songTitle,
+  professionalSingerName = "Professional Singer"
 }) => {
   const [chartData, setChartData] = useState<RMSDataPoint[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -229,7 +231,7 @@ const RMSLoudnessChart: React.FC<RMSLoudnessChartProps> = ({
           <p className="text-sm font-medium">{`Time: ${Number(label).toFixed(1)}s`}</p>
           {payload.map((entry: any, index: number) => {
             const isNovice = entry.dataKey === 'novice';
-            const singerType = isNovice ? 'Novice Singer' : 'Professional Singer';
+            const singerType = isNovice ? 'Novice Singer' : professionalSingerName;
             const value = entry.value;
             const displayValue = value ? formatRMS(Number(value)) : 'No data';
             
@@ -366,7 +368,7 @@ const RMSLoudnessChart: React.FC<RMSLoudnessChartProps> = ({
                   strokeWidth={2}
                   dot={false}
                   connectNulls={false}
-                  name="Professional Singer"
+                  name={professionalSingerName}
                 />
               )}
             </LineChart>

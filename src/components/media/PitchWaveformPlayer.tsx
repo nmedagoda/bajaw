@@ -8,6 +8,7 @@ interface PitchWaveformPlayerProps {
   url: string;
   height?: number;
   showPitchOverlay?: boolean;
+  professionalSingerName?: string;
 }
 
 interface PitchData {

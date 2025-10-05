@@ -21,6 +21,7 @@ interface UploadedSongRow {
   song_title: string;
   recorded_song_url: string | null;
   original_song_url: string | null;
+  original_singer_name: string;
   created_at: string;
 }
 
@@ -83,7 +84,7 @@ const SingerDashboard: React.FC = () => {
       if (!user) return;
       const { data, error } = await supabase
         .from("uploaded_songs")
-        .select("id, song_title, recorded_song_url, original_song_url, created_at")
+        .select("id, song_title, recorded_song_url, original_song_url, original_singer_name, created_at")
         .eq("singer_id", user.id)
         .order("created_at", { ascending: false });
       if (!error && data) {
@@ -426,8 +427,8 @@ const SingerDashboard: React.FC = () => {
                   
                   {professionalUrl && (
                     <div className="space-y-2">
-                      <h3 className="text-sm font-medium text-foreground">Professional Singer</h3>
-                      <PitchWaveformPlayer url={professionalUrl} showPitchOverlay={false} />
+                      <h3 className="text-sm font-medium text-foreground">{selectedSong.original_singer_name}</h3>
+                      <PitchWaveformPlayer url={professionalUrl} showPitchOverlay={false} professionalSingerName={selectedSong.original_singer_name} />
                     </div>
                   )}
 
@@ -456,6 +457,7 @@ const SingerDashboard: React.FC = () => {
                                 noviceUrl={noviceUrl} 
                                 professionalUrl={professionalUrl}
                                 songTitle={selectedSong?.song_title}
+                                professionalSingerName={selectedSong?.original_singer_name}
                               />
                             </React.Suspense>
                             
@@ -464,6 +466,7 @@ const SingerDashboard: React.FC = () => {
                                 noviceUrl={noviceUrl} 
                                 professionalUrl={professionalUrl}
                                 songTitle={selectedSong?.song_title}
+                                professionalSingerName={selectedSong?.original_singer_name}
                               />
                             </React.Suspense>
                             
@@ -472,6 +475,7 @@ const SingerDashboard: React.FC = () => {
                                 noviceUrl={noviceUrl} 
                                 professionalUrl={professionalUrl}
                                 songTitle={selectedSong?.song_title}
+                                professionalSingerName={selectedSong?.original_singer_name}
                               />
                             </React.Suspense>
                           </div>
@@ -510,7 +514,7 @@ const SingerDashboard: React.FC = () => {
             <CardHeader>
               <CardTitle>Audio Performance Analysis</CardTitle>
               <CardDescription>
-                Compare your performance with the professional singer using advanced audio analysis
+                Compare your performance with {selectedSong?.original_singer_name || "the professional singer"} using advanced audio analysis
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
@@ -561,7 +565,7 @@ const SingerDashboard: React.FC = () => {
                             <TableRow>
                               <TableHead className="text-xs sm:text-sm whitespace-nowrap">Metric</TableHead>
                               <TableHead className="text-xs sm:text-sm whitespace-nowrap">Novice Singer</TableHead>
-                              <TableHead className="text-xs sm:text-sm whitespace-nowrap">Professional Singer</TableHead>
+                              <TableHead className="text-xs sm:text-sm whitespace-nowrap">{selectedSong?.original_singer_name || "Professional Singer"}</TableHead>
                               <TableHead className="text-xs sm:text-sm whitespace-nowrap">Difference</TableHead>
                             </TableRow>
                           </TableHeader>
