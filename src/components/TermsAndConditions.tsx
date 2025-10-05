@@ -28,8 +28,11 @@ const TermsAndConditions: React.FC<TermsAndConditionsProps> = ({ open, onOpenCha
           <div className="space-y-6 text-sm">
             <section>
               <h3 className="text-lg font-semibold mb-2 text-foreground">1. Acceptance of Terms</h3>
-              <p className="text-muted-foreground leading-relaxed">
+              <p className="text-muted-foreground leading-relaxed mb-3">
                 By accessing and using the Bajawu platform ("Service"), you accept and agree to be bound by the terms and provisions of this agreement. If you do not agree to these Terms and Conditions, please do not use this Service.
+              </p>
+              <p className="text-muted-foreground leading-relaxed font-medium">
+                By signing up, you agree that any disputes will be subject to the exclusive jurisdiction of the courts in Sri Lanka.
               </p>
             </section>
 

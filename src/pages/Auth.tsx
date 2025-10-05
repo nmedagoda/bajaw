@@ -370,7 +370,7 @@ const Auth = () => {
                         htmlFor="terms" 
                         className="text-sm leading-relaxed cursor-pointer"
                       >
-                        I accept the{' '}
+                        By signing up, you agree the{' '}
                         <button
                           type="button"
                           onClick={(e) => {
@@ -382,9 +382,6 @@ const Auth = () => {
                           Terms and Conditions
                         </button>
                       </Label>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        By signing up, you agree that any disputes will be subject to the exclusive jurisdiction of the courts in Sri Lanka.
-                      </p>
                     </div>
                   </div>
                 </div>
