@@ -9,9 +9,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Music, Mic, Users, Gavel, Check, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { ThemeToggle } from '@/components/theme-toggle';
+import TermsAndConditions from '@/components/TermsAndConditions';
 
 const Auth = () => {
   const [isLoading, setIsLoading] = useState(false);
@@ -23,6 +25,8 @@ const Auth = () => {
   const navigate = useNavigate();
   const [roleDialogOpen, setRoleDialogOpen] = useState(false);
   const [selectedRole, setSelectedRole] = useState<string>('');
+  const [termsAccepted, setTermsAccepted] = useState(false);
+  const [termsDialogOpen, setTermsDialogOpen] = useState(false);
 
   const [signInData, setSignInData] = useState({
     email: '',
@@ -77,6 +81,11 @@ const Auth = () => {
 
     if (!signUpData.role) {
       toast.error('Please select a role');
+      return;
+    }
+
+    if (!termsAccepted) {
+      toast.error('Please accept the Terms and Conditions to continue');
       return;
     }
 
@@ -348,7 +357,39 @@ const Auth = () => {
                   />
                 </div>
                 
-                <Button type="submit" className="w-full" disabled={isLoading}>
+                <div className="space-y-3">
+                  <div className="flex items-start gap-3 p-4 rounded-lg border border-border bg-muted/30">
+                    <Checkbox 
+                      id="terms" 
+                      checked={termsAccepted}
+                      onCheckedChange={(checked) => setTermsAccepted(checked as boolean)}
+                      className="mt-1"
+                    />
+                    <div className="flex-1">
+                      <Label 
+                        htmlFor="terms" 
+                        className="text-sm leading-relaxed cursor-pointer"
+                      >
+                        I accept the{' '}
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            setTermsDialogOpen(true);
+                          }}
+                          className="text-primary hover:underline font-medium"
+                        >
+                          Terms and Conditions
+                        </button>
+                      </Label>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        By signing up, you agree that any disputes will be subject to the exclusive jurisdiction of the courts in Sri Lanka.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                
+                <Button type="submit" className="w-full" disabled={isLoading || !termsAccepted}>
                   {isLoading ? 'Creating account...' : 'Create Account'}
                 </Button>
               </form>
@@ -394,6 +435,11 @@ const Auth = () => {
           </DialogContent>
         </Dialog>
       </Card>
+      
+      <TermsAndConditions 
+        open={termsDialogOpen} 
+        onOpenChange={setTermsDialogOpen}
+      />
     </div>
   );
 };
