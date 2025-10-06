@@ -181,7 +181,15 @@ const PerformanceList = () => {
         votes: votesMap.get(row.id) ?? [],
       }));
 
-      setPerformances(normalized);
+      // Sort to put komaliya performance first as featured example
+      const featuredId = 'e9aff01f-cfc6-457e-9ca9-3099c23eef01';
+      const sorted = normalized.sort((a, b) => {
+        if (a.id === featuredId) return -1;
+        if (b.id === featuredId) return 1;
+        return 0;
+      });
+
+      setPerformances(sorted);
     } catch (error) {
       console.error('Error fetching performances:', error);
       toast.error('Failed to load performances');
@@ -273,10 +281,17 @@ const PerformanceList = () => {
         </Card>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredPerformances.map((performance) => (
-            <Card key={performance.id} className="group hover:shadow-lg transition-all duration-300 border-border/50">
+          {filteredPerformances.map((performance) => {
+            const isFeatured = performance.id === 'e9aff01f-cfc6-457e-9ca9-3099c23eef01';
+            return (
+            <Card key={performance.id} className={`group hover:shadow-lg transition-all duration-300 ${isFeatured ? 'border-accent border-2' : 'border-border/50'}`}>
               <CardHeader className="space-y-3">
                 <div className="flex items-start justify-between">
+                  {isFeatured && (
+                    <Badge className="absolute top-2 right-2 bg-accent text-accent-foreground">
+                      Featured Example
+                    </Badge>
+                  )}
                   <div className="flex items-center space-x-3">
                     <Avatar className="w-10 h-10">
                       <AvatarImage src={performance.singer?.profile_photo_url || ''} />
@@ -350,7 +365,8 @@ const PerformanceList = () => {
                 </div>
               </CardContent>
             </Card>
-          ))}
+            );
+          })}
         </div>
       )}
 

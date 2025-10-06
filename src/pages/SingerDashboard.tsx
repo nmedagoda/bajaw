@@ -87,9 +87,18 @@ const SingerDashboard: React.FC = () => {
         .select("id, song_title, recorded_song_url, original_song_url, original_singer_name, created_at")
         .eq("singer_id", user.id)
         .order("created_at", { ascending: false });
+      
+      // Also load the featured komaliya example for all users
+      const { data: exampleData } = await supabase
+        .from("uploaded_songs")
+        .select("id, song_title, recorded_song_url, original_song_url, original_singer_name, created_at")
+        .eq("id", "e9aff01f-cfc6-457e-9ca9-3099c23eef01")
+        .single();
+      
       if (!error && data) {
-        setSongs(data as any);
-        if (data.length > 0) setSelectedId(data[0].id);
+        const allSongs = exampleData ? [exampleData, ...data] : data;
+        setSongs(allSongs as any);
+        if (allSongs.length > 0) setSelectedId(allSongs[0].id);
       }
     };
     load();
@@ -405,9 +414,14 @@ const SingerDashboard: React.FC = () => {
                     <SelectValue placeholder={songs.length ? "Select a song" : "No uploads yet"} />
                   </SelectTrigger>
                   <SelectContent>
-                    {songs.map((s) => (
-                      <SelectItem key={s.id} value={s.id}>{s.song_title}</SelectItem>
-                    ))}
+                    {songs.map((s) => {
+                      const isFeatured = s.id === 'e9aff01f-cfc6-457e-9ca9-3099c23eef01';
+                      return (
+                        <SelectItem key={s.id} value={s.id}>
+                          {s.song_title}{isFeatured ? ' (Featured Example)' : ''}
+                        </SelectItem>
+                      );
+                    })}
                   </SelectContent>
                 </Select>
               </div>
