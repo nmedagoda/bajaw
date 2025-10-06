@@ -420,7 +420,7 @@ const SingerDashboard: React.FC = () => {
                   
                   {noviceUrl && (
                     <div className="space-y-2">
-                      <h3 className="text-sm font-medium text-foreground">Your Performance (Novice Singer)</h3>
+                      <h3 className="text-sm font-medium text-foreground">Your Performance</h3>
                       <PitchWaveformPlayer url={noviceUrl} showPitchOverlay={true} />
                     </div>
                   )}
@@ -564,7 +564,7 @@ const SingerDashboard: React.FC = () => {
                           <TableHeader>
                             <TableRow>
                               <TableHead className="text-xs sm:text-sm whitespace-nowrap">Metric</TableHead>
-                              <TableHead className="text-xs sm:text-sm whitespace-nowrap">Novice Singer</TableHead>
+                              <TableHead className="text-xs sm:text-sm whitespace-nowrap">You</TableHead>
                               <TableHead className="text-xs sm:text-sm whitespace-nowrap">{selectedSong?.original_singer_name || "Professional Singer"}</TableHead>
                               <TableHead className="text-xs sm:text-sm whitespace-nowrap">Difference</TableHead>
                             </TableRow>

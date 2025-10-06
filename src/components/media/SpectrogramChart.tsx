@@ -231,7 +231,7 @@ const SpectrogramChart: React.FC<SpectrogramChartProps> = ({
           <p className="text-sm font-medium">{`Time: ${Number(label).toFixed(1)}s`}</p>
           {payload.map((entry: any, index: number) => {
             const isNovice = entry.dataKey === 'novice';
-            const singerType = isNovice ? 'Novice Singer' : professionalSingerName;
+            const singerType = isNovice ? 'You' : professionalSingerName;
             const value = entry.value;
             const displayValue = value ? formatFrequency(Number(value)) : 'No data';
             
@@ -319,7 +319,7 @@ const SpectrogramChart: React.FC<SpectrogramChartProps> = ({
       <CardHeader>
         <CardTitle>Spectrogram Comparison - {songTitle || 'Unknown Song'}</CardTitle>
         <p className="text-sm text-muted-foreground">
-          Compare spectral centroid values between novice and professional performances (Novice: {durations.novice}s, Professional: {durations.professional}s)
+          Compare spectral centroid values between your and professional performances (You: {durations.novice}s, Professional: {durations.professional}s)
         </p>
       </CardHeader>
       <CardContent>
@@ -357,7 +357,7 @@ const SpectrogramChart: React.FC<SpectrogramChartProps> = ({
                   strokeWidth={2}
                   dot={false}
                   connectNulls={false}
-                  name="Novice Singer"
+                  name="You"
                 />
               )}
               {professionalUrl && (

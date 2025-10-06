@@ -237,7 +237,7 @@ const PitchComparisonChart: React.FC<PitchComparisonChartProps> = ({
           <p className="text-sm font-medium">{`Time: ${Number(label).toFixed(1)}s`}</p>
           {payload.map((entry: any, index: number) => {
             const isNovice = entry.dataKey === 'novice';
-            const singerType = isNovice ? 'Novice Singer' : professionalSingerName;
+            const singerType = isNovice ? 'You' : professionalSingerName;
             const value = entry.value;
             const displayValue = value ? formatFrequency(Number(value)) : 'No data';
             
@@ -323,9 +323,9 @@ const PitchComparisonChart: React.FC<PitchComparisonChartProps> = ({
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Pitch Comparison - {songTitle || 'Unknown Song'}</CardTitle>
+        <CardTitle>Pitch Comparison - {songTitle || 'Unknown Song'}</CardTitle>
           <p className="text-sm text-muted-foreground">
-            Compare pitch values between novice and professional performances (Novice: {durations.novice}s, Professional: {durations.professional}s)
+            Compare pitch values between your and professional performances (You: {durations.novice}s, Professional: {durations.professional}s)
           </p>
         </CardHeader>
       <CardContent>
@@ -363,7 +363,7 @@ const PitchComparisonChart: React.FC<PitchComparisonChartProps> = ({
                   strokeWidth={2}
                   dot={false}
                   connectNulls={false}
-                  name="Novice Singer"
+                  name="You"
                 />
               )}
               {professionalUrl && (

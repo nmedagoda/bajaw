@@ -231,7 +231,7 @@ const RMSLoudnessChart: React.FC<RMSLoudnessChartProps> = ({
           <p className="text-sm font-medium">{`Time: ${Number(label).toFixed(1)}s`}</p>
           {payload.map((entry: any, index: number) => {
             const isNovice = entry.dataKey === 'novice';
-            const singerType = isNovice ? 'Novice Singer' : professionalSingerName;
+            const singerType = isNovice ? 'You' : professionalSingerName;
             const value = entry.value;
             const displayValue = value ? formatRMS(Number(value)) : 'No data';
             
@@ -319,7 +319,7 @@ const RMSLoudnessChart: React.FC<RMSLoudnessChartProps> = ({
       <CardHeader>
         <CardTitle>RMS Loudness Comparison - {songTitle || 'Unknown Song'}</CardTitle>
         <p className="text-sm text-muted-foreground">
-          Compare RMS loudness levels between novice and professional performances (Novice: {durations.novice}s, Professional: {durations.professional}s)
+          Compare RMS loudness levels between your and professional performances (You: {durations.novice}s, Professional: {durations.professional}s)
         </p>
       </CardHeader>
       <CardContent>
@@ -357,7 +357,7 @@ const RMSLoudnessChart: React.FC<RMSLoudnessChartProps> = ({
                   strokeWidth={2}
                   dot={false}
                   connectNulls={false}
-                  name="Novice Singer"
+                  name="You"
                 />
               )}
               {professionalUrl && (
