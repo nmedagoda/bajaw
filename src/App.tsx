@@ -13,6 +13,7 @@ import RecordSong from "./pages/RecordSong";
 import SingerDashboard from "./pages/SingerDashboard";
 import PerformanceList from "./pages/PerformanceList";
 import Profile from "./pages/Profile";
+import ResetPassword from "./pages/ResetPassword";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -34,6 +35,7 @@ const App = () => (
               <Route path="/auth/confirm" element={<Auth />} />
               <Route path="/auth/verify" element={<Auth />} />
               <Route path="/auth/callback" element={<Auth />} />
+              <Route path="/reset-password" element={<ResetPassword />} />
               <Route 
                 path="/performances" 
                 element={
