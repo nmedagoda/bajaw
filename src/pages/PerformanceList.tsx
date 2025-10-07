@@ -94,7 +94,7 @@ const PerformanceList = () => {
         let profilesMap = new Map<string, { full_name: string | null; profile_photo_url: string | null }>();
         if (singerIds.length > 0) {
           const { data: profs, error: e2 } = await supabase
-            .from('profiles')
+            .from('public_profiles')
             .select('id, full_name, profile_photo_url')
             .in('id', singerIds);
           if (e2) throw e2;

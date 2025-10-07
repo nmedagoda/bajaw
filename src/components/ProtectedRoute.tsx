@@ -27,7 +27,8 @@ const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, allowedRoles 
   }
 
   if (allowedRoles) {
-    const roleToCheck = activeRole ?? profile?.role;
+    // SECURITY: Only use roles from user_roles table to prevent privilege escalation
+    const roleToCheck = activeRole;
     if (!roleToCheck || !allowedRoles.includes(roleToCheck)) {
       return <Navigate to="/" replace />;
     }

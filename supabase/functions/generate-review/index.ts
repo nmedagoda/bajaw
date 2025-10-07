@@ -13,13 +13,22 @@ serve(async (req) => {
   }
 
   try {
-    const { 
-      songTitle, 
-      analysisResults,
-      novicePerformanceData,
-      professionalPerformanceData,
-      performanceId
-    } = await req.json();
+    const requestData = await req.json();
+    
+    // Input validation to prevent injection and malformed data
+    const songTitle = typeof requestData.songTitle === 'string' 
+      ? requestData.songTitle.slice(0, 200).trim() 
+      : 'Unknown Song';
+    
+    const analysisResults = requestData.analysisResults ?? {};
+    const novicePerformanceData = requestData.novicePerformanceData ?? null;
+    const professionalPerformanceData = requestData.professionalPerformanceData ?? null;
+    
+    // Validate performanceId if provided (must be valid UUID)
+    const performanceId = requestData.performanceId && 
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(requestData.performanceId)
+      ? requestData.performanceId 
+      : null;
 
     // Fetch voting scores if performanceId is provided
     let votingData = null;
