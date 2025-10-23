@@ -23,6 +23,8 @@ interface UploadedSongRow {
   original_song_url: string | null;
   original_singer_name: string;
   created_at: string;
+  singer_id?: string;
+  singer_name?: string;
 }
 
 interface AnalysisResults {
@@ -41,7 +43,7 @@ interface ReviewReport {
 }
 
 const SingerDashboard: React.FC = () => {
-  const { user } = useAuth();
+  const { user, roles } = useAuth();
   const { toast } = useToast();
   const [songs, setSongs] = useState<UploadedSongRow[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -82,27 +84,67 @@ const SingerDashboard: React.FC = () => {
   useEffect(() => {
     const load = async () => {
       if (!user) return;
-      const { data, error } = await supabase
-        .from("uploaded_songs")
-        .select("id, song_title, recorded_song_url, original_song_url, original_singer_name, created_at")
-        .eq("singer_id", user.id)
-        .order("created_at", { ascending: false });
       
-      // Also load the featured komaliya example for all users
+      const isAdmin = roles?.includes('admin');
+      
+      // Admins see all songs, regular users see only their own
+      let query = supabase
+        .from("uploaded_songs")
+        .select("id, song_title, recorded_song_url, original_song_url, original_singer_name, created_at, singer_id");
+      
+      if (!isAdmin) {
+        query = query.eq("singer_id", user.id);
+      }
+      
+      const { data, error } = await query.order("created_at", { ascending: false });
+      
+      // Also load the featured komaliya example for all users (if not already included)
       const { data: exampleData } = await supabase
         .from("uploaded_songs")
-        .select("id, song_title, recorded_song_url, original_song_url, original_singer_name, created_at")
+        .select("id, song_title, recorded_song_url, original_song_url, original_singer_name, created_at, singer_id")
         .eq("id", "e9aff01f-cfc6-457e-9ca9-3099c23eef01")
         .single();
       
       if (!error && data) {
-        const allSongs = exampleData ? [exampleData, ...data] : data;
-        setSongs(allSongs as any);
+        // Fetch singer names for admin users
+        let songsWithSingers = data;
+        
+        if (isAdmin) {
+          const singerIds = [...new Set(data.map(s => s.singer_id).filter(Boolean))];
+          if (singerIds.length > 0) {
+            const { data: profiles } = await supabase
+              .from('public_profiles')
+              .select('id, full_name')
+              .in('id', singerIds);
+            
+            const profileMap = new Map(profiles?.map(p => [p.id, p.full_name]) || []);
+            songsWithSingers = data.map(song => ({
+              ...song,
+              singer_name: profileMap.get(song.singer_id) || 'Unknown'
+            }));
+          }
+        }
+        
+        // Add example if not already in list
+        const hasExample = songsWithSingers.some(s => s.id === 'e9aff01f-cfc6-457e-9ca9-3099c23eef01');
+        let allSongs: any[] = (exampleData && !hasExample) ? [{ ...exampleData }, ...songsWithSingers] : songsWithSingers;
+        
+        // Add singer name to example if admin
+        if (isAdmin && exampleData && !hasExample && exampleData.singer_id) {
+          const { data: exampleProfile } = await supabase
+            .from('public_profiles')
+            .select('full_name')
+            .eq('id', exampleData.singer_id)
+            .single();
+          allSongs[0].singer_name = exampleProfile?.full_name || 'Unknown';
+        }
+        
+        setSongs(allSongs);
         if (allSongs.length > 0) setSelectedId(allSongs[0].id);
       }
     };
     load();
-  }, [user]);
+  }, [user, roles]);
 
   useEffect(() => {
     const resolve = async () => {
@@ -369,11 +411,20 @@ const SingerDashboard: React.FC = () => {
     return `${(score * 100).toFixed(1)}%`;
   };
 
+  const isAdmin = roles?.includes('admin');
+
   return (
     <div className="max-w-6xl mx-auto p-2 sm:p-4 lg:p-6">
       <header className="mb-4 sm:mb-6">
-        <h1 className="text-2xl sm:text-3xl font-bold text-foreground">My Performances</h1>
-        <p className="text-muted-foreground text-sm sm:text-base">Select a song to view your waveform and play it back.</p>
+        <h1 className="text-2xl sm:text-3xl font-bold text-foreground">
+          {isAdmin ? 'All Performances (Admin)' : 'My Performances'}
+        </h1>
+        <p className="text-muted-foreground text-sm sm:text-base">
+          {isAdmin 
+            ? 'Access all performances for analysis purposes.' 
+            : 'Select a song to view your waveform and play it back.'
+          }
+        </p>
       </header>
 
       <Tabs defaultValue="my" className="space-y-4 sm:space-y-6">
@@ -404,7 +455,9 @@ const SingerDashboard: React.FC = () => {
           <Card>
             <CardHeader>
               <CardTitle>Choose a song</CardTitle>
-              <CardDescription>Select one of your uploaded songs by title</CardDescription>
+              <CardDescription>
+                {isAdmin ? 'Select any uploaded song for analysis' : 'Select one of your uploaded songs by title'}
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
@@ -418,7 +471,9 @@ const SingerDashboard: React.FC = () => {
                       const isFeatured = s.id === 'e9aff01f-cfc6-457e-9ca9-3099c23eef01';
                       return (
                         <SelectItem key={s.id} value={s.id}>
-                          {s.song_title}{isFeatured ? ' (Featured Example)' : ''}
+                          {s.song_title}
+                          {isAdmin && s.singer_name ? ` - by ${s.singer_name}` : ''}
+                          {isFeatured ? ' (Featured Example)' : ''}
                         </SelectItem>
                       );
                     })}
