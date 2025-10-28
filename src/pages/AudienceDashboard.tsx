@@ -44,41 +44,41 @@ const AudienceDashboard = () => {
   const fetchVoteHistory = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
+      
+      // First get all votes for this user
+      const { data: votes, error: votesError } = await supabase
         .from("votes")
-        .select(`
-          id,
-          voice_score,
-          overall_score,
-          score,
-          created_at,
-          performance_id
-        `)
+        .select("id, voice_score, overall_score, score, created_at, performance_id")
         .eq("voter_id", user?.id)
         .order("created_at", { ascending: false });
 
-      if (error) throw error;
+      if (votesError) throw votesError;
 
-      // Fetch performance details separately
+      // Then fetch performance and singer details for each vote
       const votesWithPerformances = await Promise.all(
-        (data || []).map(async (vote) => {
-          const { data: performance } = await supabase
+        (votes || []).map(async (vote) => {
+          const { data: performance, error: perfError } = await supabase
             .from("performances")
-            .select(`
-              id,
-              title,
-              singer_id
-            `)
+            .select("id, title, singer_id")
             .eq("id", vote.performance_id)
-            .single();
+            .maybeSingle();
+
+          if (perfError) {
+            console.error("Error fetching performance:", perfError);
+          }
 
           let singerName = "Unknown Singer";
           if (performance?.singer_id) {
-            const { data: profile } = await supabase
+            const { data: profile, error: profileError } = await supabase
               .from("profiles")
               .select("full_name")
               .eq("id", performance.singer_id)
-              .single();
+              .maybeSingle();
+            
+            if (profileError) {
+              console.error("Error fetching profile:", profileError);
+            }
+            
             singerName = profile?.full_name || "Unknown Singer";
           }
 
