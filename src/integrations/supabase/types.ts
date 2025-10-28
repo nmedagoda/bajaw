@@ -297,7 +297,7 @@ export type Database = {
             foreignKeyName: "votes_performance_id_fkey"
             columns: ["performance_id"]
             isOneToOne: false
-            referencedRelation: "performances"
+            referencedRelation: "uploaded_songs"
             referencedColumns: ["id"]
           },
           {
