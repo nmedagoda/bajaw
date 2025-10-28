@@ -78,7 +78,7 @@ const AudienceDashboard = () => {
           let singerName = "Unknown Singer";
           if (uploadedSong?.singer_id) {
             const { data: profile, error: profileError } = await supabase
-              .from("profiles")
+              .from("public_profiles")
               .select("full_name")
               .eq("id", uploadedSong.singer_id)
               .maybeSingle();
