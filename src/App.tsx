@@ -14,6 +14,7 @@ import SingerDashboard from "./pages/SingerDashboard";
 import PerformanceList from "./pages/PerformanceList";
 import Profile from "./pages/Profile";
 import ResetPassword from "./pages/ResetPassword";
+import AudienceDashboard from "./pages/AudienceDashboard";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -83,10 +84,7 @@ const App = () => (
                 path="/audience/dashboard" 
                 element={
                   <ProtectedRoute allowedRoles={['audience']}>
-                    <div className="p-8 text-center">
-                      <h1 className="text-3xl font-bold mb-4">Audience Dashboard</h1>
-                      <p className="text-muted-foreground">Coming soon: Your voting history and favorite performances</p>
-                    </div>
+                    <AudienceDashboard />
                   </ProtectedRoute>
                 } 
               />
