@@ -20,9 +20,10 @@ interface VoteHistory {
   overall_score: number | null;
   score: number;
   created_at: string;
-  performance: {
+  uploaded_song: {
     id: string;
-    title: string;
+    song_title: string;
+    original_singer_name: string;
     singer_id: string;
     profiles: {
       full_name: string;
@@ -45,34 +46,41 @@ const AudienceDashboard = () => {
     try {
       setLoading(true);
       
-      // First get all votes for this user
+      // Get votes with uploaded_songs and singer profile data
       const { data: votes, error: votesError } = await supabase
         .from("votes")
-        .select("id, voice_score, overall_score, score, created_at, performance_id")
+        .select(`
+          id, 
+          voice_score, 
+          overall_score, 
+          score, 
+          created_at, 
+          performance_id
+        `)
         .eq("voter_id", user?.id)
         .order("created_at", { ascending: false });
 
       if (votesError) throw votesError;
 
-      // Then fetch performance and singer details for each vote
-      const votesWithPerformances = await Promise.all(
+      // Fetch uploaded_songs and singer details for each vote
+      const votesWithSongs = await Promise.all(
         (votes || []).map(async (vote) => {
-          const { data: performance, error: perfError } = await supabase
-            .from("performances")
-            .select("id, title, singer_id")
+          const { data: uploadedSong, error: songError } = await supabase
+            .from("uploaded_songs")
+            .select("id, song_title, original_singer_name, singer_id")
             .eq("id", vote.performance_id)
             .maybeSingle();
 
-          if (perfError) {
-            console.error("Error fetching performance:", perfError);
+          if (songError) {
+            console.error("Error fetching uploaded song:", songError);
           }
 
           let singerName = "Unknown Singer";
-          if (performance?.singer_id) {
+          if (uploadedSong?.singer_id) {
             const { data: profile, error: profileError } = await supabase
               .from("profiles")
               .select("full_name")
-              .eq("id", performance.singer_id)
+              .eq("id", uploadedSong.singer_id)
               .maybeSingle();
             
             if (profileError) {
@@ -84,10 +92,11 @@ const AudienceDashboard = () => {
 
           return {
             ...vote,
-            performance: {
-              id: performance?.id || "",
-              title: performance?.title || "Untitled",
-              singer_id: performance?.singer_id || "",
+            uploaded_song: {
+              id: uploadedSong?.id || "",
+              song_title: uploadedSong?.song_title || "Untitled",
+              original_singer_name: uploadedSong?.original_singer_name || "",
+              singer_id: uploadedSong?.singer_id || "",
               profiles: {
                 full_name: singerName,
               },
@@ -96,7 +105,7 @@ const AudienceDashboard = () => {
         })
       );
 
-      setVoteHistory(votesWithPerformances);
+      setVoteHistory(votesWithSongs);
     } catch (error) {
       console.error("Error fetching vote history:", error);
       toast.error("Failed to load voting history");
@@ -149,9 +158,9 @@ const AudienceDashboard = () => {
                         {format(new Date(vote.created_at), "MMM d, yyyy")}
                       </TableCell>
                       <TableCell>
-                        {vote.performance?.profiles?.full_name || "Unknown Singer"}
+                        {vote.uploaded_song?.profiles?.full_name || "Unknown Singer"}
                       </TableCell>
-                      <TableCell>{vote.performance?.title || "Untitled"}</TableCell>
+                      <TableCell>{vote.uploaded_song?.song_title || "Untitled"}</TableCell>
                       <TableCell className="text-center">
                         {vote.voice_score !== null ? vote.voice_score : "-"}
                       </TableCell>
