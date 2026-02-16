@@ -3,12 +3,16 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Music, Mic, Users, Gavel, Sparkles, Trophy, Globe } from 'lucide-react';
+import { Music, Mic, Users, Gavel, Sparkles, Trophy, Globe, Play } from 'lucide-react';
 import { ThemeToggle } from '@/components/theme-toggle';
+import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
+import { useState, useRef } from 'react';
 
 const Index = () => {
   const { user, profile, activeRole } = useAuth();
   const navigate = useNavigate();
+  const [demoOpen, setDemoOpen] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
     // Redirect authenticated users to their dashboard based on active role selection
@@ -69,9 +73,40 @@ const Index = () => {
                 Watch Performances
               </Button>
             </div>
+
+            <div className="mb-12">
+              <Button 
+                variant="outline" 
+                size="lg" 
+                onClick={() => setDemoOpen(true)} 
+                className="px-8 py-3 border-primary/50 hover:bg-primary/10"
+              >
+                <Play className="w-5 h-5 mr-2" />
+                Watch the Demo
+              </Button>
+            </div>
           </div>
         </div>
       </div>
+
+      {/* Demo Video Dialog */}
+      <Dialog open={demoOpen} onOpenChange={(open) => {
+        setDemoOpen(open);
+        if (!open && videoRef.current) {
+          videoRef.current.pause();
+        }
+      }}>
+        <DialogContent className="max-w-4xl p-0 overflow-hidden">
+          <DialogTitle className="sr-only">Bajawu Demo Video</DialogTitle>
+          <video
+            ref={videoRef}
+            src="/videos/bajawu-demo.mp4"
+            controls
+            autoPlay
+            className="w-full h-auto"
+          />
+        </DialogContent>
+      </Dialog>
 
       {/* Features Section */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
