@@ -12,6 +12,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Music, Mic, Users, Gavel, Search, Trophy, User, LogOut } from 'lucide-react';
 import { ThemeToggle } from '@/components/theme-toggle';
+import LanguageSwitcher from '@/components/LanguageSwitcher';
 
 const Navigation = () => {
   const { user, profile, signOut, activeRole, setActiveRole, roles } = useAuth();
@@ -112,6 +113,7 @@ const Navigation = () => {
           </div>
 
           <div className="flex items-center space-x-2 sm:space-x-4">
+            <LanguageSwitcher />
             <ThemeToggle />
             
             {/* Role indicator - hidden on mobile */}
