@@ -1,0 +1,46 @@
+{
+  "hero": {
+    "welcome": "Welcome to",
+    "brand": "Bajawu",
+    "subtitle": "The global vocal performance comparison platform that helps singers improve through AI analysis and community feedback",
+    "getStarted": "Get Started",
+    "watchPerformances": "Watch Performances",
+    "watchDemo": "Watch the Demo"
+  },
+  "features": {
+    "title": "Three Ways to Experience Music",
+    "subtitle": "Join our global community as a singer, judger, or audience member",
+    "singer": {
+      "title": "Singer",
+      "description": "Record performances and get AI-powered vocal analysis",
+      "items": ["Search and select songs", "Record with karaoke tracks", "Get similarity scores vs professionals", "Receive detailed vocal feedback", "Upload your own recordings"]
+    },
+    "judge": {
+      "title": "Judger",
+      "description": "Provide expert evaluation and constructive feedback",
+      "items": ["Watch singer performances", "Access AI analysis insights", "Rate with detailed criteria", "Leave constructive comments", "Help singers improve"]
+    },
+    "audience": {
+      "title": "Audience",
+      "description": "Enjoy performances and vote for your favorites",
+      "items": ["Browse all performances", "Vote for favorites", "See community ratings", "Discover new talent", "Enjoy global music diversity"]
+    }
+  },
+  "global": {
+    "title": "A Global Entertainment Platform",
+    "subtitle": "Bajawu brings together singers, judgers, and music lovers from every culture and age group. Whether you're 8 or 80, there's a place for you in our musical community.",
+    "allGenres": "All Genres",
+    "globalCommunity": "Global Community",
+    "allAges": "All Ages Welcome",
+    "socialConnection": "Social Connection"
+  },
+  "cta": {
+    "title": "Ready to Share Your Voice?",
+    "subtitle": "Join thousands of singers, judgers, and music lovers from around the world",
+    "button": "Join Bajawu Today"
+  },
+  "footer": {
+    "copyright": "© 2025 DeepAI. All rights reserved.",
+    "credit": "Designed, Developed & Maintained by"
+  }
+}
