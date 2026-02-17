@@ -1,7 +1,10 @@
 import React, { useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import ProfileForm from '@/components/ProfileForm';
 
 const Profile = () => {
+  const { t } = useTranslation();
+
   useEffect(() => {
     document.title = "Profile Settings - Bajawu";
     const metaDesc = document.querySelector('meta[name="description"]');
@@ -26,10 +29,9 @@ const Profile = () => {
   return (
     <div className="max-w-4xl mx-auto p-6">
       <header className="mb-6">
-        <h1 className="text-3xl font-bold text-foreground">Profile Settings</h1>
-        <p className="text-muted-foreground">Manage your personal information and account settings.</p>
+        <h1 className="text-3xl font-bold text-foreground">{t('profile.title')}</h1>
+        <p className="text-muted-foreground">{t('profile.subtitle')}</p>
       </header>
-      
       <ProfileForm />
     </div>
   );

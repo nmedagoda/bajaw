@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -33,6 +34,7 @@ interface Performance {
 }
 
 const PerformanceList = () => {
+  const { t } = useTranslation();
   const [performances, setPerformances] = useState<Performance[]>([]);
   const [loading, setLoading] = useState(true);
   const [query, setQuery] = useState('');
@@ -249,20 +251,20 @@ const PerformanceList = () => {
   return (
     <div className="max-w-7xl mx-auto p-6">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-foreground mb-2">Watch & Vote: Vocal Performances</h1>
+        <h1 className="text-3xl font-bold text-foreground mb-2">{t('performances.title')}</h1>
         <p className="text-muted-foreground">
           {profile?.role === 'singer' 
-            ? 'Discover amazing performances and get inspired'
+            ? t('performances.singerSubtitle')
             : profile?.role === 'judge'
-            ? 'Rate and provide feedback on performances'
-            : 'Vote for your favorite performances'
+            ? t('performances.judgeSubtitle')
+            : t('performances.audienceSubtitle')
           }
         </p>
         <div className="mt-4 relative">
-          <label htmlFor="search" className="sr-only">Search by singer, original artist, or song</label>
+          <label htmlFor="search" className="sr-only">{t('performances.searchPlaceholder')}</label>
           <Input
             id="search"
-            placeholder="Search by singer, original artist, or song..."
+            placeholder={t('performances.searchPlaceholder')}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             className="pl-9"
@@ -274,10 +276,8 @@ const PerformanceList = () => {
       {performances.length === 0 ? (
         <Card className="text-center p-12">
           <Music className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
-          <CardTitle className="mb-2">No Performances Yet</CardTitle>
-          <CardDescription>
-            Be the first to upload a performance and inspire others!
-          </CardDescription>
+          <CardTitle className="mb-2">{t('performances.noPerformances')}</CardTitle>
+          <CardDescription>{t('performances.noPerformancesDesc')}</CardDescription>
         </Card>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -289,7 +289,7 @@ const PerformanceList = () => {
                 <div className="flex items-start justify-between">
                   {isFeatured && (
                     <Badge className="absolute top-2 right-2 bg-accent text-accent-foreground">
-                      Featured Example
+                      {t('performances.featuredExample')}
                     </Badge>
                   )}
                   <div className="flex items-center space-x-3">
@@ -301,7 +301,7 @@ const PerformanceList = () => {
                     </Avatar>
                     <div>
                       <CardTitle className="text-lg leading-tight">{performance.title}</CardTitle>
-                      <p className="text-sm text-muted-foreground">Performer: {performance.singer?.full_name}</p>
+                      <p className="text-sm text-muted-foreground">{t('performances.performer', { name: performance.singer?.full_name })}</p>
                     </div>
                   </div>
                   {performance.similarity_score && (
@@ -314,9 +314,9 @@ const PerformanceList = () => {
                 <div className="space-y-2">
                   <div className="flex items-center text-sm text-muted-foreground">
                     <Music className="w-4 h-4 mr-2" />
-                    <span className="font-medium">Song: {performance.song?.title}</span>
+                    <span className="font-medium">{t('performances.song', { title: performance.song?.title })}</span>
                     <span className="mx-1">•</span>
-                    <span>Original Artist: {performance.song?.artist}</span>
+                    <span>{t('performances.originalArtist', { artist: performance.song?.artist })}</span>
                   </div>
                   
                   <div className="flex items-center justify-between text-sm">
@@ -360,7 +360,7 @@ const PerformanceList = () => {
                     onClick={() => handleOpenMedia(performance.id, performance.mediaUrl, performance.title)}
                   >
                     <Play className="w-4 h-4 mr-2" />
-                    {profile?.role === 'judge' ? 'Watch & Rate' : 'Watch & Vote'}
+                    {profile?.role === 'judge' ? t('performances.watchAndRate') : t('performances.watchAndVote')}
                   </Button>
                 </div>
               </CardContent>
@@ -379,7 +379,7 @@ const PerformanceList = () => {
       >
         <DialogContent className="sm:max-w-4xl">
           <DialogHeader>
-            <DialogTitle>{activeMedia?.title ?? 'Playback'}</DialogTitle>
+            <DialogTitle>{activeMedia?.title ?? t('performances.playback')}</DialogTitle>
           </DialogHeader>
           {activeMedia?.url ? (
             <div className="grid gap-4 md:grid-cols-[1.6fr_1fr]">
@@ -400,12 +400,12 @@ const PerformanceList = () => {
                 {canVote ? (
                   <VoteControls performanceId={activeMedia.id} onVoted={fetchPerformances} />
                 ) : (
-                  <p className="text-sm text-muted-foreground">Sign in as audience or judger to vote.</p>
+                  <p className="text-sm text-muted-foreground">{t('performances.signInToVote')}</p>
                 )}
               </aside>
             </div>
           ) : (
-            <p className="text-muted-foreground text-sm">No media available</p>
+            <p className="text-muted-foreground text-sm">{t('performances.noMedia')}</p>
           )}
         </DialogContent>
       </Dialog>

@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -32,6 +33,7 @@ interface VoteHistory {
 }
 
 const AudienceDashboard = () => {
+  const { t } = useTranslation();
   const { user } = useAuth();
   const [voteHistory, setVoteHistory] = useState<VoteHistory[]>([]);
   const [loading, setLoading] = useState(true);
@@ -127,28 +129,26 @@ const AudienceDashboard = () => {
     <div className="container mx-auto py-8">
       <Card>
         <CardHeader>
-          <CardTitle>My Voting History</CardTitle>
-          <CardDescription>
-            Performances you've watched and voted on
-          </CardDescription>
+          <CardTitle>{t('audience.votingHistory')}</CardTitle>
+          <CardDescription>{t('audience.votingHistoryDesc')}</CardDescription>
         </CardHeader>
         <CardContent>
           {voteHistory.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
-              <p>You haven't voted on any performances yet.</p>
-              <p className="mt-2">Visit the Performances page to start voting!</p>
+              <p>{t('audience.noVotesYet')}</p>
+              <p className="mt-2">{t('audience.visitPerformances')}</p>
             </div>
           ) : (
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Date Voted</TableHead>
-                    <TableHead>Singer</TableHead>
-                    <TableHead>Song Title</TableHead>
-                    <TableHead className="text-center">Voice Score</TableHead>
-                    <TableHead className="text-center">Overall Score</TableHead>
-                    <TableHead className="text-center">Average</TableHead>
+                    <TableHead>{t('audience.dateVoted')}</TableHead>
+                    <TableHead>{t('audience.singerCol')}</TableHead>
+                    <TableHead>{t('audience.songTitleCol')}</TableHead>
+                    <TableHead className="text-center">{t('audience.voiceScore')}</TableHead>
+                    <TableHead className="text-center">{t('audience.overallScore')}</TableHead>
+                    <TableHead className="text-center">{t('audience.average')}</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
